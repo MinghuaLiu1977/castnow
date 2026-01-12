@@ -1,8 +1,7 @@
 {
   "requestFramePermissions": [
     "camera",
-    "microphone",
-    "display-capture"
+    "microphone"
   ],
   "name": "",
   "description": ""
