@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onUnmounted, watch, nextTick, computed, onMounted } from 'vue';
-import { Analytics } from '@vercel/analytics/vue';
+import { inject as injectAnalytics } from '@vercel/analytics';
 import { 
   Monitor, 
   Download, 
@@ -104,6 +104,9 @@ const stopCastingDueToTrialEnd = () => {
 };
 
 onMounted(async () => {
+  // Initialize Vercel Analytics manually to avoid vue-router dependency
+  injectAnalytics();
+
   const savedKey = localStorage.getItem('castnow_license');
   if (savedKey) {
     await verifyLicense(savedKey);
@@ -568,8 +571,6 @@ const copyToClipboard = () => {
         </div>
       </div>
     </Transition>
-    <!-- Vercel Web Analytics component integration -->
-    <Analytics />
   </div>
 </template>
 
