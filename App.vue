@@ -23,10 +23,9 @@ const STATES = {
 };
 
 const PEER_CONFIG = {
-  debug: 1, // 降低生产环境日志干扰
+  debug: 1,
   config: {
     iceServers: [
-      // 优化为中国境内访问稳定的 STUN 服务器
       { urls: 'stun:stun.miwifi.com:3478' },
       { urls: 'stun:stun.chat.agora.io:3478' },
       { urls: 'stun:stun.cdn.aliyun.com:3478' },
@@ -54,31 +53,17 @@ const remoteVideo = ref(null);
 // WebRTC Logging Helper
 const setupWebRTCStats = (pc, label) => {
   if (!pc) return;
-  
   console.log(`[WebRTC:${label}] 🟢 Monitoring PC instance.`);
-  
   try {
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
       console.log(`[WebRTC:${label}] 🧊 ICE Connection: %c${state}`, 'color: #f59e0b; font-weight: bold');
       if (state === 'failed' || state === 'disconnected') {
-        // 14秒断开通常是因为 ICE 保持心跳失败
         showProxyAdvice.value = true;
       }
     };
-
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC:${label}] 🔌 Connection State: %c${pc.connectionState}`, 'color: #10b981; font-weight: bold');
-      if (pc.connectionState === 'closed') {
-        console.warn(`[WebRTC:${label}] Connection closed unexpectedly.`);
-      }
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        const c = event.candidate;
-        console.log(`[WebRTC:${label}] 📍 Candidate: ${c.type} via ${c.protocol}`);
-      }
     };
   } catch (e) {
     console.warn(`[WebRTC:${label}] Logger bind error:`, e);
@@ -133,10 +118,7 @@ const handleStartCasting = async () => {
     error.value = null;
 
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { 
-        cursor: "always",
-        frameRate: { ideal: 30, max: 60 }
-      },
+      video: { cursor: "always", frameRate: { ideal: 30, max: 60 } },
       audio: true
     });
     
@@ -152,10 +134,13 @@ const handleStartCasting = async () => {
       isConnecting.value = false;
     });
 
-    peer.on('call', (call) => {
-      console.log('[CastNow] Received incoming call request');
-      call.answer(stream);
-      setTimeout(() => setupWebRTCStats(call.peerConnection, 'Sender'), 1000);
+    // 关键修正：当接收端通过数据通道连入时，由投屏端主动发起呼叫
+    peer.on('connection', (conn) => {
+      console.log('[CastNow] Receiver linked via DataChannel. Initiating media call...');
+      const call = peer.call(conn.peer, localStream.value);
+      if (call) {
+        setTimeout(() => setupWebRTCStats(call.peerConnection, 'Sender'), 1000);
+      }
     });
 
     peer.on('error', (err) => {
@@ -180,43 +165,43 @@ const handleReceiveCast = () => {
   isConnecting.value = true;
   error.value = null;
 
+  // 创建一个随机 ID 的 Peer 用于接收
   const peer = new window.Peer(PEER_CONFIG);
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
-    // 关键修正：呼叫时不发送任何流，等待对方 answer 视频轨道
-    const call = peer.call(inputCode.value, null);
+    console.log('[CastNow] Receiver ready. Signaling sender...');
     
-    if (call) {
-      setTimeout(() => setupWebRTCStats(call.peerConnection, 'Receiver'), 1000);
+    // 1. 先通过数据连接告诉发送端：我准备好了，请呼叫我
+    const conn = peer.connect(inputCode.value);
+    
+    // 2. 监听来自发送端的呼叫
+    peer.on('call', (call) => {
+      console.log('[CastNow] Received media call from sender. Answering...');
+      call.answer(); // 接收端不需要发送流
       
-      const timeout = setTimeout(() => {
-        if (appState.value !== STATES.RECEIVER_ACTIVE) {
-          error.value = 'Connection timeout. Check Sender status.';
-          showProxyAdvice.value = true;
-          isConnecting.value = false;
-          cleanup();
-          appState.value = STATES.RECEIVER_INPUT;
-        }
-      }, 20000);
-
       call.on('stream', (stream) => {
         console.log('[CastNow] 🎉 Remote stream received!');
-        clearTimeout(timeout);
         remoteStream.value = stream;
         appState.value = STATES.RECEIVER_ACTIVE;
         isConnecting.value = false;
       });
 
-      call.on('close', () => {
-        console.warn('[CastNow] Call closed by peer');
-        resetApp();
-      });
-    }
+      setTimeout(() => setupWebRTCStats(call.peerConnection, 'Receiver'), 1000);
+    });
+
+    // 超时检测
+    setTimeout(() => {
+      if (appState.value !== STATES.RECEIVER_ACTIVE && isConnecting.value) {
+        error.value = 'Handshake timeout. Is the code correct?';
+        showProxyAdvice.value = true;
+        isConnecting.value = false;
+      }
+    }, 15000);
   });
 
   peer.on('error', (err) => {
-    error.value = err.type === 'peer-unavailable' ? 'Sender not found or code expired.' : `Network issue: ${err.type}`;
+    error.value = `Network error: ${err.type}`;
     isConnecting.value = false;
   });
 };
@@ -275,7 +260,6 @@ const resetApp = () => {
           <div class="w-full max-w-xl bg-slate-900/40 border border-slate-800 rounded-[2rem] sm:rounded-[3rem] p-4 sm:p-12 text-center backdrop-blur-xl shadow-2xl">
             <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 sm:mb-8">Connection Code</p>
             
-            <!-- FIXED CODE DISPLAY FOR SMALL SCREENS -->
             <div class="flex items-center justify-center gap-1 sm:gap-2 mb-8 sm:mb-10 max-w-full overflow-hidden px-2">
               <div class="flex items-center gap-1 sm:gap-2">
                 <template v-for="(char, i) in peerId.split('')" :key="i">
@@ -380,7 +364,6 @@ const resetApp = () => {
 }
 input { caret-color: transparent; }
 
-/* 增强针对超小屏幕的自适应能力 */
 @media (max-width: 380px) {
   .gap-1 { gap: 0.1rem !important; }
   .w-8 { width: 1.75rem !important; }
