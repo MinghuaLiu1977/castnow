@@ -692,7 +692,7 @@ const copyToClipboard = () => {
               Private on-premise deployments, Docker-based localized infrastructure, and commercial licensing for businesses.
             </p>
             <div class="bg-slate-950 p-8 rounded-3xl border border-slate-800 shadow-inner group transition-all">
-              <p class="text-[9px] text-slate-600 font-black uppercase tracking-[0.4em] mb-4">Contact Business Liaison</p>
+              <p class="text-[9px] text-slate-600 font-black uppercase tracking-[0.4em] mb-4">Contact Author</p>
               <a href="mailto:mingh.liu@gmail.com" class="block select-all font-mono text-amber-500 font-black text-xl md:text-2xl hover:scale-105 transition-transform">
                 mingh.liu@gmail.com
               </a>
