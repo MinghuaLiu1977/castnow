@@ -30,7 +30,9 @@ import {
   Key,
   TrendingUp,
   Timer,
-  LogOut
+  LogOut,
+  Infinity,
+  Sparkles
 } from 'lucide-vue-next';
 
 // Application States
@@ -407,7 +409,7 @@ const copyToClipboard = () => {
       </div>
       
       <div class="flex items-center gap-3 md:gap-4">
-         <!-- Trial Timer (30 min) -->
+         <!-- Trial Timer -->
          <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
             <Clock class="w-4 h-4 text-amber-500" />
             <span class="text-xs font-black tracking-tighter" :class="isGracePeriod ? 'text-red-500 animate-pulse' : 'text-slate-300'">
@@ -419,7 +421,6 @@ const copyToClipboard = () => {
          <div v-else class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)] group relative">
             <Zap class="w-4 h-4 text-amber-500 fill-current" />
             <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pro Member</span>
-            <!-- TTL Badge -->
             <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-[8px] text-slate-400 font-bold px-2 py-0.5 rounded border border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
               Expires in: {{ formatTime(proTimeLeft) }}
             </div>
@@ -561,51 +562,49 @@ const copyToClipboard = () => {
       </Transition>
     </main>
 
-    <footer v-if="appState !== STATES.RECEIVER_ACTIVE" class="px-8 md:px-12 py-10 border-t border-slate-900 flex flex-col lg:flex-row justify-between items-center gap-10">
-      <div class="flex items-center gap-4 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800 shadow-xl group cursor-default">
-        <div class="w-12 h-12 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 text-amber-500 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] transition-all">
-          <User class="w-6 h-6" />
-        </div>
-        <div class="flex flex-col">
-          <span class="text-slate-300 font-black text-[10px] uppercase tracking-widest leading-tight">Lead Architect</span>
-          <span class="text-slate-500 text-[10px] font-medium tracking-tight">Vercel Solutions Partner</span>
-        </div>
-      </div>
-      
-      <div class="flex flex-wrap justify-center gap-6 md:gap-12 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">
-        <button @click="activeModal = 'docs'" class="hover:text-amber-500 transition-colors">Documentation</button>
-        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy Policy</button>
-        <button @click="activeModal = 'source'" class="hover:text-amber-500 transition-colors">Open Source</button>
-        <button @click="activeModal = 'contact'" class="hover:text-amber-500 transition-colors">Enterprise</button>
-      </div>
-    </footer>
-
-    <!-- Paywall Modal (Production Version) -->
+    <!-- Paywall Modal (Optimized for Conversion) -->
     <Transition name="modal">
       <div v-if="showPaywall" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
         <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
           
           <div v-if="isGracePeriod && appState === STATES.SENDER" class="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-500/30 py-3 flex items-center justify-center gap-2 animate-pulse">
             <ShieldAlert class="w-4 h-4 text-red-500" />
-            <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Trial Expired: {{ formatTime(graceTimeLeft) }} To Disconnect</span>
+            <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Time Remaining: {{ formatTime(graceTimeLeft) }}</span>
           </div>
 
           <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20" :class="(isGracePeriod && appState === STATES.SENDER) ? 'mt-8' : ''">
             <Zap class="w-10 h-10 fill-current" />
           </div>
+
           <h3 class="text-3xl font-black uppercase tracking-tight mb-4">
-            {{ (isGracePeriod && appState === STATES.SENDER) ? 'Trial Ended' : 'Upgrade to Pro' }}
+            {{ (isGracePeriod && appState === STATES.SENDER) ? 'Activate Full Access' : '24-Hour Premium Pass' }}
           </h3>
           <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">
-             Experience <span class="text-white font-bold">4K Zero-Latency casting</span> with unrestricted bandwidth and dedicated premium signaling nodes.
+             One-time purchase. Unlock <span class="text-white font-bold">Unlimited Sessions</span> for a full 24 hours. No hidden fees.
           </p>
+
+          <!-- Feature List -->
+          <div class="grid grid-cols-2 gap-y-3 gap-x-4 mb-10 text-left px-4">
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              <Sparkles class="w-3.5 h-3.5 text-amber-500" /> 4K Fidelity
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              <Infinity class="w-3.5 h-3.5 text-amber-500" /> Unlimited Use
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              <Activity class="w-3.5 h-3.5 text-amber-500" /> Zero Latency
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              <Globe class="w-3.5 h-3.5 text-amber-500" /> Global Nodes
+            </div>
+          </div>
           
-          <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4">
-            <div class="text-5xl font-black text-white tracking-tighter mb-2">$1.90</div>
-            <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">24-Hour Premium Pass</div>
+          <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4 group cursor-default">
+            <div class="text-6xl font-black text-white tracking-tighter mb-2 group-hover:scale-105 transition-transform">$1.90</div>
+            <div class="text-[10px] font-black text-amber-500/60 uppercase tracking-[0.3em] mb-6">Full Day Unrestricted Access</div>
             
-            <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20 active:scale-95 mb-0">
-              <CreditCard class="w-4 h-4" /> Get Pass Now
+            <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20 active:scale-95">
+              <CreditCard class="w-4 h-4" /> Buy 24h Pass
             </a>
           </div>
 
@@ -630,11 +629,31 @@ const copyToClipboard = () => {
             <LogOut v-if="isGracePeriod && appState === STATES.SENDER" class="w-3 h-3 group-hover:translate-x-1 transition-transform" />
             {{ (isGracePeriod && appState === STATES.SENDER) ? 'End Session' : 'Continue for now' }}
           </button>
+
+          <p class="mt-4 text-[8px] text-slate-700 font-bold uppercase tracking-[0.2em]">Validated for any device for 24 hours from activation.</p>
         </div>
       </div>
     </Transition>
 
-    <!-- Generic Modals -->
+    <footer v-if="appState !== STATES.RECEIVER_ACTIVE" class="px-8 md:px-12 py-10 border-t border-slate-900 flex flex-col lg:flex-row justify-between items-center gap-10">
+      <div class="flex items-center gap-4 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800 shadow-xl group cursor-default">
+        <div class="w-12 h-12 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 text-amber-500 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] transition-all">
+          <User class="w-6 h-6" />
+        </div>
+        <div class="flex flex-col">
+          <span class="text-slate-300 font-black text-[10px] uppercase tracking-widest leading-tight">Lead Architect</span>
+          <span class="text-slate-500 text-[10px] font-medium tracking-tight">Minghua Liu</span>
+        </div>
+      </div>
+      
+      <div class="flex flex-wrap justify-center gap-6 md:gap-12 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">
+        <button @click="activeModal = 'docs'" class="hover:text-amber-500 transition-colors">Documentation</button>
+        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy Policy</button>
+        <button @click="activeModal = 'source'" class="hover:text-amber-500 transition-colors">Open Source</button>
+        <button @click="activeModal = 'contact'" class="hover:text-amber-500 transition-colors">Enterprise</button>
+      </div>
+    </footer>
+
     <Transition name="modal">
       <div v-if="activeModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-xl bg-black/70" @click.self="activeModal = null">
         <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
@@ -668,10 +687,20 @@ const copyToClipboard = () => {
 
           <div v-if="activeModal === 'contact'" class="flex flex-col gap-6 text-center animate-slideUp">
             <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Layers class="w-10 h-10" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Enterprise Solutions</h3>
-            <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed">Custom private deployments for corporate networks behind strict firewalls.</p>
-            <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800 select-all font-mono text-amber-500 font-black text-lg shadow-inner">
-              business@castnow.io
+            <h3 class="text-3xl font-black uppercase tracking-tight">Commercial & Private</h3>
+            <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed italic">
+              Private on-premise deployments, Docker-based localized infrastructure, and commercial licensing for businesses.
+            </p>
+            <div class="bg-slate-950 p-8 rounded-3xl border border-slate-800 shadow-inner group transition-all">
+              <p class="text-[9px] text-slate-600 font-black uppercase tracking-[0.4em] mb-4">Contact Business Liaison</p>
+              <a href="mailto:mingh.liu@gmail.com" class="block select-all font-mono text-amber-500 font-black text-xl md:text-2xl hover:scale-105 transition-transform">
+                mingh.liu@gmail.com
+              </a>
+            </div>
+            <div class="flex items-center justify-center gap-4 mt-6">
+              <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest"><ShieldCheck class="w-3.5 h-3.5" /> SLA Guaranteed</span>
+              <span class="w-1 h-1 bg-slate-800 rounded-full"></span>
+              <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest"><Monitor class="w-3.5 h-3.5" /> Docker Support</span>
             </div>
           </div>
         </div>
