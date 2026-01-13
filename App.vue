@@ -51,62 +51,73 @@ const remoteVideo = ref(null);
 const activeConnections = ref([]);
 
 /**
- * 核心：将媒体流挂载到 Video 元素
+ * 将流挂载到 Video 元素，处理自动播放策略
  */
 const attachStream = async (videoEl, stream, label) => {
-  if (!videoEl || !stream) {
-    console.warn(`[CastNow] ${label}: Missing element or stream.`);
-    return;
-  }
+  if (!videoEl || !stream) return;
   
-  console.log(`[CastNow] Attaching stream to ${label}...`);
+  if (videoEl.srcObject === stream) return; // 避免重复挂载
+
+  console.log(`[CastNow] Attaching to ${label}`);
   videoEl.srcObject = stream;
 
   try {
     await videoEl.play();
-    console.log(`[CastNow] ✅ ${label} playback started.`);
   } catch (err) {
-    console.warn(`[CastNow] ⚠️ ${label} standard play failed, trying muted...`);
-    videoEl.muted = true;
+    videoEl.muted = true; // 浏览器通常允许静音后的自动播放
     try {
       await videoEl.play();
     } catch (e) {
-      console.error(`[CastNow] ❌ ${label} playback fatal error:`, e);
+      console.error(`[CastNow] ${label} Playback failed`, e);
     }
   }
 };
 
 /**
- * 彻底清理资源：停止共享、断开 Peer
+ * 核心：侦听状态和流的变化，确保预览视频即时显示
  */
-const cleanup = () => {
-  console.log('[CastNow] Performing deep cleanup...');
-
-  // 1. 停止本地流的所有轨道（关键：让浏览器停止“正在共享”提示）
-  if (localStream.value) {
-    localStream.value.getTracks().forEach(track => {
-      track.stop();
-      track.enabled = false;
-    });
-    localStream.value = null;
+watch([appState, localStream, remoteStream], async () => {
+  await nextTick();
+  
+  // 投屏端预览：只要在 SENDER 态且有流，就尝试挂载
+  if (appState.value === STATES.SENDER && localStream.value) {
+    // 使用短轮询确保在 Transition 动画过程中捕获到元素
+    let retry = 0;
+    const timer = setInterval(() => {
+      if (localVideo.value) {
+        attachStream(localVideo.value, localStream.value, 'LocalPreview');
+        clearInterval(timer);
+      }
+      if (++retry > 20) clearInterval(timer);
+    }, 50);
   }
 
-  // 2. 清空 Video 元素引用
+  // 接收端播放
+  if (appState.value === STATES.RECEIVER_ACTIVE && remoteStream.value) {
+    let retry = 0;
+    const timer = setInterval(() => {
+      if (remoteVideo.value) {
+        attachStream(remoteVideo.value, remoteStream.value, 'RemotePlayer');
+        clearInterval(timer);
+      }
+      if (++retry > 20) clearInterval(timer);
+    }, 50);
+  }
+}, { immediate: true });
+
+const cleanup = () => {
+  if (localStream.value) {
+    localStream.value.getTracks().forEach(track => track.stop());
+    localStream.value = null;
+  }
   if (localVideo.value) localVideo.value.srcObject = null;
   if (remoteVideo.value) remoteVideo.value.srcObject = null;
 
-  // 3. 关闭所有 PeerJS 连接
-  activeConnections.value.forEach(conn => {
-    try { conn.close(); } catch (e) {}
-  });
+  activeConnections.value.forEach(conn => conn.close());
   activeConnections.value = [];
 
-  // 4. 销毁 Peer 实例
   if (peerInstance.value) {
-    try {
-      peerInstance.value.disconnect();
-      peerInstance.value.destroy();
-    } catch (e) {}
+    peerInstance.value.destroy();
     peerInstance.value = null;
   }
 
@@ -119,93 +130,62 @@ const cleanup = () => {
 
 onUnmounted(cleanup);
 
-// 监听状态变化，确保在 DOM 准备好后挂载视频
-watch(appState, async (newState) => {
-  await nextTick();
-  // 延迟挂载以避开 Transition 动画导致的 DOM 瞬时丢失
-  setTimeout(async () => {
-    if (newState === STATES.SENDER && localStream.value) {
-      await attachStream(localVideo.value, localStream.value, 'LocalPreview');
-    }
-    if (newState === STATES.RECEIVER_ACTIVE && remoteStream.value) {
-      await attachStream(remoteVideo.value, remoteStream.value, 'RemotePlayer');
-    }
-  }, 100);
-});
-
-const copyToClipboard = () => {
-  if (!peerId.value) return;
-  navigator.clipboard.writeText(peerId.value);
-  isCopied.value = true;
-  setTimeout(() => isCopied.value = false, 2000);
-};
-
-/**
- * 投屏端逻辑
- */
 const handleStartCasting = async () => {
   try {
     isConnecting.value = true;
     error.value = null;
 
-    // 1. 获取屏幕流 (不依赖 Peer 是否成功)
+    // 1. 先尝试获取屏幕流
     const stream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: "always", frameRate: { ideal: 30 } },
       audio: true
     });
     
     localStream.value = stream;
+    
+    // 2. 一旦获取到流，立即切换到 SENDER 状态，此时 local preview 应该渲染并显示
+    appState.value = STATES.SENDER;
 
-    // 2. 监听系统级别的“停止共享”
-    stream.getVideoTracks()[0].onended = () => {
-      console.log('[CastNow] User stopped sharing via browser UI.');
-      resetApp();
-    };
+    stream.getVideoTracks()[0].onended = () => resetApp();
 
-    // 3. 初始化 Peer 
+    // 3. 异步初始化 Peer 连接，不阻塞预览显示
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const peer = new window.Peer(code, PEER_CONFIG);
     peerInstance.value = peer;
 
     peer.on('open', (id) => {
       peerId.value = id;
-      appState.value = STATES.SENDER;
       isConnecting.value = false;
     });
 
-    // 监听连接（接收端连入时自动拨打 Call）
     peer.on('connection', (conn) => {
-      console.log('[CastNow] Receiver linked via DataChannel.');
       activeConnections.value.push(conn);
-      
-      const call = peer.call(conn.peer, localStream.value);
-      
+      peer.call(conn.peer, localStream.value);
       conn.on('close', () => {
-        console.log('[CastNow] Data connection closed by receiver.');
         activeConnections.value = activeConnections.value.filter(c => c !== conn);
       });
     });
 
     peer.on('error', (err) => {
       console.error('[CastNow] Peer Error:', err.type);
-      error.value = `Connection Error: ${err.type}`;
-      if (err.type !== 'unavailable-id') resetApp();
-      isConnecting.value = false;
+      if (err.type === 'unavailable-id') {
+        error.value = 'Code conflict, retrying...';
+        handleStartCasting(); // 简单重试
+      } else {
+        error.value = `Connection error: ${err.type}`;
+        isConnecting.value = false;
+      }
     });
 
   } catch (err) {
     console.error('[CastNow] Media Error:', err);
-    error.value = 'Display capture denied.';
+    error.value = 'Screen capture denied or failed.';
     isConnecting.value = false;
   }
 };
 
-/**
- * 接收端逻辑
- */
 const handleReceiveCast = () => {
   if (inputCode.value.length !== 6) return;
-
   isConnecting.value = true;
   error.value = null;
 
@@ -213,40 +193,23 @@ const handleReceiveCast = () => {
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
-    console.log('[CastNow] Receiver peer open:', id);
     const conn = peer.connect(inputCode.value);
-    
-    conn.on('open', () => {
-      activeConnections.value.push(conn);
-    });
+    conn.on('open', () => activeConnections.value.push(conn));
+    conn.on('close', () => resetApp());
 
-    conn.on('close', () => {
-      console.log('[CastNow] Sender closed connection.');
-      resetApp();
-    });
-
-    // 监听呼入的流
     peer.on('call', (call) => {
-      console.log('[CastNow] Answering call...');
       call.answer();
-      
       call.on('stream', (stream) => {
-        console.log('[CastNow] Stream received.');
         remoteStream.value = stream;
         appState.value = STATES.RECEIVER_ACTIVE;
         isConnecting.value = false;
       });
-
-      call.on('close', () => {
-        console.log('[CastNow] Call closed.');
-        resetApp();
-      });
+      call.on('close', () => resetApp());
     });
 
-    // 连接超时检查
     setTimeout(() => {
       if (appState.value !== STATES.RECEIVER_ACTIVE && isConnecting.value) {
-        error.value = 'Connection timed out. Check code.';
+        error.value = 'Connection timeout.';
         isConnecting.value = false;
         cleanup();
       }
@@ -254,7 +217,6 @@ const handleReceiveCast = () => {
   });
 
   peer.on('error', (err) => {
-    console.error('[CastNow] Receiver Peer Error:', err.type);
     error.value = `Link failed: ${err.type}`;
     isConnecting.value = false;
   });
@@ -263,6 +225,13 @@ const handleReceiveCast = () => {
 const resetApp = () => {
   cleanup();
   appState.value = STATES.LANDING;
+};
+
+const copyToClipboard = () => {
+  if (!peerId.value) return;
+  navigator.clipboard.writeText(peerId.value);
+  isCopied.value = true;
+  setTimeout(() => isCopied.value = false, 2000);
 };
 </script>
 
@@ -277,7 +246,7 @@ const resetApp = () => {
       </div>
       <div class="flex items-center gap-4">
          <div v-if="isConnecting" class="flex items-center gap-2 text-[10px] font-black text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse uppercase">
-            <Activity class="w-3 h-3" /> Linking
+            <Activity class="w-3 h-3" /> Processing
          </div>
          <button class="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/30 rounded-full hover:bg-amber-500/10 transition-all">PRO</button>
       </div>
@@ -312,34 +281,37 @@ const resetApp = () => {
         <!-- 2. SENDER (BROADCAST SIDE) -->
         <div v-else-if="appState === STATES.SENDER" key="sender" class="flex-1 flex flex-col items-center justify-center p-4">
           <div class="w-full max-w-2xl bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-6 md:p-12 text-center backdrop-blur-xl shadow-2xl overflow-hidden">
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Connection Code</p>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Your Connection Code</p>
             
-            <div class="flex flex-wrap items-center justify-center gap-2 mb-10 px-2">
-              <div class="flex items-center gap-1 sm:gap-2">
+            <div class="flex flex-wrap items-center justify-center gap-2 mb-10 px-2 min-h-[5rem]">
+              <div v-if="!peerId" class="flex items-center gap-2 text-amber-500/50">
+                <Loader2 class="w-5 h-5 animate-spin" />
+                <span class="text-sm font-black uppercase tracking-widest">Generating ID...</span>
+              </div>
+              <div v-else class="flex items-center gap-1 sm:gap-2">
                 <template v-for="(char, i) in peerId.split('')" :key="i">
                   <span class="text-2xl sm:text-4xl md:text-5xl font-black text-white bg-slate-950 w-9 sm:w-14 h-12 sm:h-16 md:h-20 flex items-center justify-center rounded-xl border border-slate-800 shadow-xl">
                     {{ char }}
                   </span>
                   <span v-if="i === 2" class="text-slate-700 font-black text-xl px-0.5">-</span>
                 </template>
+                <button @click="copyToClipboard" class="p-4 ml-1 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
+                  <Check v-if="isCopied" class="w-5 h-5" />
+                  <Copy v-else class="w-5 h-5" />
+                </button>
               </div>
-              <button @click="copyToClipboard" class="p-4 ml-1 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
-                <Check v-if="isCopied" class="w-5 h-5" />
-                <Copy v-else class="w-5 h-5" />
-              </button>
             </div>
 
             <div class="aspect-video bg-black rounded-3xl border border-slate-800 overflow-hidden mb-8 shadow-2xl relative group">
-              <!-- 本地预览视频 -->
-              <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain" />
+              <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain bg-slate-900" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
-                  <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Local Preview</p>
+                  <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Local Preview (Active)</p>
                 </div>
               </div>
             </div>
-            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Stop Casting</button>
+            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">End Broadcast</button>
           </div>
         </div>
 
@@ -359,10 +331,10 @@ const resetApp = () => {
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-              <button @click="resetApp" class="py-4 md:py-5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Cancel</button>
+              <button @click="resetApp" class="py-4 md:py-5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Back</button>
               <button @click="handleReceiveCast" :disabled="inputCode.length !== 6 || isConnecting" class="py-4 md:py-5 font-black rounded-2xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]" :class="inputCode.length === 6 && !isConnecting ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-700'">
                 <Loader2 v-if="isConnecting" class="w-4 h-4 animate-spin" />
-                {{ isConnecting ? 'Linking' : 'Join' }}
+                {{ isConnecting ? 'Joining' : 'Link' }}
               </button>
             </div>
 
@@ -376,15 +348,13 @@ const resetApp = () => {
 
         <!-- 4. PLAYER -->
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden">
-          <!-- 远端视频播放 -->
           <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
           
           <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 shadow-2xl pointer-events-none">
             <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
-            <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Live Session</span>
+            <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Direct P2P Link</span>
           </div>
 
-          <!-- 接收端结束按钮 -->
           <button @click="resetApp" class="absolute top-6 right-6 md:top-10 md:right-10 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all group border border-white/5 shadow-2xl active:scale-90">
             <X class="w-6 h-6 md:w-8 md:h-8 group-hover:rotate-90 transition-transform duration-500" />
           </button>
@@ -395,9 +365,9 @@ const resetApp = () => {
     <footer v-if="appState !== STATES.RECEIVER_ACTIVE" class="px-8 md:px-12 py-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] gap-4">
       <div>© 2024 CASTNOW PROTOCOL</div>
       <div class="flex gap-10">
-        <a href="#" class="hover:text-amber-500 transition-colors">Documentation</a>
+        <a href="#" class="hover:text-amber-500 transition-colors">Docs</a>
         <a href="#" class="hover:text-amber-500 transition-colors">Privacy</a>
-        <a href="#" class="hover:text-amber-500 transition-colors">GitHub</a>
+        <a href="#" class="hover:text-amber-500 transition-colors">Source</a>
       </div>
     </footer>
   </div>
@@ -413,7 +383,6 @@ const resetApp = () => {
 }
 input { caret-color: transparent; }
 
-/* 响应式调整 */
 @media (max-width: 480px) {
   .text-5xl { font-size: 2rem !important; }
   .w-14 { width: 2.8rem !important; }
