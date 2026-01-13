@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onUnmounted, watch, nextTick, computed } from 'vue';
+import { Analytics } from '@vercel/analytics/vue';
 import { 
   Monitor, 
   Download, 
@@ -442,6 +443,8 @@ const copyToClipboard = () => {
         </div>
       </div>
     </Transition>
+    <!-- Vercel Web Analytics component integration -->
+    <Analytics />
   </div>
 </template>
 
