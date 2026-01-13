@@ -27,7 +27,10 @@ import {
   Clock,
   CreditCard,
   Key,
-  TrendingUp
+  TrendingUp,
+  FlaskConical,
+  Timer,
+  LogOut
 } from 'lucide-vue-next';
 
 // Application States
@@ -39,12 +42,17 @@ const STATES = {
 };
 
 // --- Monetization Logic ---
-const FREE_TRIAL_SECONDS = 30; // 调试用：30秒试用
+const FREE_TRIAL_SECONDS = 30; 
+const GRACE_PERIOD_SECONDS = 300; // 5 minutes grace period
+
 const timeLeft = ref(FREE_TRIAL_SECONDS);
+const graceTimeLeft = ref(GRACE_PERIOD_SECONDS);
+const isGracePeriod = ref(false);
 const isPro = ref(false);
 const showPaywall = ref(false);
 const licenseKeyInput = ref('');
 const isVerifying = ref(false);
+const isSimulating = ref(false);
 let timerInterval = null;
 
 const formatTime = (seconds) => {
@@ -64,14 +72,32 @@ const verifyLicense = async (key) => {
     const data = await response.json();
     if (data.valid) {
       isPro.value = true;
+      isGracePeriod.value = false;
       localStorage.setItem('castnow_license', key);
       showPaywall.value = false;
+      if (timerInterval) clearInterval(timerInterval);
       return true;
     }
     return false;
   } catch (err) {
     console.error('Verification failed', err);
     return false;
+  }
+};
+
+const handleMockPurchase = async () => {
+  isSimulating.value = true;
+  try {
+    const response = await fetch('/api/simulate-purchase', { method: 'POST' });
+    const data = await response.json();
+    if (data.success) {
+      licenseKeyInput.value = data.licenseKey;
+      await handleActivate();
+    }
+  } catch (err) {
+    error.value = "Simulation failed. Check Redis connection.";
+  } finally {
+    isSimulating.value = false;
   }
 };
 
@@ -82,29 +108,53 @@ const handleActivate = async () => {
     error.value = "Invalid or expired license key.";
   } else {
     error.value = null;
-    // 激活成功后重置时间
-    timeLeft.value = FREE_TRIAL_SECONDS; 
   }
   isVerifying.value = false;
 };
 
-const startTimer = () => {
-  // 确保不会重复启动
+const handleDismissPaywall = () => {
+  // If we are in the grace period (trial is over), closing the modal means the user declined to pay.
+  // We should warn them and then stop the stream.
+  if (isGracePeriod.value) {
+    if (confirm("Trial has ended. Closing this will immediately disconnect your session. Are you sure you want to exit?")) {
+      stopCastingForcefully();
+    }
+  } else {
+    // If we're still in the trial (30s not yet up), just hide the modal.
+    showPaywall.value = false;
+  }
+};
+
+const startTrialTimer = () => {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
-    if (!isPro.value && timeLeft.value > 0) {
-      timeLeft.value--;
-      if (timeLeft.value <= 0) {
-        stopCastingDueToTrialEnd();
+    if (isPro.value) {
+      clearInterval(timerInterval);
+      return;
+    }
+
+    if (!isGracePeriod.value) {
+      if (timeLeft.value > 0) {
+        timeLeft.value--;
+      } else {
+        isGracePeriod.value = true;
+        showPaywall.value = true;
+      }
+    } else {
+      if (graceTimeLeft.value > 0) {
+        graceTimeLeft.value--;
+      } else {
+        stopCastingForcefully();
       }
     }
   }, 1000);
 };
 
-const stopCastingDueToTrialEnd = () => {
+const stopCastingForcefully = () => {
   if (timerInterval) clearInterval(timerInterval);
   resetApp();
-  showPaywall.value = true;
+  showPaywall.value = false;
+  error.value = "Session terminated. Trial limit reached.";
 };
 
 onMounted(async () => {
@@ -113,7 +163,6 @@ onMounted(async () => {
   if (savedKey) {
     await verifyLicense(savedKey);
   }
-  // 注意：此处不再在挂载时启动计时器，改为投屏开始后启动
 });
 // --- End Monetization Logic ---
 
@@ -240,22 +289,23 @@ const cleanup = () => {
   inputCode.value = '';
   isConnecting.value = false;
   error.value = null;
-  // 停止投屏时清理计时器
+  
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+  timeLeft.value = FREE_TRIAL_SECONDS;
+  graceTimeLeft.value = GRACE_PERIOD_SECONDS;
+  isGracePeriod.value = false;
 };
 
 onUnmounted(() => {
   cleanup();
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  if (timerInterval) clearInterval(timerInterval);
 });
 
 const handleStartCasting = async () => {
-  // 检查试用时间是否已耗尽
-  if (!isPro.value && timeLeft.value <= 0) {
+  if (!isPro.value && timeLeft.value <= 0 && graceTimeLeft.value <= 0) {
     showPaywall.value = true;
     return;
   }
@@ -267,11 +317,6 @@ const handleStartCasting = async () => {
     localStream.value = stream;
     appState.value = STATES.SENDER;
     
-    // 成功获取流并进入投屏状态后，开始计时
-    if (!isPro.value) {
-      startTimer();
-    }
-
     stream.getVideoTracks()[0].onended = () => resetApp();
     
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -288,7 +333,18 @@ const handleStartCasting = async () => {
     peer.on('connection', (conn) => {
       activeConnections.value.push(conn);
       peer.call(conn.peer, localStream.value);
-      conn.on('close', () => activeConnections.value = activeConnections.value.filter(c => c !== conn));
+      
+      if (!isPro.value && !timerInterval) {
+        startTrialTimer();
+      }
+
+      conn.on('close', () => {
+        activeConnections.value = activeConnections.value.filter(c => c !== conn);
+        if (activeConnections.value.length === 0 && timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+      });
     });
     peer.on('error', (err) => {
       if (err.type === 'unavailable-id') handleStartCasting();
@@ -324,6 +380,10 @@ const handleReceiveCast = () => {
         remoteStream.value = stream; 
         appState.value = STATES.RECEIVER_ACTIVE; 
         isConnecting.value = false; 
+
+        if (!isPro.value) {
+          startTrialTimer();
+        }
       });
       call.on('close', () => resetApp());
     });
@@ -361,17 +421,20 @@ const copyToClipboard = () => {
          <!-- Trial Timer UI -->
          <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
             <Clock class="w-4 h-4 text-amber-500" />
-            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-slate-300'">{{ formatTime(timeLeft) }}</span>
+            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 10 || isGracePeriod ? 'text-red-500 animate-pulse' : 'text-slate-300'">
+              {{ isGracePeriod ? 'Grace Active' : formatTime(timeLeft) }}
+            </span>
          </div>
 
-         <!-- Active Upgrade Button (Always Visible for Free Users) -->
+         <!-- Active Upgrade Button -->
          <button 
            v-if="!isPro" 
            @click="showPaywall = true" 
-           class="hidden md:flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95 animate-pulse"
+           class="hidden md:flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+           :class="isGracePeriod ? 'animate-bounce bg-red-500 text-white' : 'animate-pulse'"
          >
            <Zap class="w-3 h-3 fill-current" />
-           Upgrade to Pro
+           {{ isGracePeriod ? 'Renew Now' : 'Upgrade to Pro' }}
          </button>
 
          <div v-if="isPro" class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)]">
@@ -444,10 +507,11 @@ const copyToClipboard = () => {
                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
                    <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Live Stream Monitor</p>
                 </div>
-                <!-- Mini timer while casting -->
                 <div v-if="!isPro" class="ml-auto bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
-                   <Clock class="w-3 h-3 text-amber-500" />
-                   <span class="text-[9px] font-black text-white uppercase">{{ timeLeft }}s remaining</span>
+                   <Timer class="w-3 h-3 text-amber-500" />
+                   <span class="text-[9px] font-black text-white uppercase" :class="isGracePeriod ? 'text-red-500 animate-pulse' : ''">
+                     {{ isGracePeriod ? `Grace Period: ${formatTime(graceTimeLeft)}` : `${timeLeft}s Trial Left` }}
+                   </span>
                 </div>
               </div>
             </div>
@@ -488,6 +552,12 @@ const copyToClipboard = () => {
               <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><Minimize v-if="isFullscreen" class="w-6 h-6" /><Maximize v-else class="w-6 h-6" /></button>
               <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><X class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" /></button>
             </div>
+            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp">
+               <Clock class="w-4 h-4 text-amber-500" />
+               <span class="text-[11px] font-black uppercase tracking-widest text-white">
+                 {{ isGracePeriod ? `Broadcaster trial ended. Grace period: ${formatTime(graceTimeLeft)}` : `Trial session active: ${timeLeft}s left` }}
+               </span>
+            </div>
           </div>
         </div>
       </Transition>
@@ -517,26 +587,44 @@ const copyToClipboard = () => {
     <Transition name="modal">
       <div v-if="showPaywall" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
         <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
-          <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20">
+          
+          <div v-if="isGracePeriod" class="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-500/30 py-3 flex items-center justify-center gap-2 animate-pulse">
+            <ShieldAlert class="w-4 h-4 text-red-500" />
+            <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Session Expiring: {{ formatTime(graceTimeLeft) }} Left</span>
+          </div>
+
+          <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20" :class="isGracePeriod ? 'mt-8' : ''">
             <Zap class="w-10 h-10 fill-current" />
           </div>
-          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">{{ timeLeft <= 0 ? 'Trial Limit Reached' : 'Unlock Premium' }}</h3>
+          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">{{ isGracePeriod ? 'Trial Expired' : 'Upgrade to Pro' }}</h3>
           <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">
-             Get <span class="text-white font-bold">unlimited 4K casting</span> for the next 24 hours. No more 30-second limits. High-speed global routing included.
+             Experience <span class="text-white font-bold">4K Zero-Latency casting</span> without limits. 
+             {{ isGracePeriod ? 'You have 5 minutes to complete your upgrade before the session is forcibly closed.' : 'Upgrade now to prevent trial interruption.' }}
           </p>
           
           <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4">
             <div class="text-5xl font-black text-white tracking-tighter mb-2">$1.90</div>
             <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">24-Hour Premium Pass</div>
-            <!-- Gumroad Product Link -->
-            <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
-              <CreditCard class="w-4 h-4" /> Get Pass Now
-            </a>
+            
+            <div class="grid grid-cols-1 gap-3">
+              <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20 active:scale-95">
+                <CreditCard class="w-4 h-4" /> Buy 24h Pass
+              </a>
+
+              <button 
+                @click="handleMockPurchase" 
+                :disabled="isSimulating"
+                class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-[9px] border border-slate-700 active:scale-95"
+              >
+                <FlaskConical class="w-3 h-3" /> 
+                {{ isSimulating ? 'Processing Simulation...' : 'Dev Only: Mock Test Purchase' }}
+              </button>
+            </div>
           </div>
 
           <div class="space-y-4 px-4">
              <div class="relative group">
-               <input v-model="licenseKeyInput" type="text" placeholder="Enter License Key" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm font-mono placeholder:text-slate-700 focus:border-amber-500 outline-none transition-all" @keyup.enter="handleActivate" />
+               <input v-model="licenseKeyInput" type="text" placeholder="Paste License Key Here" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm font-mono placeholder:text-slate-700 focus:border-amber-500 outline-none transition-all" @keyup.enter="handleActivate" />
                <div class="absolute right-2 top-2 bottom-2">
                   <button @click="handleActivate" :disabled="!licenseKeyInput || isVerifying" class="h-full px-6 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all">
                     <Loader2 v-if="isVerifying" class="w-3 h-3 animate-spin" />
@@ -547,7 +635,15 @@ const copyToClipboard = () => {
              <p v-if="error" class="text-red-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">{{ error }}</p>
           </div>
 
-          <button @click="showPaywall = false" class="mt-10 text-slate-600 hover:text-slate-400 transition-colors text-[9px] font-black uppercase tracking-[0.4em] tracking-[0.3em]">Maybe later</button>
+          <!-- Enhanced Dismiss/Close Button -->
+          <button 
+            @click="handleDismissPaywall" 
+            class="mt-10 group flex items-center justify-center gap-2 mx-auto text-[9px] font-black uppercase tracking-[0.4em] transition-all"
+            :class="isGracePeriod ? 'text-red-500 hover:text-red-400' : 'text-slate-600 hover:text-slate-400'"
+          >
+            <LogOut v-if="isGracePeriod" class="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+            {{ isGracePeriod ? 'End Session Now' : 'Maybe Later' }}
+          </button>
         </div>
       </div>
     </Transition>
