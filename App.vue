@@ -44,10 +44,11 @@ const STATES = {
 
 // --- Monetization Logic ---
 const FREE_TRIAL_SECONDS = 30; 
-const GRACE_PERIOD_SECONDS = 300; // 5 minutes grace period
+const GRACE_PERIOD_SECONDS = 300; 
 
 const timeLeft = ref(FREE_TRIAL_SECONDS);
 const graceTimeLeft = ref(GRACE_PERIOD_SECONDS);
+const proTimeLeft = ref(null); 
 const isGracePeriod = ref(false);
 const isPro = ref(false);
 const showPaywall = ref(false);
@@ -55,46 +56,76 @@ const licenseKeyInput = ref('');
 const isVerifying = ref(false);
 const isSimulating = ref(false);
 let timerInterval = null;
+let proCountInterval = null;
 
 const formatTime = (seconds) => {
-  const mins = Math.floor(seconds / 60);
+  if (seconds === null || seconds < 0) return '--:--';
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+/**
+ * 核心验证逻辑：必须请求后端，不允许前端旁路
+ */
 const verifyLicense = async (key) => {
   if (!key) return false;
   
-  // 开发环境/离线 Key 绕过校验
-  if (key.startsWith('LOCAL-DEV-') || key.startsWith('OFFLINE-')) {
-    isPro.value = true;
-    isGracePeriod.value = false;
-    localStorage.setItem('castnow_license', key);
-    showPaywall.value = false;
-    if (timerInterval) clearInterval(timerInterval);
-    return true;
-  }
-
+  // 安全更新：移除对 LOCAL-DEV- 和 OFFLINE- 的前端本地信任
+  // 所有 Key 必须经过 api/verify-pass 的 Redis 校验
   try {
     const response = await fetch('/api/verify-pass', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ licenseKey: key })
     });
+    
+    if (!response.ok) throw new Error('Network response not ok');
+    
     const data = await response.json();
     if (data.valid) {
       isPro.value = true;
       isGracePeriod.value = false;
+      proTimeLeft.value = data.expiresIn; // 由后端返回 Redis 的真实 TTL
       localStorage.setItem('castnow_license', key);
       showPaywall.value = false;
-      if (timerInterval) clearInterval(timerInterval);
+      stopTimers();
+      startProCountdown();
       return true;
+    } else {
+      // 验证失败，清理本地存储
+      isPro.value = false;
+      localStorage.removeItem('castnow_license');
+      return false;
     }
-    return false;
   } catch (err) {
-    console.error('Verification failed', err);
+    console.error('[Verify Error]', err);
+    // 网络错误时不自动降级，避免闪断，但也不允许非法进入
     return false;
   }
+};
+
+const startProCountdown = () => {
+  if (proCountInterval) clearInterval(proCountInterval);
+  proCountInterval = setInterval(() => {
+    if (proTimeLeft.value > 0) {
+      proTimeLeft.value--;
+    } else {
+      // TTL 耗尽，强制降级
+      isPro.value = false;
+      proTimeLeft.value = null;
+      localStorage.removeItem('castnow_license');
+      clearInterval(proCountInterval);
+      if (appState.value === STATES.SENDER) showPaywall.value = true;
+    }
+  }, 1000);
+};
+
+const stopTimers = () => {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
 };
 
 const handleMockPurchase = async () => {
@@ -102,20 +133,14 @@ const handleMockPurchase = async () => {
   error.value = null;
   try {
     const response = await fetch('/api/simulate-purchase', { method: 'POST' });
-    if (!response.ok) throw new Error('API error');
-    
     const data = await response.json();
     if (data.success) {
       licenseKeyInput.value = data.licenseKey;
-      // 自动尝试激活
+      // 模拟购买后自动尝试激活（此时 Key 已经通过模拟后端存入 Redis）
       await handleActivate();
     }
   } catch (err) {
-    // 终极降级：如果 API 彻底挂了，前端本地生成一个 Key 激活
-    console.warn("API Simulation failed, falling back to client-side bypass.");
-    const fallbackKey = `OFFLINE-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-    licenseKeyInput.value = fallbackKey;
-    await handleActivate();
+    error.value = "Simulation failed. Check API connectivity.";
   } finally {
     isSimulating.value = false;
   }
@@ -146,7 +171,7 @@ const startTrialTimer = () => {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     if (isPro.value) {
-      clearInterval(timerInterval);
+      stopTimers();
       return;
     }
 
@@ -155,10 +180,7 @@ const startTrialTimer = () => {
         timeLeft.value--;
       } else {
         isGracePeriod.value = true;
-        // 关键：只有投屏端弹出弹窗
-        if (appState.value === STATES.SENDER) {
-          showPaywall.value = true;
-        }
+        if (appState.value === STATES.SENDER) showPaywall.value = true;
       }
     } else {
       if (graceTimeLeft.value > 0) {
@@ -171,7 +193,7 @@ const startTrialTimer = () => {
 };
 
 const stopCastingForcefully = () => {
-  if (timerInterval) clearInterval(timerInterval);
+  stopTimers();
   resetApp();
   showPaywall.value = false;
   error.value = "Session terminated. Trial limit reached.";
@@ -229,9 +251,7 @@ const error = ref(null);
 const isConnecting = ref(false);
 const isCopied = ref(false);
 const isFullscreen = ref(false);
-
 const activeModal = ref(null); 
-
 const peerInstance = ref(null);
 const localStream = ref(null);
 const remoteStream = ref(null);
@@ -243,7 +263,6 @@ const activeConnections = ref([]);
 const attachStream = async (videoEl, stream, label) => {
   if (!videoEl || !stream) return;
   if (videoEl.srcObject === stream) return;
-  
   videoEl.srcObject = stream;
   try {
     await videoEl.play();
@@ -305,11 +324,7 @@ const cleanup = () => {
   inputCode.value = '';
   isConnecting.value = false;
   error.value = null;
-  
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
+  stopTimers();
   timeLeft.value = FREE_TRIAL_SECONDS;
   graceTimeLeft.value = GRACE_PERIOD_SECONDS;
   isGracePeriod.value = false;
@@ -317,6 +332,7 @@ const cleanup = () => {
 
 onUnmounted(() => {
   cleanup();
+  if (proCountInterval) clearInterval(proCountInterval);
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
 });
 
@@ -325,16 +341,13 @@ const handleStartCasting = async () => {
     showPaywall.value = true;
     return;
   }
-  
   try {
     isConnecting.value = true;
     error.value = null;
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     localStream.value = stream;
     appState.value = STATES.SENDER;
-    
     stream.getVideoTracks()[0].onended = () => resetApp();
-    
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const peer = new window.Peer(code, {
       debug: 1,
@@ -344,22 +357,14 @@ const handleStartCasting = async () => {
       }
     });
     peerInstance.value = peer;
-    
     peer.on('open', (id) => { peerId.value = id; isConnecting.value = false; });
     peer.on('connection', (conn) => {
       activeConnections.value.push(conn);
       peer.call(conn.peer, localStream.value);
-      
-      if (!isPro.value && !timerInterval) {
-        startTrialTimer();
-      }
-
+      if (!isPro.value && !timerInterval) startTrialTimer();
       conn.on('close', () => {
         activeConnections.value = activeConnections.value.filter(c => c !== conn);
-        if (activeConnections.value.length === 0 && timerInterval) {
-          clearInterval(timerInterval);
-          timerInterval = null;
-        }
+        if (activeConnections.value.length === 0) stopTimers();
       });
     });
     peer.on('error', (err) => {
@@ -376,16 +381,11 @@ const handleReceiveCast = () => {
   if (inputCode.value.length !== 6) return;
   isConnecting.value = true;
   error.value = null;
-  
   const peer = new window.Peer({
     debug: 1,
-    config: {
-      iceServers: getIceServers(),
-      iceCandidatePoolSize: 10,
-    }
+    config: { iceServers: getIceServers(), iceCandidatePoolSize: 10 }
   });
   peerInstance.value = peer;
-  
   peer.on('open', (id) => {
     const conn = peer.connect(inputCode.value);
     conn.on('open', () => activeConnections.value.push(conn));
@@ -396,10 +396,7 @@ const handleReceiveCast = () => {
         remoteStream.value = stream; 
         appState.value = STATES.RECEIVER_ACTIVE; 
         isConnecting.value = false; 
-
-        if (!isPro.value) {
-          startTrialTimer();
-        }
+        if (!isPro.value) startTrialTimer();
       });
       call.on('close', () => resetApp());
     });
@@ -433,11 +430,22 @@ const copyToClipboard = () => {
       </div>
       
       <div class="flex items-center gap-3 md:gap-4">
+         <!-- Trial Timer -->
          <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
             <Clock class="w-4 h-4 text-amber-500" />
             <span class="text-xs font-black tracking-tighter" :class="timeLeft < 10 || isGracePeriod ? 'text-red-500 animate-pulse' : 'text-slate-300'">
-              {{ isGracePeriod ? 'Grace Active' : formatTime(timeLeft) }}
+              {{ isGracePeriod ? 'Grace Period' : formatTime(timeLeft) }}
             </span>
+         </div>
+
+         <!-- Pro Status -->
+         <div v-else class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)] group relative">
+            <Zap class="w-4 h-4 text-amber-500 fill-current" />
+            <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pro Member</span>
+            <!-- TTL Badge -->
+            <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-[8px] text-slate-400 font-bold px-2 py-0.5 rounded border border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Expires in: {{ formatTime(proTimeLeft) }}
+            </div>
          </div>
 
          <button 
@@ -449,11 +457,6 @@ const copyToClipboard = () => {
            <Zap class="w-3 h-3 fill-current" />
            {{ isGracePeriod ? 'Renew Now' : 'Upgrade to Pro' }}
          </button>
-
-         <div v-if="isPro" class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)]">
-            <Zap class="w-4 h-4 text-amber-500 fill-current" />
-            <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pro Member</span>
-         </div>
 
          <div v-if="isConnecting" class="hidden sm:flex items-center gap-2 text-[10px] font-black text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse uppercase">
             <Activity class="w-3 h-3" /> Tunneling
@@ -522,6 +525,10 @@ const copyToClipboard = () => {
                      {{ isGracePeriod ? `Grace Period: ${formatTime(graceTimeLeft)}` : `${timeLeft}s Trial Left` }}
                    </span>
                 </div>
+                <div v-else class="ml-auto bg-amber-500/20 backdrop-blur px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-2">
+                   <Zap class="w-3 h-3 text-amber-500 fill-current" />
+                   <span class="text-[9px] font-black text-white uppercase tracking-tighter">Pro: {{ formatTime(proTimeLeft) }} left</span>
+                </div>
               </div>
             </div>
             <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Close Session</button>
@@ -559,10 +566,16 @@ const copyToClipboard = () => {
               <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><Minimize v-if="isFullscreen" class="w-6 h-6" /><Maximize v-else class="w-6 h-6" /></button>
               <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><X class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" /></button>
             </div>
-            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp">
+            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
                <Clock class="w-4 h-4 text-amber-500" />
                <span class="text-[11px] font-black uppercase tracking-widest text-white">
                  {{ isGracePeriod ? `Broadcaster trial ended. Grace period: ${formatTime(graceTimeLeft)}` : `Trial session active: ${timeLeft}s left` }}
+               </span>
+            </div>
+            <div v-else class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
+               <Zap class="w-4 h-4 text-amber-500 fill-current" />
+               <span class="text-[11px] font-black uppercase tracking-widest text-white">
+                 Premium Session. Expires in: {{ formatTime(proTimeLeft) }}
                </span>
             </div>
           </div>
@@ -589,6 +602,7 @@ const copyToClipboard = () => {
       </div>
     </footer>
 
+    <!-- Paywall Modal -->
     <Transition name="modal">
       <div v-if="showPaywall && appState === STATES.SENDER" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
         <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
@@ -652,6 +666,7 @@ const copyToClipboard = () => {
       </div>
     </Transition>
 
+    <!-- Generic Modals -->
     <Transition name="modal">
       <div v-if="activeModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-xl bg-black/70" @click.self="activeModal = null">
         <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
@@ -729,7 +744,6 @@ input { caret-color: transparent; }
   .h-16 { height: 3.2rem !important; } 
 }
 
-/* Specific styling for the Activation input to allow standard text typing */
 input[type="text"].bg-slate-950 {
   caret-color: #f59e0b;
 }
