@@ -11,7 +11,9 @@ import {
   Loader2,
   ShieldAlert,
   WifiOff,
-  Activity
+  Activity,
+  Maximize,
+  Minimize
 } from 'lucide-vue-next';
 
 // 应用状态枚举
@@ -42,12 +44,14 @@ const inputCode = ref('');
 const error = ref(null);
 const isConnecting = ref(false);
 const isCopied = ref(false);
+const isFullscreen = ref(false);
 
 const peerInstance = ref(null);
 const localStream = ref(null);
 const remoteStream = ref(null);
 const localVideo = ref(null);
 const remoteVideo = ref(null);
+const playerContainer = ref(null);
 const activeConnections = ref([]);
 
 /**
@@ -74,14 +78,41 @@ const attachStream = async (videoEl, stream, label) => {
 };
 
 /**
+ * 全屏控制
+ */
+const toggleFullscreen = async () => {
+  if (!playerContainer.value) return;
+
+  try {
+    if (!document.fullscreenElement) {
+      await playerContainer.value.requestFullscreen();
+      isFullscreen.value = true;
+    } else {
+      await document.exitFullscreen();
+      isFullscreen.value = false;
+    }
+  } catch (err) {
+    console.error('[CastNow] Fullscreen error:', err);
+  }
+};
+
+// 监听系统全屏状态变化（处理 Esc 键退出等情况）
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement;
+};
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+}
+
+/**
  * 核心：侦听状态和流的变化，确保预览视频即时显示
  */
 watch([appState, localStream, remoteStream], async () => {
   await nextTick();
   
-  // 投屏端预览：只要在 SENDER 态且有流，就尝试挂载
+  // 投屏端预览
   if (appState.value === STATES.SENDER && localStream.value) {
-    // 使用短轮询确保在 Transition 动画过程中捕获到元素
     let retry = 0;
     const timer = setInterval(() => {
       if (localVideo.value) {
@@ -106,6 +137,10 @@ watch([appState, localStream, remoteStream], async () => {
 }, { immediate: true });
 
 const cleanup = () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+
   if (localStream.value) {
     localStream.value.getTracks().forEach(track => track.stop());
     localStream.value = null;
@@ -128,27 +163,26 @@ const cleanup = () => {
   error.value = null;
 };
 
-onUnmounted(cleanup);
+onUnmounted(() => {
+  cleanup();
+  document.removeEventListener('fullscreenchange', handleFullscreenChange);
+});
 
 const handleStartCasting = async () => {
   try {
     isConnecting.value = true;
     error.value = null;
 
-    // 1. 先尝试获取屏幕流
     const stream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: "always", frameRate: { ideal: 30 } },
       audio: true
     });
     
     localStream.value = stream;
-    
-    // 2. 一旦获取到流，立即切换到 SENDER 状态，此时 local preview 应该渲染并显示
     appState.value = STATES.SENDER;
 
     stream.getVideoTracks()[0].onended = () => resetApp();
 
-    // 3. 异步初始化 Peer 连接，不阻塞预览显示
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const peer = new window.Peer(code, PEER_CONFIG);
     peerInstance.value = peer;
@@ -170,7 +204,7 @@ const handleStartCasting = async () => {
       console.error('[CastNow] Peer Error:', err.type);
       if (err.type === 'unavailable-id') {
         error.value = 'Code conflict, retrying...';
-        handleStartCasting(); // 简单重试
+        handleStartCasting(); 
       } else {
         error.value = `Connection error: ${err.type}`;
         isConnecting.value = false;
@@ -237,7 +271,7 @@ const copyToClipboard = () => {
 
 <template>
   <div class="min-h-screen flex flex-col bg-slate-950 text-slate-50 font-sans selection:bg-amber-500/30 overflow-x-hidden">
-    <header class="flex items-center justify-between px-6 py-4 md:px-12 border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
+    <header v-if="appState !== STATES.RECEIVER_ACTIVE" class="flex items-center justify-between px-6 py-4 md:px-12 border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
       <div class="flex items-center gap-2 cursor-pointer group" @click="resetApp">
         <div class="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform duration-300 shadow-lg shadow-amber-500/20">
           <Zap class="text-slate-950 w-5 h-5 fill-current" />
@@ -346,18 +380,37 @@ const copyToClipboard = () => {
           </div>
         </div>
 
-        <!-- 4. PLAYER -->
-        <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden">
+        <!-- 4. PLAYER (RECEIVER SIDE) -->
+        <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" ref="playerContainer" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden group/player">
           <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
           
-          <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 shadow-2xl pointer-events-none">
-            <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
-            <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Direct P2P Link</span>
+          <!-- Overlay Controls -->
+          <div class="absolute inset-0 opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 pointer-events-none">
+            <!-- Top Status Bar -->
+            <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 shadow-2xl pointer-events-auto">
+              <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
+              <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Direct P2P Link</span>
+            </div>
+
+            <!-- Top Action Buttons -->
+            <div class="absolute top-6 right-6 md:top-10 md:right-10 flex items-center gap-3 pointer-events-auto">
+              <!-- Fullscreen Button -->
+              <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl active:scale-90">
+                <Minimize v-if="isFullscreen" class="w-6 h-6 md:w-8 md:h-8" />
+                <Maximize v-else class="w-6 h-6 md:w-8 md:h-8" />
+              </button>
+              
+              <!-- Close Button -->
+              <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl active:scale-90">
+                <X class="w-6 h-6 md:w-8 md:h-8 transition-transform group-hover:rotate-90 duration-500" />
+              </button>
+            </div>
           </div>
 
-          <button @click="resetApp" class="absolute top-6 right-6 md:top-10 md:right-10 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all group border border-white/5 shadow-2xl active:scale-90">
-            <X class="w-6 h-6 md:w-8 md:h-8 group-hover:rotate-90 transition-transform duration-500" />
-          </button>
+          <!-- Mobile Only Visible Hint -->
+          <div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 md:hidden pointer-events-none animate-bounce">
+            <span class="text-[8px] font-bold text-white uppercase tracking-widest">Tap to show controls</span>
+          </div>
         </div>
       </Transition>
     </main>
@@ -381,6 +434,12 @@ const copyToClipboard = () => {
   opacity: 0; 
   transform: scale(0.98) translateY(10px); 
 }
+
+/* 针对非全屏状态下的鼠标显示优化 */
+.group\/player:hover {
+  cursor: default;
+}
+
 input { caret-color: transparent; }
 
 @media (max-width: 480px) {
@@ -394,5 +453,12 @@ input { caret-color: transparent; }
   .w-9 { width: 1.9rem !important; }
   .h-12 { height: 2.5rem !important; }
   .gap-1 { gap: 0.15rem !important; }
+}
+
+/* 适配全屏伪类 */
+:fullscreen video {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
 }
 </style>
