@@ -26,7 +26,8 @@ import {
   Layers,
   Clock,
   CreditCard,
-  Key
+  Key,
+  TrendingUp
 } from 'lucide-vue-next';
 
 // Application States
@@ -38,7 +39,7 @@ const STATES = {
 };
 
 // --- Monetization Logic ---
-const FREE_TRIAL_SECONDS = 900; // 15 minutes
+const FREE_TRIAL_SECONDS = 30; // 调试用：30秒试用
 const timeLeft = ref(FREE_TRIAL_SECONDS);
 const isPro = ref(false);
 const showPaywall = ref(false);
@@ -81,11 +82,14 @@ const handleActivate = async () => {
     error.value = "Invalid or expired license key.";
   } else {
     error.value = null;
+    // 激活成功后重置时间
+    timeLeft.value = FREE_TRIAL_SECONDS; 
   }
   isVerifying.value = false;
 };
 
 const startTimer = () => {
+  // 确保不会重复启动
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     if (!isPro.value && timeLeft.value > 0) {
@@ -98,22 +102,18 @@ const startTimer = () => {
 };
 
 const stopCastingDueToTrialEnd = () => {
-  clearInterval(timerInterval);
+  if (timerInterval) clearInterval(timerInterval);
   resetApp();
   showPaywall.value = true;
 };
 
 onMounted(async () => {
-  // Initialize Vercel Analytics manually to avoid vue-router dependency
   injectAnalytics();
-
   const savedKey = localStorage.getItem('castnow_license');
   if (savedKey) {
     await verifyLicense(savedKey);
   }
-  if (!isPro.value) {
-    startTimer();
-  }
+  // 注意：此处不再在挂载时启动计时器，改为投屏开始后启动
 });
 // --- End Monetization Logic ---
 
@@ -240,6 +240,11 @@ const cleanup = () => {
   inputCode.value = '';
   isConnecting.value = false;
   error.value = null;
+  // 停止投屏时清理计时器
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
 };
 
 onUnmounted(() => {
@@ -249,16 +254,24 @@ onUnmounted(() => {
 });
 
 const handleStartCasting = async () => {
+  // 检查试用时间是否已耗尽
   if (!isPro.value && timeLeft.value <= 0) {
     showPaywall.value = true;
     return;
   }
+  
   try {
     isConnecting.value = true;
     error.value = null;
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     localStream.value = stream;
     appState.value = STATES.SENDER;
+    
+    // 成功获取流并进入投屏状态后，开始计时
+    if (!isPro.value) {
+      startTimer();
+    }
+
     stream.getVideoTracks()[0].onended = () => resetApp();
     
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -344,13 +357,24 @@ const copyToClipboard = () => {
         <span class="text-xl md:text-2xl font-black tracking-tighter uppercase">CastNow</span>
       </div>
       
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 md:gap-4">
          <!-- Trial Timer UI -->
          <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
             <Clock class="w-4 h-4 text-amber-500" />
-            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-slate-300'">{{ formatTime(timeLeft) }}</span>
+            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-slate-300'">{{ formatTime(timeLeft) }}</span>
          </div>
-         <div v-else class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+
+         <!-- Active Upgrade Button (Always Visible for Free Users) -->
+         <button 
+           v-if="!isPro" 
+           @click="showPaywall = true" 
+           class="hidden md:flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95 animate-pulse"
+         >
+           <Zap class="w-3 h-3 fill-current" />
+           Upgrade to Pro
+         </button>
+
+         <div v-if="isPro" class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)]">
             <Zap class="w-4 h-4 text-amber-500 fill-current" />
             <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pro Member</span>
          </div>
@@ -416,7 +440,15 @@ const copyToClipboard = () => {
             <div class="aspect-video bg-black rounded-3xl border border-slate-800 overflow-hidden mb-8 shadow-2xl relative">
               <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain bg-slate-900" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
-                <div class="flex items-center gap-2"><div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div><p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Live Stream Monitor</p></div>
+                <div class="flex items-center gap-2">
+                   <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
+                   <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Live Stream Monitor</p>
+                </div>
+                <!-- Mini timer while casting -->
+                <div v-if="!isPro" class="ml-auto bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
+                   <Clock class="w-3 h-3 text-amber-500" />
+                   <span class="text-[9px] font-black text-white uppercase">{{ timeLeft }}s remaining</span>
+                </div>
               </div>
             </div>
             <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Close Session</button>
@@ -488,8 +520,10 @@ const copyToClipboard = () => {
           <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20">
             <Zap class="w-10 h-10 fill-current" />
           </div>
-          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">Trial Limit Reached</h3>
-          <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">Your free 15-minute trial has ended. Unlock <span class="text-white font-bold">unlimited 4K casting</span> for the next 24 hours for just $1.90.</p>
+          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">{{ timeLeft <= 0 ? 'Trial Limit Reached' : 'Unlock Premium' }}</h3>
+          <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">
+             Get <span class="text-white font-bold">unlimited 4K casting</span> for the next 24 hours. No more 30-second limits. High-speed global routing included.
+          </p>
           
           <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4">
             <div class="text-5xl font-black text-white tracking-tighter mb-2">$1.90</div>
