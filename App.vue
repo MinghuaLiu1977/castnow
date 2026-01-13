@@ -23,14 +23,15 @@ const STATES = {
 };
 
 const PEER_CONFIG = {
-  debug: 3, 
+  debug: 1, // 降低生产环境日志干扰
   config: {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.cloudflare.com:3478' },
-      { urls: 'stun:stun.services.mozilla.com' }
+      // 优化为中国境内访问稳定的 STUN 服务器
+      { urls: 'stun:stun.miwifi.com:3478' },
+      { urls: 'stun:stun.chat.agora.io:3478' },
+      { urls: 'stun:stun.cdn.aliyun.com:3478' },
+      { urls: 'stun:stun.tjsat.top:3478' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
     ],
     iceCandidatePoolSize: 10,
   }
@@ -50,51 +51,42 @@ const remoteStream = ref(null);
 const localVideo = ref(null);
 const remoteVideo = ref(null);
 
-// WebRTC Logging Helper - Robust version
+// WebRTC Logging Helper
 const setupWebRTCStats = (pc, label) => {
-  if (!pc) {
-    console.warn(`[WebRTC:${label}] ⚠️ RTCPeerConnection not detected. Retrying in 500ms...`);
-    return;
-  }
+  if (!pc) return;
   
-  console.log(`[WebRTC:${label}] 🟢 Successfully bound to PeerConnection.`);
+  console.log(`[WebRTC:${label}] 🟢 Monitoring PC instance.`);
   
-  // Use try-catch for each listener to ensure one failure doesn't stop others
   try {
     pc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC:${label}] 🧊 ICE Connection: %c${pc.iceConnectionState}`, 'color: #f59e0b; font-weight: bold');
-      if (pc.iceConnectionState === 'failed') {
+      const state = pc.iceConnectionState;
+      console.log(`[WebRTC:${label}] 🧊 ICE Connection: %c${state}`, 'color: #f59e0b; font-weight: bold');
+      if (state === 'failed' || state === 'disconnected') {
+        // 14秒断开通常是因为 ICE 保持心跳失败
         showProxyAdvice.value = true;
       }
     };
 
-    pc.onicegatheringstatechange = () => {
-      console.log(`[WebRTC:${label}] 🔍 ICE Gathering: %c${pc.iceGatheringState}`, 'color: #3b82f6; font-weight: bold');
-    };
-
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC:${label}] 🔌 Connection State: %c${pc.connectionState}`, 'color: #10b981; font-weight: bold');
-    };
-
-    pc.onsignalingstatechange = () => {
-      console.log(`[WebRTC:${label}] 📡 Signaling State: ${pc.signalingState}`);
+      if (pc.connectionState === 'closed') {
+        console.warn(`[WebRTC:${label}] Connection closed unexpectedly.`);
+      }
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         const c = event.candidate;
-        console.log(`[WebRTC:${label}] 📍 New Candidate: type=${c.type} proto=${c.protocol} addr=${c.address}`);
-      } else {
-        console.log(`[WebRTC:${label}] ✅ ICE Gathering Complete.`);
+        console.log(`[WebRTC:${label}] 📍 Candidate: ${c.type} via ${c.protocol}`);
       }
     };
   } catch (e) {
-    console.error(`[WebRTC:${label}] Failed to attach listeners:`, e);
+    console.warn(`[WebRTC:${label}] Logger bind error:`, e);
   }
 };
 
 const cleanup = () => {
-  console.log('[CastNow] Cleaning up...');
+  console.log('[CastNow] Cleaning up resources...');
   if (peerInstance.value) {
     peerInstance.value.destroy();
     peerInstance.value = null;
@@ -141,7 +133,10 @@ const handleStartCasting = async () => {
     error.value = null;
 
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: "always" },
+      video: { 
+        cursor: "always",
+        frameRate: { ideal: 30, max: 60 }
+      },
       audio: true
     });
     
@@ -152,27 +147,18 @@ const handleStartCasting = async () => {
     peerInstance.value = peer;
 
     peer.on('open', (id) => {
-      console.log('[CastNow] Sender Registered with ID:', id);
       peerId.value = id;
       appState.value = STATES.SENDER;
       isConnecting.value = false;
     });
 
     peer.on('call', (call) => {
-      console.log('[CastNow] Incoming call. Answering...');
+      console.log('[CastNow] Received incoming call request');
       call.answer(stream);
-      // Wait longer for PeerJS to ensure peerConnection is attached
-      setTimeout(() => {
-        if (call.peerConnection) {
-          setupWebRTCStats(call.peerConnection, 'Sender_Side');
-        } else {
-          console.warn('[CastNow] peerConnection still not found on call object.');
-        }
-      }, 1000);
+      setTimeout(() => setupWebRTCStats(call.peerConnection, 'Sender'), 1000);
     });
 
     peer.on('error', (err) => {
-      console.error('[CastNow] Peer Error:', err.type, err);
       error.value = `Protocol Error: ${err.type}`;
       if (err.type !== 'unavailable-id') {
         cleanup();
@@ -182,8 +168,7 @@ const handleStartCasting = async () => {
 
     stream.getVideoTracks()[0].onended = resetApp;
   } catch (err) {
-    console.error('[CastNow] Capture error:', err);
-    error.value = 'Display capture failed or permission denied.';
+    error.value = 'Display capture denied or failed.';
     isConnecting.value = false;
   }
 };
@@ -194,46 +179,44 @@ const handleReceiveCast = () => {
 
   isConnecting.value = true;
   error.value = null;
-  showProxyAdvice.value = false;
 
-  console.log('[CastNow] Receiver starting...');
   const peer = new window.Peer(PEER_CONFIG);
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
-    console.log('[CastNow] Receiver Registered. CALLING:', inputCode.value);
+    // 关键修正：呼叫时不发送任何流，等待对方 answer 视频轨道
+    const call = peer.call(inputCode.value, null);
     
-    const call = peer.call(inputCode.value, new MediaStream());
-    
-    setTimeout(() => {
-      if (call.peerConnection) {
-        setupWebRTCStats(call.peerConnection, 'Receiver_Side');
-      }
-    }, 1000);
-    
-    const timeout = setTimeout(() => {
-      if (appState.value !== STATES.RECEIVER_ACTIVE) {
-        console.error('[CastNow] Handshake timeout (15s).');
-        error.value = 'P2P Handshake Timeout';
-        showProxyAdvice.value = true;
-        isConnecting.value = false;
-        cleanup();
-        appState.value = STATES.RECEIVER_INPUT;
-      }
-    }, 15000);
+    if (call) {
+      setTimeout(() => setupWebRTCStats(call.peerConnection, 'Receiver'), 1000);
+      
+      const timeout = setTimeout(() => {
+        if (appState.value !== STATES.RECEIVER_ACTIVE) {
+          error.value = 'Connection timeout. Check Sender status.';
+          showProxyAdvice.value = true;
+          isConnecting.value = false;
+          cleanup();
+          appState.value = STATES.RECEIVER_INPUT;
+        }
+      }, 20000);
 
-    call.on('stream', (stream) => {
-      console.log('[CastNow] 🎉 Media Stream Active!');
-      clearTimeout(timeout);
-      remoteStream.value = stream;
-      appState.value = STATES.RECEIVER_ACTIVE;
-      isConnecting.value = false;
-    });
+      call.on('stream', (stream) => {
+        console.log('[CastNow] 🎉 Remote stream received!');
+        clearTimeout(timeout);
+        remoteStream.value = stream;
+        appState.value = STATES.RECEIVER_ACTIVE;
+        isConnecting.value = false;
+      });
+
+      call.on('close', () => {
+        console.warn('[CastNow] Call closed by peer');
+        resetApp();
+      });
+    }
   });
 
   peer.on('error', (err) => {
-    console.error('[CastNow] Receiver Error:', err.type);
-    error.value = err.type === 'peer-unavailable' ? 'Sender offline or invalid code.' : `Network Error: ${err.type}`;
+    error.value = err.type === 'peer-unavailable' ? 'Sender not found or code expired.' : `Network issue: ${err.type}`;
     isConnecting.value = false;
   });
 };
@@ -288,31 +271,33 @@ const resetApp = () => {
         </div>
 
         <!-- 2. SENDER (BROADCAST SIDE) -->
-        <div v-else-if="appState === STATES.SENDER" key="sender" class="flex-1 flex flex-col items-center justify-center p-4">
-          <div class="w-full max-w-xl bg-slate-900/40 border border-slate-800 rounded-[3rem] p-6 md:p-12 text-center backdrop-blur-xl shadow-2xl">
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-8">Connection Code</p>
+        <div v-else-if="appState === STATES.SENDER" key="sender" class="flex-1 flex flex-col items-center justify-center p-3 sm:p-4">
+          <div class="w-full max-w-xl bg-slate-900/40 border border-slate-800 rounded-[2rem] sm:rounded-[3rem] p-4 sm:p-12 text-center backdrop-blur-xl shadow-2xl">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 sm:mb-8">Connection Code</p>
             
-            <!-- CODE DISPLAY: FIXED FOR MOBILE INCOMPLETENESS -->
-            <div class="flex items-center justify-center gap-1 sm:gap-2 mb-10">
-              <template v-for="(char, i) in peerId.split('')" :key="i">
-                <span class="text-3xl sm:text-4xl md:text-6xl font-black text-white bg-slate-950 w-10 sm:w-12 md:w-16 h-14 sm:h-16 md:h-20 flex items-center justify-center rounded-xl md:rounded-2xl border border-slate-800 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
-                  {{ char }}
-                </span>
-                <span v-if="i === 2" class="text-slate-700 font-black text-xl sm:text-2xl px-0.5">-</span>
-              </template>
-              <button @click="copyToClipboard" class="ml-2 flex-shrink-0 p-3 sm:p-4 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
+            <!-- FIXED CODE DISPLAY FOR SMALL SCREENS -->
+            <div class="flex items-center justify-center gap-1 sm:gap-2 mb-8 sm:mb-10 max-w-full overflow-hidden px-2">
+              <div class="flex items-center gap-1 sm:gap-2">
+                <template v-for="(char, i) in peerId.split('')" :key="i">
+                  <span class="text-2xl sm:text-4xl md:text-6xl font-black text-white bg-slate-950 w-8 sm:w-12 md:w-16 h-12 sm:h-16 md:h-20 flex items-center justify-center rounded-lg sm:rounded-2xl border border-slate-800 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                    {{ char }}
+                  </span>
+                  <span v-if="i === 2" class="text-slate-700 font-black text-lg sm:text-2xl px-0.5">-</span>
+                </template>
+              </div>
+              <button @click="copyToClipboard" class="ml-1 sm:ml-4 flex-shrink-0 p-2 sm:p-4 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
                 <Check v-if="isCopied" class="w-4 h-4 sm:w-5 sm:h-5" />
                 <Copy v-else class="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
-            <div class="aspect-video bg-black rounded-[2rem] border border-slate-800 overflow-hidden mb-10 shadow-2xl relative group">
+            <div class="aspect-video bg-black rounded-xl sm:rounded-[2rem] border border-slate-800 overflow-hidden mb-8 sm:mb-10 shadow-2xl relative group">
               <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
-                <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-60">Live Preview</p>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4 sm:p-6">
+                <p class="text-[9px] sm:text-[10px] font-black text-white tracking-widest uppercase opacity-60">Live Preview</p>
               </div>
             </div>
-            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">End Session</button>
+            <button @click="resetApp" class="w-full py-4 sm:py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-xl sm:rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">End Session</button>
           </div>
         </div>
 
@@ -347,13 +332,13 @@ const resetApp = () => {
                  <div class="p-3 bg-red-500/10 rounded-xl border border-red-500/20">
                     <p class="text-[11px] text-red-400 font-bold leading-relaxed flex items-start gap-2">
                       <ShieldAlert class="w-4 h-4 flex-shrink-0" />
-                      P2P traffic blocked. Common issue: VPNs or Chrome proxy extensions (like OmegaProxy).
+                      P2P handshaking failed. Potential issues: VPN interference, restricted firewall, or symmetric NAT.
                     </p>
                  </div>
                  <div class="text-[9px] text-slate-500 font-medium space-y-1 uppercase tracking-tighter">
-                    <p>• Disable VPN / Proxy Extensions</p>
-                    <p>• Close restricted enterprise firewalls</p>
-                    <p>• Check F12 Console for ICE Logs</p>
+                    <p>• Try disabling VPN / Proxy</p>
+                    <p>• Switch network (e.g. 4G/5G Hotspot)</p>
+                    <p>• Check if the Sender is still online</p>
                  </div>
                </div>
             </div>
@@ -395,11 +380,12 @@ const resetApp = () => {
 }
 input { caret-color: transparent; }
 
-/* Further shrink for very narrow devices like iPhone 5/SE */
+/* 增强针对超小屏幕的自适应能力 */
 @media (max-width: 380px) {
-  .gap-1 { gap: 0.125rem !important; }
-  .w-10 { width: 2.15rem !important; }
-  .h-14 { height: 2.75rem !important; }
-  .text-3xl { font-size: 1.25rem !important; }
+  .gap-1 { gap: 0.1rem !important; }
+  .w-8 { width: 1.75rem !important; }
+  .h-12 { height: 2.5rem !important; }
+  .text-2xl { font-size: 1.15rem !important; }
+  .px-2 { padding-left: 0.25rem !important; padding-right: 0.25rem !important; }
 }
 </style>
