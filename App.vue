@@ -89,13 +89,11 @@ const setupWebRTCStats = (pc, label) => {
 const cleanup = () => {
   console.log('[CastNow] Cleaning up resources...');
   
-  // 1. 关闭所有数据连接（通知对方关闭）
   activeConnections.value.forEach(conn => {
     try { conn.close(); } catch(e) {}
   });
   activeConnections.value = [];
 
-  // 2. 销毁 Peer 实例
   if (peerInstance.value) {
     try {
       peerInstance.value.destroy();
@@ -103,16 +101,14 @@ const cleanup = () => {
     peerInstance.value = null;
   }
 
-  // 3. 停止所有媒体轨道 (关键：彻底终止屏幕共享)
   if (localStream.value) {
     localStream.value.getTracks().forEach(track => {
       track.stop();
-      track.onended = null; // 解绑事件防止循环触发
+      track.onended = null;
     });
     localStream.value = null;
   }
 
-  // 4. 重置状态
   remoteStream.value = null;
   peerId.value = '';
   inputCode.value = '';
@@ -126,7 +122,7 @@ onUnmounted(cleanup);
 // 增强流挂载逻辑
 const attachStream = async (videoEl, stream, label) => {
   if (!videoEl || !stream) {
-    console.warn(`[CastNow] Cannot attach ${label}: Element or stream missing`, { videoEl, stream });
+    console.warn(`[CastNow] Cannot attach ${label}: Element or stream missing`);
     return;
   }
   
@@ -147,28 +143,23 @@ const attachStream = async (videoEl, stream, label) => {
   }
 };
 
-watch(localStream, async (stream) => {
-  if (stream) {
-    await nextTick();
-    attachStream(localVideo.value, stream, 'LocalVideo');
-  }
-});
-
-// 当进入接收端活跃状态时，确保视频流被挂载
+// 监听状态变化以进行流挂载
 watch(appState, async (newState) => {
+  await nextTick();
+  // 关键：当状态变为 SENDER 且 localStream 存在时，挂载本地预览
+  if (newState === STATES.SENDER && localStream.value) {
+    console.log('[CastNow] State changed to SENDER, attaching local stream...');
+    setTimeout(() => {
+        attachStream(localVideo.value, localStream.value, 'LocalVideo');
+    }, 200); // 略微延迟以确保 Transition 渲染完成
+  }
+  
+  // 接收端活跃状态挂载
   if (newState === STATES.RECEIVER_ACTIVE && remoteStream.value) {
-    await nextTick();
-    // 延迟一小会儿等待 Transition 动画完成
+    console.log('[CastNow] State changed to RECEIVER_ACTIVE, attaching remote stream...');
     setTimeout(() => {
       attachStream(remoteVideo.value, remoteStream.value, 'RemoteVideo');
-    }, 100);
-  }
-});
-
-watch(remoteStream, async (stream) => {
-  if (stream && appState.value === STATES.RECEIVER_ACTIVE) {
-    await nextTick();
-    attachStream(remoteVideo.value, stream, 'RemoteVideo');
+    }, 200);
   }
 });
 
@@ -191,9 +182,8 @@ const handleStartCasting = async () => {
     });
     
     localStream.value = stream;
-    // 监听系统自带的“停止共享”按钮
     stream.getVideoTracks()[0].onended = () => {
-      console.log('[CastNow] Screen sharing stopped by system.');
+      console.log('[CastNow] Screen sharing stopped by system track-end.');
       resetApp();
     };
 
@@ -208,7 +198,7 @@ const handleStartCasting = async () => {
     });
 
     peer.on('connection', (conn) => {
-      console.log('[CastNow] Receiver joined. Sending stream...');
+      console.log('[CastNow] Receiver linked. Initiating media call...');
       activeConnections.value.push(conn);
       
       const call = peer.call(conn.peer, localStream.value);
@@ -235,7 +225,7 @@ const handleStartCasting = async () => {
 
   } catch (err) {
     console.error('[CastNow] Capture error:', err);
-    error.value = 'Failed to capture screen. Please check permissions.';
+    error.value = 'Failed to capture screen.';
     isConnecting.value = false;
   }
 };
@@ -251,26 +241,26 @@ const handleReceiveCast = () => {
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
-    console.log('[CastNow] Receiver ready:', id);
+    console.log('[CastNow] Receiver Peer Ready:', id);
     const conn = peer.connect(inputCode.value);
     
     conn.on('open', () => {
-      console.log('[CastNow] Connected to sender.');
+      console.log('[CastNow] Data channel established with sender.');
       activeConnections.value.push(conn);
     });
 
     conn.on('close', () => {
-      console.log('[CastNow] Sender terminated connection.');
+      console.log('[CastNow] Connection closed by remote peer.');
       resetApp();
     });
 
     peer.on('call', (call) => {
-      console.log('[CastNow] 📞 Answering call...');
+      console.log('[CastNow] 📞 Incoming call from sender. Answering...');
       call.answer(); 
       setupWebRTCStats(call.peerConnection, 'Receiver');
 
       call.on('stream', (stream) => {
-        console.log('[CastNow] 🌊 Stream received. Initializing player...');
+        console.log('[CastNow] 🌊 Remote media stream arrived.');
         remoteStream.value = stream;
         appState.value = STATES.RECEIVER_ACTIVE;
         isConnecting.value = false;
@@ -279,7 +269,7 @@ const handleReceiveCast = () => {
 
     setTimeout(() => {
       if (appState.value !== STATES.RECEIVER_ACTIVE && isConnecting.value) {
-        error.value = 'Connection timeout. Check the code or your network.';
+        error.value = 'Connection timeout.';
         isConnecting.value = false;
         showProxyAdvice.value = true;
       }
@@ -288,7 +278,7 @@ const handleReceiveCast = () => {
 
   peer.on('error', (err) => {
     console.error('[CastNow] Receiver Error:', err.type);
-    error.value = `Link failed: ${err.type}`;
+    error.value = `Connection error: ${err.type}`;
     isConnecting.value = false;
   });
 };
@@ -363,6 +353,7 @@ const resetApp = () => {
             </div>
 
             <div class="aspect-video bg-black rounded-3xl border border-slate-800 overflow-hidden mb-8 shadow-2xl relative group">
+              <!-- 本地预览视频 -->
               <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
                 <div class="flex items-center gap-2">
@@ -409,11 +400,6 @@ const resetApp = () => {
                       P2P handshaking failed. Potential issues: VPN interference, restricted firewall, or symmetric NAT.
                     </p>
                  </div>
-                 <div class="text-[9px] text-slate-500 font-medium space-y-1 uppercase tracking-tighter">
-                    <p>• Try disabling VPN / Proxy</p>
-                    <p>• Switch network (e.g. 4G/5G Hotspot)</p>
-                    <p>• Check if the Sender is still online</p>
-                 </div>
                </div>
             </div>
           </div>
@@ -421,6 +407,7 @@ const resetApp = () => {
 
         <!-- 4. PLAYER -->
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden">
+          <!-- 远端视频播放 -->
           <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
           <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 shadow-2xl pointer-events-none">
             <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
@@ -454,7 +441,6 @@ const resetApp = () => {
 }
 input { caret-color: transparent; }
 
-/* 针对极小屏幕的适配 */
 @media (max-width: 480px) {
   .text-5xl { font-size: 2.25rem !important; }
   .w-14 { width: 3rem !important; }
