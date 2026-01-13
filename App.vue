@@ -29,7 +29,6 @@ import {
   CreditCard,
   Key,
   TrendingUp,
-  FlaskConical,
   Timer,
   LogOut
 } from 'lucide-vue-next';
@@ -42,9 +41,9 @@ const STATES = {
   RECEIVER_ACTIVE: 'RECEIVER_ACTIVE'
 };
 
-// --- Monetization Logic ---
-const FREE_TRIAL_SECONDS = 30; 
-const GRACE_PERIOD_SECONDS = 300; 
+// --- Monetization Logic (Production Ready) ---
+const FREE_TRIAL_SECONDS = 1800; // 30 Minutes
+const GRACE_PERIOD_SECONDS = 300; // 5 Minutes
 
 const timeLeft = ref(FREE_TRIAL_SECONDS);
 const graceTimeLeft = ref(GRACE_PERIOD_SECONDS);
@@ -54,7 +53,6 @@ const isPro = ref(false);
 const showPaywall = ref(false);
 const licenseKeyInput = ref('');
 const isVerifying = ref(false);
-const isSimulating = ref(false);
 let timerInterval = null;
 let proCountInterval = null;
 
@@ -68,13 +66,11 @@ const formatTime = (seconds) => {
 };
 
 /**
- * 核心验证逻辑：必须请求后端，不允许前端旁路
+ * 生产环境验证：所有 Key 必须通过后端 Redis 查询其真实 TTL
  */
 const verifyLicense = async (key) => {
   if (!key) return false;
   
-  // 安全更新：移除对 LOCAL-DEV- 和 OFFLINE- 的前端本地信任
-  // 所有 Key 必须经过 api/verify-pass 的 Redis 校验
   try {
     const response = await fetch('/api/verify-pass', {
       method: 'POST',
@@ -82,27 +78,25 @@ const verifyLicense = async (key) => {
       body: JSON.stringify({ licenseKey: key })
     });
     
-    if (!response.ok) throw new Error('Network response not ok');
+    if (!response.ok) throw new Error('Security connection failed');
     
     const data = await response.json();
     if (data.valid) {
       isPro.value = true;
       isGracePeriod.value = false;
-      proTimeLeft.value = data.expiresIn; // 由后端返回 Redis 的真实 TTL
+      proTimeLeft.value = data.expiresIn; 
       localStorage.setItem('castnow_license', key);
       showPaywall.value = false;
       stopTimers();
       startProCountdown();
       return true;
     } else {
-      // 验证失败，清理本地存储
       isPro.value = false;
       localStorage.removeItem('castnow_license');
       return false;
     }
   } catch (err) {
-    console.error('[Verify Error]', err);
-    // 网络错误时不自动降级，避免闪断，但也不允许非法进入
+    console.error('[Security Check Failed]', err);
     return false;
   }
 };
@@ -113,7 +107,6 @@ const startProCountdown = () => {
     if (proTimeLeft.value > 0) {
       proTimeLeft.value--;
     } else {
-      // TTL 耗尽，强制降级
       isPro.value = false;
       proTimeLeft.value = null;
       localStorage.removeItem('castnow_license');
@@ -128,29 +121,13 @@ const stopTimers = () => {
   timerInterval = null;
 };
 
-const handleMockPurchase = async () => {
-  isSimulating.value = true;
-  error.value = null;
-  try {
-    const response = await fetch('/api/simulate-purchase', { method: 'POST' });
-    const data = await response.json();
-    if (data.success) {
-      licenseKeyInput.value = data.licenseKey;
-      // 模拟购买后自动尝试激活（此时 Key 已经通过模拟后端存入 Redis）
-      await handleActivate();
-    }
-  } catch (err) {
-    error.value = "Simulation failed. Check API connectivity.";
-  } finally {
-    isSimulating.value = false;
-  }
-};
-
 const handleActivate = async () => {
+  if (!licenseKeyInput.value) return;
   isVerifying.value = true;
+  error.value = null;
   const success = await verifyLicense(licenseKeyInput.value);
   if (!success) {
-    error.value = "Invalid or expired license key.";
+    error.value = "Invalid, expired, or used license key.";
   } else {
     error.value = null;
   }
@@ -158,8 +135,8 @@ const handleActivate = async () => {
 };
 
 const handleDismissPaywall = () => {
-  if (isGracePeriod.value) {
-    if (confirm("Trial has ended. Closing this will immediately disconnect your session. Are you sure you want to exit?")) {
+  if (isGracePeriod.value && appState.value === STATES.SENDER) {
+    if (confirm("Trial has ended. Closing this will immediately disconnect your session. Exit now?")) {
       stopCastingForcefully();
     }
   } else {
@@ -430,10 +407,10 @@ const copyToClipboard = () => {
       </div>
       
       <div class="flex items-center gap-3 md:gap-4">
-         <!-- Trial Timer -->
+         <!-- Trial Timer (30 min) -->
          <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
             <Clock class="w-4 h-4 text-amber-500" />
-            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 10 || isGracePeriod ? 'text-red-500 animate-pulse' : 'text-slate-300'">
+            <span class="text-xs font-black tracking-tighter" :class="isGracePeriod ? 'text-red-500 animate-pulse' : 'text-slate-300'">
               {{ isGracePeriod ? 'Grace Period' : formatTime(timeLeft) }}
             </span>
          </div>
@@ -451,17 +428,18 @@ const copyToClipboard = () => {
          <button 
            v-if="!isPro" 
            @click="showPaywall = true" 
-           class="hidden md:flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+           class="flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
            :class="isGracePeriod ? 'animate-bounce bg-red-500 text-white' : 'animate-pulse'"
          >
            <Zap class="w-3 h-3 fill-current" />
-           {{ isGracePeriod ? 'Renew Now' : 'Upgrade to Pro' }}
+           <span class="hidden sm:inline">{{ isGracePeriod ? 'Renew Now' : 'Upgrade' }}</span>
+           <span class="sm:hidden">{{ isGracePeriod ? 'Renew' : 'Pro' }}</span>
          </button>
 
          <div v-if="isConnecting" class="hidden sm:flex items-center gap-2 text-[10px] font-black text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse uppercase">
             <Activity class="w-3 h-3" /> Tunneling
          </div>
-         <button @click="activeModal = 'contact'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/30 rounded-full hover:bg-amber-500 hover:text-slate-950 transition-all">Local Deployment</button>
+         <button @click="activeModal = 'contact'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/30 rounded-full hover:bg-amber-500 hover:text-slate-950 transition-all hidden md:block">Business</button>
       </div>
     </header>
 
@@ -470,7 +448,7 @@ const copyToClipboard = () => {
         <div v-if="appState === STATES.LANDING" key="landing" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div class="mb-6 flex items-center gap-2 bg-slate-900/50 px-4 py-1.5 rounded-full border border-slate-800">
             <Globe class="w-3.5 h-3.5 text-amber-500" />
-            <span class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">P2P Optimized for your region</span>
+            <span class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Secure P2P Protocol Engine</span>
           </div>
           <h1 class="text-6xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85]">
             Instant <br />
@@ -495,11 +473,11 @@ const copyToClipboard = () => {
 
         <div v-else-if="appState === STATES.SENDER" key="sender" class="flex-1 flex flex-col items-center justify-center p-4">
           <div class="w-full max-w-2xl bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-6 md:p-12 text-center backdrop-blur-xl shadow-2xl">
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Unique Channel Identifier</p>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Channel Key</p>
             <div class="flex flex-wrap items-center justify-center gap-2 mb-10 min-h-[5rem]">
               <div v-if="!peerId" class="flex items-center gap-2 text-amber-500/50">
                 <Loader2 class="w-5 h-5 animate-spin" />
-                <span class="text-sm font-black uppercase tracking-widest">Opening Tunnel...</span>
+                <span class="text-sm font-black uppercase tracking-widest">Generating Tunnel...</span>
               </div>
               <div v-else class="flex items-center gap-1 sm:gap-2">
                 <template v-for="(char, i) in peerId.split('')" :key="i">
@@ -517,28 +495,28 @@ const copyToClipboard = () => {
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
                 <div class="flex items-center gap-2">
                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
-                   <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Live Stream Monitor</p>
+                   <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Local Preview</p>
                 </div>
                 <div v-if="!isPro" class="ml-auto bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
                    <Timer class="w-3 h-3 text-amber-500" />
                    <span class="text-[9px] font-black text-white uppercase" :class="isGracePeriod ? 'text-red-500 animate-pulse' : ''">
-                     {{ isGracePeriod ? `Grace Period: ${formatTime(graceTimeLeft)}` : `${timeLeft}s Trial Left` }}
+                     {{ isGracePeriod ? `Grace Period: ${formatTime(graceTimeLeft)}` : `${formatTime(timeLeft)} Trial` }}
                    </span>
                 </div>
                 <div v-else class="ml-auto bg-amber-500/20 backdrop-blur px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-2">
                    <Zap class="w-3 h-3 text-amber-500 fill-current" />
-                   <span class="text-[9px] font-black text-white uppercase tracking-tighter">Pro: {{ formatTime(proTimeLeft) }} left</span>
+                   <span class="text-[9px] font-black text-white uppercase tracking-tighter">Pro Session Active</span>
                 </div>
               </div>
             </div>
-            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Close Session</button>
+            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Terminate Session</button>
           </div>
         </div>
 
         <div v-else-if="appState === STATES.RECEIVER_INPUT" key="input" class="flex-1 flex flex-col items-center justify-center p-4">
           <div class="w-full max-w-md bg-slate-900/40 border border-slate-800 rounded-[3rem] p-8 md:p-12 text-center shadow-2xl">
             <h2 class="text-3xl font-black mb-2 uppercase tracking-tight">Access Key</h2>
-            <p class="text-slate-500 text-sm mb-12 uppercase tracking-widest">Connect to an active node</p>
+            <p class="text-slate-500 text-sm mb-12 uppercase tracking-widest">Connect to broadcaster</p>
             <div class="relative mb-12">
               <input v-model="inputCode" type="text" maxlength="6" inputmode="numeric" autofocus class="absolute inset-0 w-full h-full opacity-0 cursor-default z-10" @keyup.enter="handleReceiveCast" />
               <div class="flex justify-center gap-2">
@@ -546,7 +524,7 @@ const copyToClipboard = () => {
               </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
-              <button @click="resetApp" class="py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Back</button>
+              <button @click="resetApp" class="py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Cancel</button>
               <button @click="handleReceiveCast" :disabled="inputCode.length !== 6 || isConnecting" class="py-4 font-black rounded-2xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]" :class="inputCode.length === 6 && !isConnecting ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-700'">
                 <Loader2 v-if="isConnecting" class="w-4 h-4 animate-spin" />
                 {{ isConnecting ? 'Linking' : 'Establish Link' }}
@@ -569,13 +547,13 @@ const copyToClipboard = () => {
             <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
                <Clock class="w-4 h-4 text-amber-500" />
                <span class="text-[11px] font-black uppercase tracking-widest text-white">
-                 {{ isGracePeriod ? `Broadcaster trial ended. Grace period: ${formatTime(graceTimeLeft)}` : `Trial session active: ${timeLeft}s left` }}
+                 {{ isGracePeriod ? `Broadcaster trial ended. Grace period active.` : `Trial Session: ${formatTime(timeLeft)}` }}
                </span>
             </div>
             <div v-else class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
                <Zap class="w-4 h-4 text-amber-500 fill-current" />
                <span class="text-[11px] font-black uppercase tracking-widest text-white">
-                 Premium Session. Expires in: {{ formatTime(proTimeLeft) }}
+                 Premium Node | {{ formatTime(proTimeLeft) }} Left
                </span>
             </div>
           </div>
@@ -590,60 +568,50 @@ const copyToClipboard = () => {
         </div>
         <div class="flex flex-col">
           <span class="text-slate-300 font-black text-[10px] uppercase tracking-widest leading-tight">Lead Architect</span>
-          <span class="text-slate-500 text-[10px] font-medium tracking-tight">Senior Solutions Engineer & Author</span>
+          <span class="text-slate-500 text-[10px] font-medium tracking-tight">Vercel Solutions Partner</span>
         </div>
       </div>
       
       <div class="flex flex-wrap justify-center gap-6 md:gap-12 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">
         <button @click="activeModal = 'docs'" class="hover:text-amber-500 transition-colors">Documentation</button>
-        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Data Privacy</button>
+        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy Policy</button>
         <button @click="activeModal = 'source'" class="hover:text-amber-500 transition-colors">Open Source</button>
-        <button @click="activeModal = 'contact'" class="hover:text-amber-500 transition-colors">Local Deployment</button>
+        <button @click="activeModal = 'contact'" class="hover:text-amber-500 transition-colors">Enterprise</button>
       </div>
     </footer>
 
-    <!-- Paywall Modal -->
+    <!-- Paywall Modal (Production Version) -->
     <Transition name="modal">
-      <div v-if="showPaywall && appState === STATES.SENDER" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
+      <div v-if="showPaywall" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
         <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
           
-          <div v-if="isGracePeriod" class="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-500/30 py-3 flex items-center justify-center gap-2 animate-pulse">
+          <div v-if="isGracePeriod && appState === STATES.SENDER" class="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-500/30 py-3 flex items-center justify-center gap-2 animate-pulse">
             <ShieldAlert class="w-4 h-4 text-red-500" />
-            <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Session Expiring: {{ formatTime(graceTimeLeft) }} Left</span>
+            <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Trial Expired: {{ formatTime(graceTimeLeft) }} To Disconnect</span>
           </div>
 
-          <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20" :class="isGracePeriod ? 'mt-8' : ''">
+          <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20" :class="(isGracePeriod && appState === STATES.SENDER) ? 'mt-8' : ''">
             <Zap class="w-10 h-10 fill-current" />
           </div>
-          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">{{ isGracePeriod ? 'Trial Expired' : 'Upgrade to Pro' }}</h3>
+          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">
+            {{ (isGracePeriod && appState === STATES.SENDER) ? 'Trial Ended' : 'Upgrade to Pro' }}
+          </h3>
           <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">
-             Experience <span class="text-white font-bold">4K Zero-Latency casting</span> without limits. 
-             {{ isGracePeriod ? 'You have 5 minutes to complete your upgrade before the session is forcibly closed.' : 'Upgrade now to prevent trial interruption.' }}
+             Experience <span class="text-white font-bold">4K Zero-Latency casting</span> with unrestricted bandwidth and dedicated premium signaling nodes.
           </p>
           
           <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4">
             <div class="text-5xl font-black text-white tracking-tighter mb-2">$1.90</div>
             <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">24-Hour Premium Pass</div>
             
-            <div class="grid grid-cols-1 gap-3">
-              <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20 active:scale-95">
-                <CreditCard class="w-4 h-4" /> Buy 24h Pass
-              </a>
-
-              <button 
-                @click="handleMockPurchase" 
-                :disabled="isSimulating"
-                class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-[9px] border border-slate-700 active:scale-95"
-              >
-                <FlaskConical class="w-3 h-3" /> 
-                {{ isSimulating ? 'Processing Simulation...' : 'Dev Only: Mock Test Purchase' }}
-              </button>
-            </div>
+            <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20 active:scale-95 mb-0">
+              <CreditCard class="w-4 h-4" /> Get Pass Now
+            </a>
           </div>
 
           <div class="space-y-4 px-4">
              <div class="relative group">
-               <input v-model="licenseKeyInput" type="text" placeholder="Paste License Key Here" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm font-mono placeholder:text-slate-700 focus:border-amber-500 outline-none transition-all" @keyup.enter="handleActivate" />
+               <input v-model="licenseKeyInput" type="text" placeholder="Enter License Key" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm font-mono placeholder:text-slate-700 focus:border-amber-500 outline-none transition-all" @keyup.enter="handleActivate" />
                <div class="absolute right-2 top-2 bottom-2">
                   <button @click="handleActivate" :disabled="!licenseKeyInput || isVerifying" class="h-full px-6 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all">
                     <Loader2 v-if="isVerifying" class="w-3 h-3 animate-spin" />
@@ -657,10 +625,10 @@ const copyToClipboard = () => {
           <button 
             @click="handleDismissPaywall" 
             class="mt-10 group flex items-center justify-center gap-2 mx-auto text-[9px] font-black uppercase tracking-[0.4em] transition-all"
-            :class="isGracePeriod ? 'text-red-500 hover:text-red-400' : 'text-slate-600 hover:text-slate-400'"
+            :class="(isGracePeriod && appState === STATES.SENDER) ? 'text-red-500 hover:text-red-400' : 'text-slate-600 hover:text-slate-400'"
           >
-            <LogOut v-if="isGracePeriod" class="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-            {{ isGracePeriod ? 'End Session Now' : 'Maybe Later' }}
+            <LogOut v-if="isGracePeriod && appState === STATES.SENDER" class="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+            {{ (isGracePeriod && appState === STATES.SENDER) ? 'End Session' : 'Continue for now' }}
           </button>
         </div>
       </div>
@@ -674,46 +642,36 @@ const copyToClipboard = () => {
           
           <div v-if="activeModal === 'docs'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><BookOpen class="w-9 h-9" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">How it works</h3>
+            <h3 class="text-3xl font-black uppercase tracking-tight">Operations Guide</h3>
             <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>1. Initiate by clicking <span class="text-white">Broadcast</span>. Select your source: Window, Tab, or Entire Screen.</p>
-              <p>2. A <span class="text-white">6-digit node code</span> is assigned to your browser session.</p>
-              <p>3. Share this code. The recipient enters it on the <span class="text-white">Receive</span> terminal.</p>
-              <p>4. Secure handshake happens, then WebRTC streams media <span class="text-white">directly</span> between you.</p>
+              <p>1. <span class="text-white">Broadcast</span>: Select your source (Tab/Screen) and get a 6-digit key.</p>
+              <p>2. <span class="text-white">Connect</span>: Recipient enters the key on their device.</p>
+              <p>3. <span class="text-white">P2P Tunnel</span>: Media flows directly browser-to-browser with no relay server.</p>
             </div>
           </div>
 
           <div v-if="activeModal === 'privacy'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><ShieldCheck class="w-9 h-9" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Privacy Architecture</h3>
+            <h3 class="text-3xl font-black uppercase tracking-tight">Privacy Policy</h3>
             <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>CastNow is built with <span class="text-white">Privacy by Design</span>. Media data is never routed through our servers.</p>
-              <p>We leverage <span class="text-white">End-to-End P2P Tunnels</span>. Signal packets only contain metadata for connection negotiation. Your stream is yours alone.</p>
+              <p>We do not store your media streams. No logs. No recordings. Pure WebRTC architecture ensures your data is ephemeral and encrypted.</p>
             </div>
           </div>
 
           <div v-if="activeModal === 'source'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><Code2 class="w-9 h-9" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Open Ecosystem</h3>
+            <h3 class="text-3xl font-black uppercase tracking-tight">Open Source</h3>
             <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>CastNow empowers the community through open standards. No locked proprietary protocols. Transparent codebases only.</p>
-              <div class="pt-6 flex gap-4">
-                <a href="https://github.com" target="_blank" class="flex items-center gap-2 bg-slate-800 px-6 py-3 rounded-2xl hover:bg-slate-700 transition-all text-white font-black text-xs uppercase tracking-widest"><Github class="w-4 h-4" /> Source Repository</a>
-              </div>
+              <p>CastNow is open for inspection. Check our official GitHub repository for architecture details and security audits.</p>
             </div>
           </div>
 
           <div v-if="activeModal === 'contact'" class="flex flex-col gap-6 text-center animate-slideUp">
             <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Layers class="w-10 h-10" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Local Deployment</h3>
-            <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed">Enterprise-grade localized solutions for internal networks, private P2P clusters, and custom TURN/STUN infrastructure.</p>
-            <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800 select-all font-mono text-amber-500 font-black text-lg md:text-xl shadow-inner">
-              solutions@castnow.io
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 text-slate-500 text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] mt-6">
-               <span class="flex items-center gap-1.5"><Activity class="w-3 h-3" /> Dedicated Support</span>
-               <span class="w-1 h-1 bg-slate-700 rounded-full"></span>
-               <span class="flex items-center gap-1.5"><ShieldAlert class="w-3 h-3" /> Private Cloud</span>
+            <h3 class="text-3xl font-black uppercase tracking-tight">Enterprise Solutions</h3>
+            <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed">Custom private deployments for corporate networks behind strict firewalls.</p>
+            <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800 select-all font-mono text-amber-500 font-black text-lg shadow-inner">
+              business@castnow.io
             </div>
           </div>
         </div>
@@ -737,12 +695,6 @@ const copyToClipboard = () => {
 
 input { caret-color: transparent; }
 :fullscreen video { width: 100vw; height: 100vh; object-fit: contain; }
-
-@media (max-width: 480px) { 
-  .text-5xl { font-size: 2rem !important; } 
-  .w-14 { width: 2.8rem !important; } 
-  .h-16 { height: 3.2rem !important; } 
-}
 
 input[type="text"].bg-slate-950 {
   caret-color: #f59e0b;
