@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onUnmounted, watch, nextTick, computed } from 'vue';
+import { ref, onUnmounted, watch, nextTick, computed, onMounted } from 'vue';
 import { Analytics } from '@vercel/analytics/vue';
 import { 
   Monitor, 
@@ -23,7 +23,10 @@ import {
   User,
   ExternalLink,
   Globe,
-  Layers
+  Layers,
+  Clock,
+  CreditCard,
+  Key
 } from 'lucide-vue-next';
 
 // Application States
@@ -34,16 +37,91 @@ const STATES = {
   RECEIVER_ACTIVE: 'RECEIVER_ACTIVE'
 };
 
+// --- Monetization Logic ---
+const FREE_TRIAL_SECONDS = 900; // 15 minutes
+const timeLeft = ref(FREE_TRIAL_SECONDS);
+const isPro = ref(false);
+const showPaywall = ref(false);
+const licenseKeyInput = ref('');
+const isVerifying = ref(false);
+let timerInterval = null;
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const verifyLicense = async (key) => {
+  if (!key) return false;
+  try {
+    const response = await fetch('/api/verify-pass', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenseKey: key })
+    });
+    const data = await response.json();
+    if (data.valid) {
+      isPro.value = true;
+      localStorage.setItem('castnow_license', key);
+      showPaywall.value = false;
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Verification failed', err);
+    return false;
+  }
+};
+
+const handleActivate = async () => {
+  isVerifying.value = true;
+  const success = await verifyLicense(licenseKeyInput.value);
+  if (!success) {
+    error.value = "Invalid or expired license key.";
+  } else {
+    error.value = null;
+  }
+  isVerifying.value = false;
+};
+
+const startTimer = () => {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!isPro.value && timeLeft.value > 0) {
+      timeLeft.value--;
+      if (timeLeft.value <= 0) {
+        stopCastingDueToTrialEnd();
+      }
+    }
+  }, 1000);
+};
+
+const stopCastingDueToTrialEnd = () => {
+  clearInterval(timerInterval);
+  resetApp();
+  showPaywall.value = true;
+};
+
+onMounted(async () => {
+  const savedKey = localStorage.getItem('castnow_license');
+  if (savedKey) {
+    await verifyLicense(savedKey);
+  }
+  if (!isPro.value) {
+    startTimer();
+  }
+});
+// --- End Monetization Logic ---
+
 /**
  * Dynamic STUN Server Selection
- * Detects if the user is in Mainland China to provide localized STUN servers for lower latency.
  */
 const getIceServers = () => {
   const isChina = () => {
     try {
       const locale = navigator.language || '';
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      // Heuristic for Mainland China region
       return locale.toLowerCase().includes('zh') || 
              timezone.includes('Asia/Shanghai') || 
              timezone.includes('Asia/Chongqing') || 
@@ -84,7 +162,6 @@ const isConnecting = ref(false);
 const isCopied = ref(false);
 const isFullscreen = ref(false);
 
-// Modal States: 'docs', 'privacy', 'source', 'contact'
 const activeModal = ref(null); 
 
 const peerInstance = ref(null);
@@ -165,9 +242,14 @@ const cleanup = () => {
 onUnmounted(() => {
   cleanup();
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  if (timerInterval) clearInterval(timerInterval);
 });
 
 const handleStartCasting = async () => {
+  if (!isPro.value && timeLeft.value <= 0) {
+    showPaywall.value = true;
+    return;
+  }
   try {
     isConnecting.value = true;
     error.value = null;
@@ -258,7 +340,18 @@ const copyToClipboard = () => {
         </div>
         <span class="text-xl md:text-2xl font-black tracking-tighter uppercase">CastNow</span>
       </div>
+      
       <div class="flex items-center gap-4">
+         <!-- Trial Timer UI -->
+         <div v-if="!isPro" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-full shadow-lg">
+            <Clock class="w-4 h-4 text-amber-500" />
+            <span class="text-xs font-black tracking-tighter" :class="timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-slate-300'">{{ formatTime(timeLeft) }}</span>
+         </div>
+         <div v-else class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+            <Zap class="w-4 h-4 text-amber-500 fill-current" />
+            <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pro Member</span>
+         </div>
+
          <div v-if="isConnecting" class="hidden sm:flex items-center gap-2 text-[10px] font-black text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse uppercase">
             <Activity class="w-3 h-3" /> Tunneling
          </div>
@@ -385,13 +478,49 @@ const copyToClipboard = () => {
       </div>
     </footer>
 
-    <!-- Modals Overlay -->
+    <!-- Monetization Modal / Paywall -->
+    <Transition name="modal">
+      <div v-if="showPaywall" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
+        <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
+          <div class="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center text-slate-950 mx-auto mb-8 shadow-2xl shadow-amber-500/20">
+            <Zap class="w-10 h-10 fill-current" />
+          </div>
+          <h3 class="text-3xl font-black uppercase tracking-tight mb-4">Trial Limit Reached</h3>
+          <p class="text-slate-400 font-medium mb-10 text-sm leading-relaxed px-4">Your free 15-minute trial has ended. Unlock <span class="text-white font-bold">unlimited 4K casting</span> for the next 24 hours for just $1.90.</p>
+          
+          <div class="bg-slate-950 rounded-[2rem] p-6 border border-slate-800 mb-8 mx-4">
+            <div class="text-5xl font-black text-white tracking-tighter mb-2">$1.90</div>
+            <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">24-Hour Premium Pass</div>
+            <!-- Gumroad Product Link -->
+            <a href="https://gumroad.com/l/ihhtg" target="_blank" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
+              <CreditCard class="w-4 h-4" /> Get Pass Now
+            </a>
+          </div>
+
+          <div class="space-y-4 px-4">
+             <div class="relative group">
+               <input v-model="licenseKeyInput" type="text" placeholder="Enter License Key" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm font-mono placeholder:text-slate-700 focus:border-amber-500 outline-none transition-all" @keyup.enter="handleActivate" />
+               <div class="absolute right-2 top-2 bottom-2">
+                  <button @click="handleActivate" :disabled="!licenseKeyInput || isVerifying" class="h-full px-6 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                    <Loader2 v-if="isVerifying" class="w-3 h-3 animate-spin" />
+                    <span v-else>Activate</span>
+                  </button>
+               </div>
+             </div>
+             <p v-if="error" class="text-red-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">{{ error }}</p>
+          </div>
+
+          <button @click="showPaywall = false" class="mt-10 text-slate-600 hover:text-slate-400 transition-colors text-[9px] font-black uppercase tracking-[0.4em] tracking-[0.3em]">Maybe later</button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Generic Modals -->
     <Transition name="modal">
       <div v-if="activeModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-xl bg-black/70" @click.self="activeModal = null">
         <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
           <button @click="activeModal = null" class="absolute top-8 right-8 p-2 text-slate-500 hover:text-white transition-colors"><X class="w-6 h-6" /></button>
           
-          <!-- Modal: Docs -->
           <div v-if="activeModal === 'docs'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><BookOpen class="w-9 h-9" /></div>
             <h3 class="text-3xl font-black uppercase tracking-tight">How it works</h3>
@@ -403,7 +532,6 @@ const copyToClipboard = () => {
             </div>
           </div>
 
-          <!-- Modal: Privacy -->
           <div v-if="activeModal === 'privacy'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><ShieldCheck class="w-9 h-9" /></div>
             <h3 class="text-3xl font-black uppercase tracking-tight">Privacy Architecture</h3>
@@ -413,7 +541,6 @@ const copyToClipboard = () => {
             </div>
           </div>
 
-          <!-- Modal: Source -->
           <div v-if="activeModal === 'source'" class="flex flex-col gap-6 animate-slideUp">
             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><Code2 class="w-9 h-9" /></div>
             <h3 class="text-3xl font-black uppercase tracking-tight">Open Ecosystem</h3>
@@ -425,7 +552,6 @@ const copyToClipboard = () => {
             </div>
           </div>
 
-          <!-- Modal: Local Deployment -->
           <div v-if="activeModal === 'contact'" class="flex flex-col gap-6 text-center animate-slideUp">
             <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Layers class="w-10 h-10" /></div>
             <h3 class="text-3xl font-black uppercase tracking-tight">Local Deployment</h3>
@@ -438,7 +564,6 @@ const copyToClipboard = () => {
                <span class="w-1 h-1 bg-slate-700 rounded-full"></span>
                <span class="flex items-center gap-1.5"><ShieldAlert class="w-3 h-3" /> Private Cloud</span>
             </div>
-            <button @click="activeModal = null" class="mt-8 text-slate-600 hover:text-slate-400 transition-colors text-[9px] font-black uppercase tracking-[0.4em]">Dismiss</button>
           </div>
         </div>
       </div>
@@ -468,5 +593,10 @@ input { caret-color: transparent; }
   .text-5xl { font-size: 2rem !important; } 
   .w-14 { width: 2.8rem !important; } 
   .h-16 { height: 3.2rem !important; } 
+}
+
+/* Specific styling for the Activation input to allow standard text typing */
+input[type="text"].bg-slate-950 {
+  caret-color: #f59e0b;
 }
 </style>
