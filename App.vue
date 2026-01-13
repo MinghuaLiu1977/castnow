@@ -14,7 +14,7 @@ import {
   Activity
 } from 'lucide-vue-next';
 
-// App States
+// 应用状态枚举
 const STATES = {
   LANDING: 'LANDING',
   SENDER: 'SENDER',
@@ -42,7 +42,6 @@ const inputCode = ref('');
 const error = ref(null);
 const isConnecting = ref(false);
 const isCopied = ref(false);
-const showProxyAdvice = ref(false);
 
 const peerInstance = ref(null);
 const localStream = ref(null);
@@ -51,116 +50,87 @@ const localVideo = ref(null);
 const remoteVideo = ref(null);
 const activeConnections = ref([]);
 
-// 深度诊断日志系统
-const setupWebRTCStats = (pc, label) => {
-  if (!pc) return;
-  console.log(`%c[WebRTC:${label}] 🔎 Deep Monitoring Started`, 'color: #3b82f6; font-weight: bold');
+/**
+ * 核心：将媒体流挂载到 Video 元素
+ */
+const attachStream = async (videoEl, stream, label) => {
+  if (!videoEl || !stream) {
+    console.warn(`[CastNow] ${label}: Missing element or stream.`);
+    return;
+  }
   
+  console.log(`[CastNow] Attaching stream to ${label}...`);
+  videoEl.srcObject = stream;
+
   try {
-    pc.oniceconnectionstatechange = () => {
-      const state = pc.iceConnectionState;
-      console.log(`[WebRTC:${label}] 🧊 ICE State: %c${state}`, 'color: #f59e0b; font-weight: bold');
-      if (state === 'failed' || state === 'disconnected') showProxyAdvice.value = true;
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        const c = event.candidate;
-        console.log(`[WebRTC:${label}] 📍 New Candidate: ${c.protocol} | ${c.type} | ${c.address}:${c.port}`);
-      }
-    };
-
-    const statsInterval = setInterval(async () => {
-      if (pc.signalingState === 'closed') return clearInterval(statsInterval);
-      try {
-        const stats = await pc.getStats();
-        stats.forEach(report => {
-          if (report.type === 'inbound-rtp' && report.kind === 'video') {
-            console.debug(`[WebRTC:${label}] 📊 Video Bitrate: ${Math.round(report.bytesReceived / 1024)} KB received`);
-          }
-        });
-      } catch (e) {}
-    }, 5000);
-  } catch (e) {
-    console.warn(`[WebRTC:${label}] Logger bind error:`, e);
+    await videoEl.play();
+    console.log(`[CastNow] ✅ ${label} playback started.`);
+  } catch (err) {
+    console.warn(`[CastNow] ⚠️ ${label} standard play failed, trying muted...`);
+    videoEl.muted = true;
+    try {
+      await videoEl.play();
+    } catch (e) {
+      console.error(`[CastNow] ❌ ${label} playback fatal error:`, e);
+    }
   }
 };
 
+/**
+ * 彻底清理资源：停止共享、断开 Peer
+ */
 const cleanup = () => {
-  console.log('[CastNow] Cleaning up resources...');
-  
+  console.log('[CastNow] Performing deep cleanup...');
+
+  // 1. 停止本地流的所有轨道（关键：让浏览器停止“正在共享”提示）
+  if (localStream.value) {
+    localStream.value.getTracks().forEach(track => {
+      track.stop();
+      track.enabled = false;
+    });
+    localStream.value = null;
+  }
+
+  // 2. 清空 Video 元素引用
+  if (localVideo.value) localVideo.value.srcObject = null;
+  if (remoteVideo.value) remoteVideo.value.srcObject = null;
+
+  // 3. 关闭所有 PeerJS 连接
   activeConnections.value.forEach(conn => {
-    try { conn.close(); } catch(e) {}
+    try { conn.close(); } catch (e) {}
   });
   activeConnections.value = [];
 
+  // 4. 销毁 Peer 实例
   if (peerInstance.value) {
     try {
+      peerInstance.value.disconnect();
       peerInstance.value.destroy();
     } catch (e) {}
     peerInstance.value = null;
   }
 
-  if (localStream.value) {
-    localStream.value.getTracks().forEach(track => {
-      track.stop();
-      track.onended = null;
-    });
-    localStream.value = null;
-  }
-
   remoteStream.value = null;
   peerId.value = '';
   inputCode.value = '';
-  error.value = null;
-  showProxyAdvice.value = false;
   isConnecting.value = false;
+  error.value = null;
 };
 
 onUnmounted(cleanup);
 
-// 增强流挂载逻辑
-const attachStream = async (videoEl, stream, label) => {
-  if (!videoEl || !stream) {
-    console.warn(`[CastNow] Cannot attach ${label}: Element or stream missing`);
-    return;
-  }
-  
-  console.log(`[CastNow] Attaching stream to <${label}> element...`);
-  videoEl.srcObject = stream;
-  
-  try {
-    await videoEl.play();
-    console.log(`[CastNow] ✅ ${label} playback started.`);
-  } catch (err) {
-    console.warn(`[CastNow] ⚠️ ${label} standard playback failed, trying muted:`, err);
-    videoEl.muted = true;
-    try {
-      await videoEl.play();
-    } catch (e) {
-      console.error(`[CastNow] ❌ ${label} total playback failure:`, e);
-    }
-  }
-};
-
-// 监听状态变化以进行流挂载
+// 监听状态变化，确保在 DOM 准备好后挂载视频
 watch(appState, async (newState) => {
   await nextTick();
-  // 关键：当状态变为 SENDER 且 localStream 存在时，挂载本地预览
-  if (newState === STATES.SENDER && localStream.value) {
-    console.log('[CastNow] State changed to SENDER, attaching local stream...');
-    setTimeout(() => {
-        attachStream(localVideo.value, localStream.value, 'LocalVideo');
-    }, 200); // 略微延迟以确保 Transition 渲染完成
-  }
-  
-  // 接收端活跃状态挂载
-  if (newState === STATES.RECEIVER_ACTIVE && remoteStream.value) {
-    console.log('[CastNow] State changed to RECEIVER_ACTIVE, attaching remote stream...');
-    setTimeout(() => {
-      attachStream(remoteVideo.value, remoteStream.value, 'RemoteVideo');
-    }, 200);
-  }
+  // 延迟挂载以避开 Transition 动画导致的 DOM 瞬时丢失
+  setTimeout(async () => {
+    if (newState === STATES.SENDER && localStream.value) {
+      await attachStream(localVideo.value, localStream.value, 'LocalPreview');
+    }
+    if (newState === STATES.RECEIVER_ACTIVE && remoteStream.value) {
+      await attachStream(remoteVideo.value, remoteStream.value, 'RemotePlayer');
+    }
+  }, 100);
 });
 
 const copyToClipboard = () => {
@@ -170,23 +140,29 @@ const copyToClipboard = () => {
   setTimeout(() => isCopied.value = false, 2000);
 };
 
-// SENDER LOGIC
+/**
+ * 投屏端逻辑
+ */
 const handleStartCasting = async () => {
   try {
     isConnecting.value = true;
     error.value = null;
 
+    // 1. 获取屏幕流 (不依赖 Peer 是否成功)
     const stream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: "always", frameRate: { ideal: 30 } },
       audio: true
     });
     
     localStream.value = stream;
+
+    // 2. 监听系统级别的“停止共享”
     stream.getVideoTracks()[0].onended = () => {
-      console.log('[CastNow] Screen sharing stopped by system track-end.');
+      console.log('[CastNow] User stopped sharing via browser UI.');
       resetApp();
     };
 
+    // 3. 初始化 Peer 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const peer = new window.Peer(code, PEER_CONFIG);
     peerInstance.value = peer;
@@ -197,40 +173,36 @@ const handleStartCasting = async () => {
       isConnecting.value = false;
     });
 
+    // 监听连接（接收端连入时自动拨打 Call）
     peer.on('connection', (conn) => {
-      console.log('[CastNow] Receiver linked. Initiating media call...');
+      console.log('[CastNow] Receiver linked via DataChannel.');
       activeConnections.value.push(conn);
       
       const call = peer.call(conn.peer, localStream.value);
-      if (call) {
-        setupWebRTCStats(call.peerConnection, 'Sender');
-      }
-
+      
       conn.on('close', () => {
-        console.log('[CastNow] A receiver has disconnected.');
+        console.log('[CastNow] Data connection closed by receiver.');
         activeConnections.value = activeConnections.value.filter(c => c !== conn);
       });
     });
 
     peer.on('error', (err) => {
       console.error('[CastNow] Peer Error:', err.type);
-      if (err.type === 'unavailable-id') {
-        error.value = 'Code already in use. Try again.';
-      } else {
-        error.value = `Protocol Error: ${err.type}`;
-        resetApp();
-      }
+      error.value = `Connection Error: ${err.type}`;
+      if (err.type !== 'unavailable-id') resetApp();
       isConnecting.value = false;
     });
 
   } catch (err) {
-    console.error('[CastNow] Capture error:', err);
-    error.value = 'Failed to capture screen.';
+    console.error('[CastNow] Media Error:', err);
+    error.value = 'Display capture denied.';
     isConnecting.value = false;
   }
 };
 
-// RECEIVER LOGIC
+/**
+ * 接收端逻辑
+ */
 const handleReceiveCast = () => {
   if (inputCode.value.length !== 6) return;
 
@@ -241,44 +213,49 @@ const handleReceiveCast = () => {
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
-    console.log('[CastNow] Receiver Peer Ready:', id);
+    console.log('[CastNow] Receiver peer open:', id);
     const conn = peer.connect(inputCode.value);
     
     conn.on('open', () => {
-      console.log('[CastNow] Data channel established with sender.');
       activeConnections.value.push(conn);
     });
 
     conn.on('close', () => {
-      console.log('[CastNow] Connection closed by remote peer.');
+      console.log('[CastNow] Sender closed connection.');
       resetApp();
     });
 
+    // 监听呼入的流
     peer.on('call', (call) => {
-      console.log('[CastNow] 📞 Incoming call from sender. Answering...');
-      call.answer(); 
-      setupWebRTCStats(call.peerConnection, 'Receiver');
-
+      console.log('[CastNow] Answering call...');
+      call.answer();
+      
       call.on('stream', (stream) => {
-        console.log('[CastNow] 🌊 Remote media stream arrived.');
+        console.log('[CastNow] Stream received.');
         remoteStream.value = stream;
         appState.value = STATES.RECEIVER_ACTIVE;
         isConnecting.value = false;
       });
+
+      call.on('close', () => {
+        console.log('[CastNow] Call closed.');
+        resetApp();
+      });
     });
 
+    // 连接超时检查
     setTimeout(() => {
       if (appState.value !== STATES.RECEIVER_ACTIVE && isConnecting.value) {
-        error.value = 'Connection timeout.';
+        error.value = 'Connection timed out. Check code.';
         isConnecting.value = false;
-        showProxyAdvice.value = true;
+        cleanup();
       }
     }, 15000);
   });
 
   peer.on('error', (err) => {
-    console.error('[CastNow] Receiver Error:', err.type);
-    error.value = `Connection error: ${err.type}`;
+    console.error('[CastNow] Receiver Peer Error:', err.type);
+    error.value = `Link failed: ${err.type}`;
     isConnecting.value = false;
   });
 };
@@ -334,11 +311,11 @@ const resetApp = () => {
 
         <!-- 2. SENDER (BROADCAST SIDE) -->
         <div v-else-if="appState === STATES.SENDER" key="sender" class="flex-1 flex flex-col items-center justify-center p-4">
-          <div class="w-full max-w-xl bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-6 md:p-12 text-center backdrop-blur-xl shadow-2xl overflow-hidden">
+          <div class="w-full max-w-2xl bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-6 md:p-12 text-center backdrop-blur-xl shadow-2xl overflow-hidden">
             <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Connection Code</p>
             
-            <div class="flex flex-wrap items-center justify-center gap-2 mb-8 px-2">
-              <div class="flex items-center gap-1.5 sm:gap-2">
+            <div class="flex flex-wrap items-center justify-center gap-2 mb-10 px-2">
+              <div class="flex items-center gap-1 sm:gap-2">
                 <template v-for="(char, i) in peerId.split('')" :key="i">
                   <span class="text-2xl sm:text-4xl md:text-5xl font-black text-white bg-slate-950 w-9 sm:w-14 h-12 sm:h-16 md:h-20 flex items-center justify-center rounded-xl border border-slate-800 shadow-xl">
                     {{ char }}
@@ -346,7 +323,7 @@ const resetApp = () => {
                   <span v-if="i === 2" class="text-slate-700 font-black text-xl px-0.5">-</span>
                 </template>
               </div>
-              <button @click="copyToClipboard" class="p-4 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
+              <button @click="copyToClipboard" class="p-4 ml-1 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition-all active:scale-90 shadow-lg">
                 <Check v-if="isCopied" class="w-5 h-5" />
                 <Copy v-else class="w-5 h-5" />
               </button>
@@ -357,12 +334,12 @@ const resetApp = () => {
               <video ref="localVideo" autoplay muted playsinline class="w-full h-full object-contain" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
                 <div class="flex items-center gap-2">
-                  <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
                   <p class="text-[10px] font-black text-white tracking-widest uppercase opacity-80">Local Preview</p>
                 </div>
               </div>
             </div>
-            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">End Session</button>
+            <button @click="resetApp" class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-[10px]">Stop Casting</button>
           </div>
         </div>
 
@@ -382,24 +359,16 @@ const resetApp = () => {
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-              <button @click="resetApp" class="py-4 md:py-5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Back</button>
+              <button @click="resetApp" class="py-4 md:py-5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Cancel</button>
               <button @click="handleReceiveCast" :disabled="inputCode.length !== 6 || isConnecting" class="py-4 md:py-5 font-black rounded-2xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]" :class="inputCode.length === 6 && !isConnecting ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-700'">
                 <Loader2 v-if="isConnecting" class="w-4 h-4 animate-spin" />
                 {{ isConnecting ? 'Linking' : 'Join' }}
               </button>
             </div>
 
-            <div v-if="error || showProxyAdvice" class="mt-8 p-6 rounded-2xl bg-red-500/5 border border-red-500/10 text-left animate-in fade-in zoom-in-95">
-               <div v-if="error" class="flex items-center gap-2 text-red-400 font-black text-xs uppercase mb-2">
+            <div v-if="error" class="mt-8 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
+               <div class="flex items-center justify-center gap-2 text-red-400 font-black text-xs uppercase">
                  <WifiOff class="w-4 h-4" /> {{ error }}
-               </div>
-               <div v-if="showProxyAdvice" class="flex flex-col gap-3">
-                 <div class="p-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                    <p class="text-[11px] text-red-400 font-bold leading-relaxed flex items-start gap-2">
-                      <ShieldAlert class="w-4 h-4 flex-shrink-0" />
-                      P2P handshaking failed. Potential issues: VPN interference, restricted firewall, or symmetric NAT.
-                    </p>
-                 </div>
                </div>
             </div>
           </div>
@@ -409,11 +378,14 @@ const resetApp = () => {
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden">
           <!-- 远端视频播放 -->
           <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
+          
           <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 shadow-2xl pointer-events-none">
             <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
-            <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Live Link Active</span>
+            <span class="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.25em]">Live Session</span>
           </div>
-          <button @click="resetApp" class="absolute top-6 right-6 md:top-10 md:right-10 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all group border border-white/5 shadow-2xl">
+
+          <!-- 接收端结束按钮 -->
+          <button @click="resetApp" class="absolute top-6 right-6 md:top-10 md:right-10 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all group border border-white/5 shadow-2xl active:scale-90">
             <X class="w-6 h-6 md:w-8 md:h-8 group-hover:rotate-90 transition-transform duration-500" />
           </button>
         </div>
@@ -424,8 +396,8 @@ const resetApp = () => {
       <div>© 2024 CASTNOW PROTOCOL</div>
       <div class="flex gap-10">
         <a href="#" class="hover:text-amber-500 transition-colors">Documentation</a>
-        <a href="#" class="hover:text-amber-500 transition-colors">Server</a>
-        <a href="#" class="hover:text-amber-500 transition-colors">Open Source</a>
+        <a href="#" class="hover:text-amber-500 transition-colors">Privacy</a>
+        <a href="#" class="hover:text-amber-500 transition-colors">GitHub</a>
       </div>
     </footer>
   </div>
@@ -441,16 +413,17 @@ const resetApp = () => {
 }
 input { caret-color: transparent; }
 
+/* 响应式调整 */
 @media (max-width: 480px) {
-  .text-5xl { font-size: 2.25rem !important; }
-  .w-14 { width: 3rem !important; }
-  .h-16 { height: 3.5rem !important; }
+  .text-5xl { font-size: 2rem !important; }
+  .w-14 { width: 2.8rem !important; }
+  .h-16 { height: 3.2rem !important; }
 }
 
 @media (max-width: 380px) {
-  .text-2xl { font-size: 1.25rem !important; }
-  .w-9 { width: 2.1rem !important; }
-  .h-12 { height: 2.75rem !important; }
-  .gap-1.5 { gap: 0.25rem !important; }
+  .text-2xl { font-size: 1.15rem !important; }
+  .w-9 { width: 1.9rem !important; }
+  .h-12 { height: 2.5rem !important; }
+  .gap-1 { gap: 0.15rem !important; }
 }
 </style>
