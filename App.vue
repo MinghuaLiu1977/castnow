@@ -43,6 +43,8 @@ const STATES = {
   RECEIVER_ACTIVE: 'RECEIVER_ACTIVE'
 };
 
+const GITHUB_URL = 'https://github.com/MinghuaLiu1977/castnow';
+
 // --- Monetization Logic (Production Ready) ---
 const FREE_TRIAL_SECONDS = 1800; // 30 Minutes
 const GRACE_PERIOD_SECONDS = 300; // 5 Minutes
@@ -677,11 +679,14 @@ const copyToClipboard = () => {
             </div>
           </div>
 
-          <div v-if="activeModal === 'source'" class="flex flex-col gap-6 animate-slideUp">
-            <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><Code2 class="w-9 h-9" /></div>
+          <div v-if="activeModal === 'source'" class="flex flex-col gap-6 animate-slideUp text-center">
+            <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Github class="w-10 h-10" /></div>
             <h3 class="text-3xl font-black uppercase tracking-tight">Open Source</h3>
-            <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>CastNow is open for inspection. Check our official GitHub repository for architecture details and security audits.</p>
+            <div class="space-y-6 text-slate-400 font-medium text-sm leading-relaxed">
+              <p>CastNow is open for inspection. Check our official GitHub repository for architecture details, contribution guidelines, and security audits.</p>
+              <a :href="GITHUB_URL" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-black rounded-2xl transition-all border border-white/5 uppercase tracking-widest text-xs">
+                 <Github class="w-4 h-4" /> View Repository
+              </a>
             </div>
           </div>
 
@@ -691,11 +696,11 @@ const copyToClipboard = () => {
             <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed italic">
               Private on-premise deployments, Docker-based localized infrastructure, and commercial licensing for businesses.
             </p>
-            <div class="bg-slate-950 p-8 rounded-3xl border border-slate-800 shadow-inner group transition-all">
-              <p class="text-[9px] text-slate-600 font-black uppercase tracking-[0.4em] mb-4">Contact Author</p>
-              <a href="mailto:mingh.liu@gmail.com" class="block select-all font-mono text-amber-500 font-black text-xl md:text-2xl hover:scale-105 transition-transform">
-                mingh.liu@gmail.com
+            <div class="bg-slate-950 p-8 rounded-[2.5rem] border border-slate-800 shadow-inner group transition-all">
+              <a href="mailto:mingh.liu@gmail.com" class="flex items-center justify-center gap-3 w-full py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10">
+                <Mail class="w-5 h-5 fill-current" /> Contact Author
               </a>
+              <p class="mt-4 text-[9px] text-slate-600 font-black uppercase tracking-[0.4em]">Direct Liaison</p>
             </div>
             <div class="flex items-center justify-center gap-4 mt-6">
               <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest"><ShieldCheck class="w-3.5 h-3.5" /> SLA Guaranteed</span>
