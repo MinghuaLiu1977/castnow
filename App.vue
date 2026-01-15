@@ -333,30 +333,62 @@ const handleStartCasting = async () => {
   try {
     isConnecting.value = true;
     error.value = null;
+
+    if (!navigator.mediaDevices) {
+      throw new Error('API_NOT_SUPPORTED');
+    }
     
-    // Explicitly requesting video/audio for screen sharing.
-    // NOTE: Firefox on Android and some older mobile browsers often fail when 'audio' is true 
-    // because they don't support system audio capture. We need a fallback.
     let stream = null;
+    let isCamera = false;
     
     try {
-      // Attempt 1: Try to capture Video + Audio (Ideal for Desktop & Supported Mobile)
+      // Attempt 1: Try Standard Screen Share (Preferred)
+      // Note: On Mobile Web, 'audio: true' can sometimes cause permission errors if system audio capture isn't supported.
       stream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: { cursor: "always" }, 
+        video: true, 
         audio: true 
       });
     } catch (mediaErr) {
-      console.warn("Audio capture not supported or denied, falling back to video only.", mediaErr);
-      // Attempt 2: Fallback to Video only (Firefox Mobile / Some Androids)
-      stream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: { cursor: "always" }, 
-        audio: false 
-      });
+      console.warn("Standard screen capture failed, attempting fallbacks.", mediaErr);
+      
+      try {
+        // Attempt 2: Minimal Screen Share (Video only, no audio)
+        // Helps with some Android Webviews or older Chrome Mobile
+        stream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: true,
+          audio: false
+        });
+      } catch (fallbackErr) {
+         console.warn("Minimal screen capture failed:", fallbackErr);
+
+         // Attempt 3: Camera Fallback (getUserMedia)
+         // Native Apps (Flutter) have easier access to Screen Record API.
+         // Mobile Browsers are stricter. If Screen Share fails (e.g. Firefox Mobile / iOS),
+         // we offer to switch to Camera.
+         const wantsCamera = confirm("当前浏览器可能不支持屏幕共享 (Screen Share)。\n\n是否切换为广播摄像头画面 (Camera)?");
+         
+         if (wantsCamera) {
+            stream = await navigator.mediaDevices.getUserMedia({
+               video: { facingMode: 'user' }, // Default to front camera
+               audio: true
+            });
+            isCamera = true;
+         } else {
+            // User cancelled the camera option, so we throw the original error
+            throw fallbackErr;
+         }
+      }
     }
     
     localStream.value = stream;
     appState.value = STATES.SENDER;
-    stream.getVideoTracks()[0].onended = () => resetApp();
+    
+    // Handle stream ending (user stops sharing via browser UI)
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack) {
+        videoTrack.onended = () => resetApp();
+    }
+    
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const peer = new window.Peer(code, {
       debug: 1,
@@ -382,13 +414,16 @@ const handleStartCasting = async () => {
     });
   } catch (err) {
     console.error(err);
-    // Provide more context on mobile if it fails
-    if (isMobile.value) {
-      error.value = 'Screen recording failed. Permissions denied or unsupported browser.';
+    isConnecting.value = false;
+
+    if (err.message === 'API_NOT_SUPPORTED') {
+       error.value = 'Browser does not support media casting.';
+    } else if (isMobile.value) {
+       // More specific error message for mobile users
+       error.value = `Broadcast Failed. If Screen Share is not supported, try using Chrome or switching to Camera mode when prompted.`;
     } else {
       error.value = 'Capture was denied or not supported.';
     }
-    isConnecting.value = false;
   }
 };
 
