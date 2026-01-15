@@ -32,7 +32,10 @@ import {
   Timer,
   LogOut,
   Infinity,
-  Sparkles
+  Sparkles,
+  Play,
+  Volume2,
+  VolumeX
 } from 'lucide-vue-next';
 
 // Application States
@@ -247,16 +250,57 @@ const localVideo = ref(null);
 const remoteVideo = ref(null);
 const playerContainer = ref(null);
 const activeConnections = ref([]);
+const isVideoPaused = ref(false);
+const isMuted = ref(true);
 
+// Optimized for Mobile: Force Muted Autoplay first
 const attachStream = async (videoEl, stream, label) => {
   if (!videoEl || !stream) return;
   if (videoEl.srcObject === stream) return;
+  
   videoEl.srcObject = stream;
+  // Always start muted on mobile to satisfy autoplay policies
+  videoEl.muted = true;
+  isMuted.value = true;
+  
   try {
     await videoEl.play();
+    isVideoPaused.value = false;
   } catch (err) {
-    videoEl.muted = true;
-    try { await videoEl.play(); } catch (e) { console.error(`[${label}] Auto-play failed`, e); }
+    console.warn(`[${label}] Autoplay failed, showing play button.`, err);
+    isVideoPaused.value = true;
+    // On some devices, even muted autoplay fails (Low Power Mode). 
+    // We handle this via the UI "Play" button.
+  }
+};
+
+const manualPlay = async () => {
+  if (remoteVideo.value) {
+    try {
+      // User gesture allows us to unmute (if we want) or just play
+      remoteVideo.value.muted = false;
+      isMuted.value = false;
+      await remoteVideo.value.play();
+      isVideoPaused.value = false;
+    } catch (err) {
+      console.error("Manual play failed:", err);
+      // Fallback: Try muted if unmuted fails
+      remoteVideo.value.muted = true;
+      isMuted.value = true;
+      try {
+        await remoteVideo.value.play();
+        isVideoPaused.value = false;
+      } catch (e) {
+         error.value = "Playback Error: Device blocked video.";
+      }
+    }
+  }
+};
+
+const toggleMute = () => {
+  if (remoteVideo.value) {
+    remoteVideo.value.muted = !remoteVideo.value.muted;
+    isMuted.value = remoteVideo.value.muted;
   }
 };
 
@@ -312,6 +356,7 @@ const cleanup = () => {
   inputCode.value = '';
   isConnecting.value = false;
   error.value = null;
+  isVideoPaused.value = false;
   stopTimers();
   timeLeft.value = FREE_TRIAL_SECONDS;
   graceTimeLeft.value = GRACE_PERIOD_SECONDS;
@@ -339,11 +384,9 @@ const handleStartCasting = async () => {
     }
     
     let stream = null;
-    let isCamera = false;
     
     try {
       // Attempt 1: Try Standard Screen Share (Preferred)
-      // Note: On Mobile Web, 'audio: true' can sometimes cause permission errors if system audio capture isn't supported.
       stream = await navigator.mediaDevices.getDisplayMedia({ 
         video: true, 
         audio: true 
@@ -353,7 +396,6 @@ const handleStartCasting = async () => {
       
       try {
         // Attempt 2: Minimal Screen Share (Video only, no audio)
-        // Helps with some Android Webviews or older Chrome Mobile
         stream = await navigator.mediaDevices.getDisplayMedia({ 
           video: true,
           audio: false
@@ -362,19 +404,14 @@ const handleStartCasting = async () => {
          console.warn("Minimal screen capture failed:", fallbackErr);
 
          // Attempt 3: Camera Fallback (getUserMedia)
-         // Native Apps (Flutter) have easier access to Screen Record API.
-         // Mobile Browsers are stricter. If Screen Share fails (e.g. Firefox Mobile / iOS),
-         // we offer to switch to Camera.
          const wantsCamera = confirm("当前浏览器可能不支持屏幕共享 (Screen Share)。\n\n是否切换为广播摄像头画面 (Camera)?");
          
          if (wantsCamera) {
             stream = await navigator.mediaDevices.getUserMedia({
-               video: { facingMode: 'user' }, // Default to front camera
+               video: { facingMode: 'user' }, 
                audio: true
             });
-            isCamera = true;
          } else {
-            // User cancelled the camera option, so we throw the original error
             throw fallbackErr;
          }
       }
@@ -383,7 +420,6 @@ const handleStartCasting = async () => {
     localStream.value = stream;
     appState.value = STATES.SENDER;
     
-    // Handle stream ending (user stops sharing via browser UI)
     const videoTrack = stream.getVideoTracks()[0];
     if (videoTrack) {
         videoTrack.onended = () => resetApp();
@@ -419,7 +455,6 @@ const handleStartCasting = async () => {
     if (err.message === 'API_NOT_SUPPORTED') {
        error.value = 'Browser does not support media casting.';
     } else if (isMobile.value) {
-       // More specific error message for mobile users
        error.value = `Broadcast Failed. If Screen Share is not supported, try using Chrome or switching to Camera mode when prompted.`;
     } else {
       error.value = 'Capture was denied or not supported.';
@@ -450,13 +485,15 @@ const handleReceiveCast = () => {
       });
       call.on('close', () => resetApp());
     });
+    
+    // Increased timeout from 15s to 60s for Mobile Networks (4G/5G/NAT)
     setTimeout(() => { 
       if (appState.value !== STATES.RECEIVER_ACTIVE && isConnecting.value) { 
-        error.value = 'Handshake timed out.'; 
+        error.value = 'Connection timed out. Mobile networks may need more time.'; 
         isConnecting.value = false; 
         cleanup(); 
       } 
-    }, 15000);
+    }, 60000);
   });
   peer.on('error', (err) => { error.value = `Access failed: ${err.type}`; isConnecting.value = false; });
 };
@@ -616,13 +653,26 @@ const copyToClipboard = () => {
         </div>
 
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE" key="active" ref="playerContainer" class="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden group/player">
-          <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
+          <video ref="remoteVideo" autoplay playsinline muted class="w-full h-full object-contain" />
+          
+          <!-- Manual Play Overlay for Mobile -->
+          <div v-if="isVideoPaused" class="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <button @click="manualPlay" class="w-24 h-24 bg-amber-500 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform animate-pulse">
+              <Play class="w-10 h-10 text-slate-950 fill-current ml-2" />
+            </button>
+            <p class="absolute mt-32 text-white font-bold uppercase tracking-widest text-sm">Tap to Watch</p>
+          </div>
+
           <div class="absolute inset-0 opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 pointer-events-none">
             <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 pointer-events-auto shadow-2xl">
               <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_red]"></div>
               <span class="text-[10px] font-black text-white uppercase tracking-[0.25em]">Secure P2P Node Active</span>
             </div>
             <div class="absolute top-6 right-6 md:top-10 md:right-10 flex items-center gap-3 pointer-events-auto">
+              <button @click="toggleMute" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl">
+                <VolumeX v-if="isMuted" class="w-6 h-6" />
+                <Volume2 v-else class="w-6 h-6" />
+              </button>
               <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><Minimize v-if="isFullscreen" class="w-6 h-6" /><Maximize v-else class="w-6 h-6" /></button>
               <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><X class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" /></button>
             </div>
