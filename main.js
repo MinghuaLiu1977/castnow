@@ -1,6 +1,7 @@
 
 import { createApp } from 'vue';
 import App from './App.vue';
+import './style.css'; // Ensure CSS is imported for Vite to process
 
 const app = createApp(App);
 app.mount('#root');
@@ -8,7 +9,8 @@ app.mount('#root');
 // PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    // Register from root /sw.js which Vite serves from public/sw.js
+    navigator.serviceWorker.register('/sw.js')
       .then(reg => console.log('Service Worker registered', reg))
       .catch(err => console.error('Service Worker registration failed', err));
   });
