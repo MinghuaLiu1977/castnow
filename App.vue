@@ -569,19 +569,19 @@ const copyToClipboard = () => {
           <div class="grid md:grid-cols-2 gap-4 w-full max-w-2xl px-4">
             <!-- Broadcast Button (First) -->
             <button @click="handleStartCasting" :disabled="isConnecting" 
-              class="group relative overflow-hidden flex flex-col items-center justify-center p-10 rounded-[2.5rem] transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 bg-amber-500 hover:bg-amber-400">
-              <Monitor v-if="!isConnecting" class="w-12 h-12 mb-4 transition-transform text-slate-950 group-hover:scale-110" />
-              <Loader2 v-else class="w-12 h-12 text-slate-950 mb-4 animate-spin" />
-              <span class="font-black text-2xl tracking-tight uppercase text-slate-950">
+              class="group relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 bg-amber-500 hover:bg-amber-400">
+              <Monitor v-if="!isConnecting" class="w-8 h-8 md:w-12 md:h-12 mb-3 md:mb-4 transition-transform text-slate-950 group-hover:scale-110" />
+              <Loader2 v-else class="w-8 h-8 md:w-12 md:h-12 text-slate-950 mb-3 md:mb-4 animate-spin" />
+              <span class="font-black text-lg md:text-2xl tracking-tight uppercase text-slate-950">
                  Broadcast
               </span>
             </button>
 
              <!-- Receiver Button (Second) -->
             <button @click="appState = STATES.RECEIVER_INPUT" 
-              class="group flex flex-col items-center justify-center p-10 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-[2.5rem] transition-all active:scale-95">
-              <Download class="w-12 h-12 text-amber-500 mb-4 group-hover:scale-110 transition-transform" />
-              <span class="text-white font-black text-2xl tracking-tight uppercase">Receive</span>
+              class="group flex flex-col items-center justify-center p-6 md:p-10 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl md:rounded-[2.5rem] transition-all active:scale-95">
+              <Download class="w-8 h-8 md:w-12 md:h-12 text-amber-500 mb-3 md:mb-4 group-hover:scale-110 transition-transform" />
+              <span class="text-white font-black text-lg md:text-2xl tracking-tight uppercase">Receive</span>
             </button>
           </div>
           
@@ -771,7 +771,7 @@ const copyToClipboard = () => {
         <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy</button>
         <button @click="activeModal = 'terms'" class="hover:text-amber-500 transition-colors">Terms</button>
       </div>
-      <p>&copy; {{ new Date().getFullYear() }} CastNow Network</p>
+      <p>&copy; {{ new Date().getFullYear() }} CastNow. Built by Matthew Liu.</p>
     </footer>
 
     <!-- Simple Text Modals -->
