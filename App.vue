@@ -60,6 +60,9 @@ const isVerifying = ref(false);
 let timerInterval = null;
 let proCountInterval = null;
 
+// --- Mobile Detection (For layout tweaks if needed, but not gating) ---
+const isMobile = ref(false);
+
 const formatTime = (seconds) => {
   if (seconds === null || seconds < 0) return '--:--';
   const hours = Math.floor(seconds / 3600);
@@ -182,6 +185,10 @@ const stopCastingForcefully = () => {
 
 onMounted(async () => {
   injectAnalytics();
+  
+  // Mobile Detection
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   const savedKey = localStorage.getItem('castnow_license');
   if (savedKey) {
     await verifyLicense(savedKey);
@@ -318,6 +325,7 @@ onUnmounted(() => {
 });
 
 const handleStartCasting = async () => {
+  // Mobile browsers (Chrome/Firefox/Safari) are fully supported now.
   if (!isPro.value && timeLeft.value <= 0 && graceTimeLeft.value <= 0) {
     showPaywall.value = true;
     return;
@@ -325,7 +333,27 @@ const handleStartCasting = async () => {
   try {
     isConnecting.value = true;
     error.value = null;
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    
+    // Explicitly requesting video/audio for screen sharing.
+    // NOTE: Firefox on Android and some older mobile browsers often fail when 'audio' is true 
+    // because they don't support system audio capture. We need a fallback.
+    let stream = null;
+    
+    try {
+      // Attempt 1: Try to capture Video + Audio (Ideal for Desktop & Supported Mobile)
+      stream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { cursor: "always" }, 
+        audio: true 
+      });
+    } catch (mediaErr) {
+      console.warn("Audio capture not supported or denied, falling back to video only.", mediaErr);
+      // Attempt 2: Fallback to Video only (Firefox Mobile / Some Androids)
+      stream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { cursor: "always" }, 
+        audio: false 
+      });
+    }
+    
     localStream.value = stream;
     appState.value = STATES.SENDER;
     stream.getVideoTracks()[0].onended = () => resetApp();
@@ -353,7 +381,13 @@ const handleStartCasting = async () => {
       else { error.value = `Protocol Fault: ${err.type}`; isConnecting.value = false; }
     });
   } catch (err) {
-    error.value = 'Capture was denied.';
+    console.error(err);
+    // Provide more context on mobile if it fails
+    if (isMobile.value) {
+      error.value = 'Screen recording failed. Permissions denied or unsupported browser.';
+    } else {
+      error.value = 'Capture was denied or not supported.';
+    }
     isConnecting.value = false;
   }
 };
@@ -458,18 +492,28 @@ const copyToClipboard = () => {
             <span class="text-amber-500">Casting.</span>
           </h1>
           <p class="text-slate-400 text-lg md:text-xl mb-12 max-w-lg font-medium italic">No plugins. No latency. Pure P2P screen sharing built on modern WebRTC.</p>
+          
+          <!-- Buttons Grid: Broadcast First -->
           <div class="grid md:grid-cols-2 gap-4 w-full max-w-2xl px-4">
-            <button @click="handleStartCasting" :disabled="isConnecting" class="group relative overflow-hidden flex flex-col items-center justify-center p-10 bg-amber-500 hover:bg-amber-400 rounded-[2.5rem] transition-all shadow-xl active:scale-95 disabled:opacity-50">
-              <Monitor v-if="!isConnecting" class="w-12 h-12 text-slate-950 mb-4 group-hover:scale-110 transition-transform" />
+            <!-- Broadcast Button (First) -->
+            <button @click="handleStartCasting" :disabled="isConnecting" 
+              class="group relative overflow-hidden flex flex-col items-center justify-center p-10 rounded-[2.5rem] transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 bg-amber-500 hover:bg-amber-400">
+              <Monitor v-if="!isConnecting" class="w-12 h-12 mb-4 transition-transform text-slate-950 group-hover:scale-110" />
               <Loader2 v-else class="w-12 h-12 text-slate-950 mb-4 animate-spin" />
-              <span class="text-slate-950 font-black text-2xl tracking-tight uppercase">Broadcast</span>
+              <span class="font-black text-2xl tracking-tight uppercase text-slate-950">
+                 Broadcast
+              </span>
             </button>
-            <button @click="appState = STATES.RECEIVER_INPUT" class="group flex flex-col items-center justify-center p-10 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-[2.5rem] transition-all active:scale-95">
+
+             <!-- Receiver Button (Second) -->
+            <button @click="appState = STATES.RECEIVER_INPUT" 
+              class="group flex flex-col items-center justify-center p-10 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-[2.5rem] transition-all active:scale-95">
               <Download class="w-12 h-12 text-amber-500 mb-4 group-hover:scale-110 transition-transform" />
               <span class="text-white font-black text-2xl tracking-tight uppercase">Receive</span>
             </button>
           </div>
-          <div v-if="error" class="mt-8 flex items-center gap-2 text-red-400 font-bold bg-red-400/5 px-6 py-3 rounded-xl border border-red-400/10 text-sm">
+          
+          <div v-if="error" class="mt-8 flex items-center gap-2 text-red-400 font-bold bg-red-400/5 px-6 py-3 rounded-xl border border-red-400/10 text-sm animate-pulse">
             <AlertCircle class="w-4 h-4" /> {{ error }}
           </div>
         </div>
@@ -547,15 +591,15 @@ const copyToClipboard = () => {
               <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><Minimize v-if="isFullscreen" class="w-6 h-6" /><Maximize v-else class="w-6 h-6" /></button>
               <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><X class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" /></button>
             </div>
-            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
-               <Clock class="w-4 h-4 text-amber-500" />
-               <span class="text-[11px] font-black uppercase tracking-widest text-white">
-                 {{ isGracePeriod ? `Broadcaster trial ended. Grace period active.` : `Trial Session: ${formatTime(timeLeft)}` }}
+            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
+               <Clock class="w-4 h-4 text-amber-500 shrink-0" />
+               <span class="text-[11px] font-black uppercase tracking-widest text-white truncate">
+                 {{ isGracePeriod ? `Broadcaster trial ended.` : `Trial Session: ${formatTime(timeLeft)}` }}
                </span>
             </div>
-            <div v-else class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto">
-               <Zap class="w-4 h-4 text-amber-500 fill-current" />
-               <span class="text-[11px] font-black uppercase tracking-widest text-white">
+            <div v-else class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
+               <Zap class="w-4 h-4 text-amber-500 fill-current shrink-0" />
+               <span class="text-[11px] font-black uppercase tracking-widest text-white truncate">
                  Premium Node | {{ formatTime(proTimeLeft) }} Left
                </span>
             </div>
@@ -567,7 +611,7 @@ const copyToClipboard = () => {
     <!-- Paywall Modal (Optimized for Conversion) -->
     <Transition name="modal">
       <div v-if="showPaywall" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-black/80">
-        <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center">
+        <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_100px_rgba(245,158,11,0.15)] relative overflow-hidden text-center max-h-[90vh] overflow-y-auto">
           
           <div v-if="isGracePeriod && appState === STATES.SENDER" class="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-500/30 py-3 flex items-center justify-center gap-2 animate-pulse">
             <ShieldAlert class="w-4 h-4 text-red-500" />
@@ -628,84 +672,50 @@ const copyToClipboard = () => {
             class="mt-10 group flex items-center justify-center gap-2 mx-auto text-[9px] font-black uppercase tracking-[0.4em] transition-all"
             :class="(isGracePeriod && appState === STATES.SENDER) ? 'text-red-500 hover:text-red-400' : 'text-slate-600 hover:text-slate-400'"
           >
-            <LogOut v-if="isGracePeriod && appState === STATES.SENDER" class="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-            {{ (isGracePeriod && appState === STATES.SENDER) ? 'End Session' : 'Continue for now' }}
+            <LogOut v-if="isGracePeriod && appState === STATES.SENDER" class="w-3 h-3" />
+            <span v-else>Maybe Later</span>
+            <span v-if="isGracePeriod && appState === STATES.SENDER">End Session</span>
           </button>
-
-          <p class="mt-4 text-[8px] text-slate-700 font-bold uppercase tracking-[0.2em]">Validated for any device for 24 hours from activation.</p>
         </div>
       </div>
     </Transition>
 
-    <footer v-if="appState !== STATES.RECEIVER_ACTIVE" class="px-8 md:px-12 py-10 border-t border-slate-900 flex flex-col lg:flex-row justify-between items-center gap-10">
-      <div class="flex items-center gap-4 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800 shadow-xl group cursor-default">
-        <div class="w-12 h-12 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 text-amber-500 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] transition-all">
-          <User class="w-6 h-6" />
-        </div>
-        <div class="flex flex-col">
-          <span class="text-slate-300 font-black text-[10px] uppercase tracking-widest leading-tight">Lead Architect</span>
-          <span class="text-slate-500 text-[10px] font-medium tracking-tight">Minghua Liu</span>
-        </div>
+    <footer v-if="appState === STATES.LANDING" class="p-8 text-center text-slate-600 text-[10px] uppercase tracking-widest font-bold">
+      <div class="flex items-center justify-center gap-6 mb-4">
+        <a :href="GITHUB_URL" target="_blank" class="hover:text-amber-500 transition-colors flex items-center gap-2"><Github class="w-4 h-4" /> Source</a>
+        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy</button>
+        <button @click="activeModal = 'terms'" class="hover:text-amber-500 transition-colors">Terms</button>
       </div>
-      
-      <div class="flex flex-wrap justify-center gap-6 md:gap-12 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">
-        <button @click="activeModal = 'docs'" class="hover:text-amber-500 transition-colors">Documentation</button>
-        <button @click="activeModal = 'privacy'" class="hover:text-amber-500 transition-colors">Privacy Policy</button>
-        <button @click="activeModal = 'source'" class="hover:text-amber-500 transition-colors">Open Source</button>
-        <button @click="activeModal = 'contact'" class="hover:text-amber-500 transition-colors">Enterprise</button>
-      </div>
+      <p>&copy; {{ new Date().getFullYear() }} CastNow Network</p>
     </footer>
 
+    <!-- Simple Text Modals -->
     <Transition name="modal">
-      <div v-if="activeModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-xl bg-black/70" @click.self="activeModal = null">
-        <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-[3rem] p-8 md:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-          <button @click="activeModal = null" class="absolute top-8 right-8 p-2 text-slate-500 hover:text-white transition-colors"><X class="w-6 h-6" /></button>
+      <div v-if="activeModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-sm" @click.self="activeModal = null">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl relative">
+          <button @click="activeModal = null" class="absolute top-6 right-6 p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors"><X class="w-4 h-4" /></button>
           
-          <div v-if="activeModal === 'docs'" class="flex flex-col gap-6 animate-slideUp">
-            <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><BookOpen class="w-9 h-9" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Operations Guide</h3>
-            <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>1. <span class="text-white">Broadcast</span>: Select your source (Tab/Screen) and get a 6-digit key.</p>
-              <p>2. <span class="text-white">Connect</span>: Recipient enters the key on their device.</p>
-              <p>3. <span class="text-white">P2P Tunnel</span>: Media flows directly browser-to-browser with no relay server.</p>
+          <div v-if="activeModal === 'contact'" class="text-center">
+             <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6"><Mail class="w-8 h-8 text-amber-500" /></div>
+             <h3 class="text-2xl font-black uppercase mb-2">Business Inquiries</h3>
+             <p class="text-slate-400 mb-8">Need a private relay server or white-label solution?</p>
+             <a href="mailto:business@castnow.io" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-slate-950 font-black rounded-xl uppercase text-xs tracking-widest hover:bg-amber-400 transition-colors">Contact Sales</a>
+          </div>
+
+          <div v-if="activeModal === 'privacy'">
+            <h3 class="text-xl font-black uppercase mb-6 flex items-center gap-2"><ShieldCheck class="w-5 h-5 text-amber-500" /> Privacy Manifesto</h3>
+            <div class="space-y-4 text-slate-400 text-sm leading-relaxed">
+              <p>1. <strong class="text-white">Zero Persistence:</strong> We do not store your video streams. Data flows directly between peers (P2P).</p>
+              <p>2. <strong class="text-white">Transient Metadata:</strong> Signaling data (handshakes) is kept in memory only for the duration of the connection establishment and then discarded.</p>
+              <p>3. <strong class="text-white">No Analytics on Content:</strong> We cannot see what you share. The stream is end-to-end encrypted via WebRTC standards.</p>
             </div>
           </div>
 
-          <div v-if="activeModal === 'privacy'" class="flex flex-col gap-6 animate-slideUp">
-            <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><ShieldCheck class="w-9 h-9" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Privacy Policy</h3>
-            <div class="space-y-4 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>We do not store your media streams. No logs. No recordings. Pure WebRTC architecture ensures your data is ephemeral and encrypted.</p>
-            </div>
-          </div>
-
-          <div v-if="activeModal === 'source'" class="flex flex-col gap-6 animate-slideUp text-center">
-            <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Github class="w-10 h-10" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Open Source</h3>
-            <div class="space-y-6 text-slate-400 font-medium text-sm leading-relaxed">
-              <p>CastNow is open for inspection. Check our official GitHub repository for architecture details, contribution guidelines, and security audits.</p>
-              <a :href="GITHUB_URL" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-black rounded-2xl transition-all border border-white/5 uppercase tracking-widest text-xs">
-                 <Github class="w-4 h-4" /> View Repository
-              </a>
-            </div>
-          </div>
-
-          <div v-if="activeModal === 'contact'" class="flex flex-col gap-6 text-center animate-slideUp">
-            <div class="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center text-amber-500 mx-auto shadow-inner"><Layers class="w-10 h-10" /></div>
-            <h3 class="text-3xl font-black uppercase tracking-tight">Commercial & Private</h3>
-            <p class="text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed italic">
-              Private on-premise deployments, Docker-based localized infrastructure, and commercial licensing for businesses.
-            </p>
-            <div class="bg-slate-950 p-8 rounded-[2.5rem] border border-slate-800 shadow-inner group transition-all">
-              <a href="mailto:mingh.liu@gmail.com" class="flex items-center justify-center gap-3 w-full py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10">
-                <Mail class="w-5 h-5 fill-current" /> Contact Author
-              </a>
-              <p class="mt-4 text-[9px] text-slate-600 font-black uppercase tracking-[0.4em]">Direct Liaison</p>
-            </div>
-            <div class="flex items-center justify-center gap-4 mt-6">
-              <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest"><ShieldCheck class="w-3.5 h-3.5" /> SLA Guaranteed</span>
-              <span class="w-1 h-1 bg-slate-800 rounded-full"></span>
-              <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest"><Monitor class="w-3.5 h-3.5" /> Docker Support</span>
+           <div v-if="activeModal === 'terms'">
+            <h3 class="text-xl font-black uppercase mb-6 flex items-center gap-2"><BookOpen class="w-5 h-5 text-amber-500" /> Terms of Service</h3>
+            <div class="space-y-4 text-slate-400 text-sm leading-relaxed">
+              <p>By using CastNow, you agree not to transmit illegal, harmful, or copyright-infringing content.</p>
+              <p>The service is provided "as is" without warranty of any kind. We are not liable for any interruptions or data loss.</p>
             </div>
           </div>
         </div>
@@ -713,24 +723,3 @@ const copyToClipboard = () => {
     </Transition>
   </div>
 </template>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.98) translateY(10px); }
-
-.modal-enter-active, .modal-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.modal-enter-from, .modal-leave-to { opacity: 0; backdrop-filter: blur(0px); transform: scale(0.95); }
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slideUp { animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-
-input { caret-color: transparent; }
-:fullscreen video { width: 100vw; height: 100vh; object-fit: contain; }
-
-input[type="text"].bg-slate-950 {
-  caret-color: #f59e0b;
-}
-</style>
