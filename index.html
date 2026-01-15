@@ -4,12 +4,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CastNow | No installs. No sign-ups. Just cast.</title>
+  
+  <!-- SEO: Primary Meta Tags -->
+  <title>CastNow | Free Online Screen Sharing - No Install, No Sign-up, 4K P2P</title>
+  <meta name="description" content="Instantly share your screen in 4K with CastNow. The secure, free P2P screen mirroring tool directly in your browser. No downloads, no installations, no logins required.">
+  <meta name="keywords" content="screen sharing, online screen share, p2p screen casting, no install screen share, free screen mirroring, webrtc screen share, cast screen to browser">
+  <link rel="canonical" href="https://castnow.vercel.app/" />
+
+  <!-- PWA & UI -->
   <meta name="theme-color" content="#020617">
-  <meta name="description" content="High-performance P2P screen sharing engine. No installations required.">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="https://lucide.dev/api/icons/zap?color=f59e0b&size=192">
   <link rel="stylesheet" href="./style.css">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://castnow.vercel.app/">
+  <meta property="og:title" content="CastNow | Instant P2P Screen Sharing">
+  <meta property="og:description" content="Share your screen instantly via secure P2P tunnel. No installs, no sign-ups. Just cast.">
+  <meta property="og:image" content="https://castnow.vercel.app/cover.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://castnow.vercel.app/">
+  <meta property="twitter:title" content="CastNow | Instant P2P Screen Sharing">
+  <meta property="twitter:description" content="Share your screen instantly via secure P2P tunnel. No installs, no sign-ups.">
+  <meta property="twitter:image" content="https://castnow.vercel.app/cover.png">
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "CastNow",
+    "url": "https://castnow.vercel.app/",
+    "applicationCategory": "BusinessApplication",
+    "genre": "Screen Sharing",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires JavaScript. Works on Chrome, Firefox, Safari, Edge.",
+    "permissions": "camera, microphone, display-capture",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": "Screen Share, No installation required, P2P encrypted, 4K support, No sign-up, Instant sharing",
+    "description": "High-performance P2P screen sharing engine. No installations required. Secure browser-to-browser connections.",
+    "author": {
+      "@type": "Person",
+      "name": "Minghua Liu"
+    }
+  }
+  </script>
+
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script type="importmap">
 {
