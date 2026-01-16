@@ -664,7 +664,7 @@ const copyToClipboard = () => {
           </div>
 
           <div class="absolute inset-0 opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 pointer-events-none">
-            <div class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 pointer-events-auto shadow-2xl">
+            <div v-if="!isMobile" class="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-4 bg-black/40 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/5 pointer-events-auto shadow-2xl">
               <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_red]"></div>
               <span class="text-[10px] font-black text-white uppercase tracking-[0.25em]">Secure P2P Node Active</span>
             </div>
@@ -676,13 +676,13 @@ const copyToClipboard = () => {
               <button @click="toggleFullscreen" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-white/20 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><Minimize v-if="isFullscreen" class="w-6 h-6" /><Maximize v-else class="w-6 h-6" /></button>
               <button @click="resetApp" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-white/5 hover:bg-red-500 backdrop-blur-2xl rounded-full text-white transition-all border border-white/5 shadow-2xl"><X class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" /></button>
             </div>
-            <div v-if="!isPro" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
+            <div v-if="!isPro && (timeLeft <= 60 || isGracePeriod)" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
                <Clock class="w-4 h-4 text-amber-500 shrink-0" />
                <span class="text-[11px] font-black uppercase tracking-widest text-white truncate">
                  {{ isGracePeriod ? `Broadcaster trial ended.` : `Trial Session: ${formatTime(timeLeft)}` }}
                </span>
             </div>
-            <div v-else class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
+            <div v-if="isPro && proTimeLeft <= 60" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-2xl border border-amber-500/30 px-6 py-3 rounded-full flex items-center gap-3 animate-slideUp pointer-events-auto w-max max-w-[90vw]">
                <Zap class="w-4 h-4 text-amber-500 fill-current shrink-0" />
                <span class="text-[11px] font-black uppercase tracking-widest text-white truncate">
                  Premium Node | {{ formatTime(proTimeLeft) }} Left
