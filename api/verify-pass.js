@@ -1,4 +1,3 @@
-
 import { createClient } from 'redis';
 
 export default async function handler(req, res) {
@@ -24,12 +23,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ valid: false, message: 'License key is required' });
   }
 
+  // Check if Redis URL is configured
+  if (!process.env.REDIS_URL) {
+    console.error('[System] REDIS_URL not set.');
+    return res.status(500).json({ valid: false, message: 'Server Configuration Error' });
+  }
+
   const client = createClient({ url: process.env.REDIS_URL });
+
+  client.on('error', (err) => console.error('Redis Client Error', err));
 
   try {
     await client.connect();
     
-    // 获取状态
+    // 从 Redis 获取状态
+    // Key 格式必须与 webhook.js 中存储的一致: `license:${licenseKey}`
     const status = await client.get(`license:${licenseKey}`);
     
     if (status === 'active') {
@@ -37,16 +45,17 @@ export default async function handler(req, res) {
       const ttl = await client.ttl(`license:${licenseKey}`);
       return res.status(200).json({ 
         valid: true, 
-        expiresIn: ttl // 返回剩余秒数
+        expiresIn: ttl > 0 ? ttl : 0 // 确保不返回负数
       });
     } else {
-      return res.status(200).json({ valid: false });
+      // Redis 中不存在或已过期
+      return res.status(200).json({ valid: false, message: 'License key not found or expired' });
     }
   } catch (error) {
     console.error('[Error] Redis Verification Failure:', error.message);
     return res.status(500).json({ 
       valid: false, 
-      message: 'Service Temporarily Unavailable' 
+      message: 'Verification Service Unavailable' 
     });
   } finally {
     if (client.isOpen) {

@@ -1,4 +1,3 @@
-
 import { createClient } from 'redis';
 
 export default async function handler(req, res) {
@@ -8,42 +7,61 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
   }
 
+  // 2. Environment Check
+  if (!process.env.REDIS_URL) {
+    console.error('[System] REDIS_URL is missing in environment variables.');
+    return res.status(500).send('Server Configuration Error');
+  }
+
   const client = createClient({ url: process.env.REDIS_URL });
+  
+  // Error handling for the Redis client itself
+  client.on('error', (err) => console.error('[Redis Client Error]', err));
 
   try {
-    // 2. Body Parsing Check
-    // Vercel pre-parses form-urlencoded. Ensure it exists.
+    // 3. Body Parsing Check
     const body = req.body;
     if (!body || typeof body !== 'object') {
+      console.warn('[Webhook] Invalid Payload received');
       return res.status(400).send('Invalid Payload');
     }
 
-    // 3. Security Check: Permalink Verification
-    // Critical: Only process requests for the specific product 'ihhtg'
+    // Log the event (masking sensitive data)
+    console.log(`[Webhook] Received for product: ${body.permalink}, sale_id: ${body.sale_id}`);
+
+    // 4. Security Check: Permalink Verification
+    // Ensure this webhook is for the correct product.
+    // Replace 'ihhtg' with your actual Gumroad product permalink if it changes.
     if (body.permalink !== 'ihhtg') {
       console.warn(`[Security] Unauthorized webhook attempt for permalink: ${body.permalink}`);
-      return res.status(403).send('Forbidden: Product ID Mismatch');
+      // Return 200 to Gumroad so they stop retrying, but don't process it.
+      return res.status(200).send('Ignored: Product ID Mismatch');
     }
 
+    // Gumroad sends 'license_key'
     const licenseKey = body.license_key;
 
     if (licenseKey) {
-      // 4. Redis Operations
+      // 5. Redis Operations
       await client.connect();
       
-      // Store status 'active' with a strict 24-hour TTL (86400 seconds)
+      // Store status 'active' with a 24-hour TTL (86400 seconds)
+      // We use the key format `license:{LICENSE_KEY}`
       await client.set(`license:${licenseKey}`, 'active', { EX: 86400 });
       
-      console.log(`[Success] License activated: ${licenseKey.substring(0, 8)}...`);
+      console.log(`[Success] License activated in Redis: ${licenseKey.substring(0, 8)}...`);
+    } else {
+      console.warn('[Webhook] No license_key found in payload');
     }
 
-    // 5. Success Response
-    return res.status(200).send('Webhook Processed');
+    // 6. Success Response
+    return res.status(200).send('Webhook Processed Successfully');
   } catch (error) {
-    console.error('[Error] Webhook processing failed:', error.message);
+    console.error('[Error] Webhook processing failed:', error);
+    // Return 500 so Gumroad might retry later (though usually we want to fix code)
     return res.status(500).send('Internal Server Error');
   } finally {
-    // 6. Cleanup: Prevent connection leaks and lambda timeouts
+    // 7. Cleanup
     if (client.isOpen) {
       await client.disconnect();
     }
