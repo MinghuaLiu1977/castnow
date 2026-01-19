@@ -1,5 +1,6 @@
+
 name: castnow_app
-description: "CastNow Mobile Client - P2P Screen Sharing"
+description: "CastNow Mobile Client - Native P2P Screen Sharing"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,14 +10,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # 高级 WebView，支持 WebRTC 屏幕共享权限处理
-  flutter_inappwebview: ^6.0.0
+  # 原生 WebRTC 支持 (音视频核心)
+  flutter_webrtc: ^0.10.8
+  # PeerJS 的 Dart 实现 (与 Web 端互通)
+  peerdart: ^0.0.4
   # 权限处理
   permission_handler: ^11.3.0
   # 屏幕常亮
   wakelock_plus: ^1.1.2
-  # 状态栏控制
-  flutter_services_binding: ^0.1.0
+  # 唯一 ID 生成
+  uuid: ^4.3.3
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +28,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/ # 如果有本地图片资源
