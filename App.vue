@@ -3,7 +3,7 @@
 import { ref, onUnmounted, watch, nextTick, computed, onMounted } from 'vue';
 import { inject as injectAnalytics } from '@vercel/analytics';
 import { 
-  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone
+  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone, Shield, FileText, Code, ExternalLink, User
 } from 'lucide-vue-next';
 
 const STATES = {
@@ -35,6 +35,10 @@ const isMuted = ref(false);
 const showControls = ref(true);
 let controlsTimeout = null;
 
+// Modals
+const showPrivacy = ref(false);
+const showTerms = ref(false);
+
 // Environment Detection
 const isMobile = computed(() => {
   if (typeof navigator === 'undefined') return false;
@@ -45,6 +49,15 @@ const isTouch = computed(() => {
   if (typeof navigator === 'undefined') return false;
   return navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
 });
+
+// --- Actions ---
+const openPro = () => {
+  window.open('https://castnow.gumroad.com/l/ihhtg', '_blank');
+};
+
+const openSource = () => {
+  window.open('https://github.com/MinghuaLiu1977/castnow', '_blank');
+};
 
 // --- WebRTC Core ---
 const getIceServers = () => {
@@ -296,6 +309,7 @@ const resetApp = () => {
   joinCode.value = '';
   isConnecting.value = false;
   error.value = null;
+  // Modals stay as is
 };
 </script>
 
@@ -305,9 +319,12 @@ const resetApp = () => {
       <div class="flex items-center gap-3 cursor-pointer group" @click="resetApp">
         <!-- Logo Icon -->
         <img src="/icon.svg" alt="CastNow" class="w-10 h-10 rounded-xl shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform duration-300" />
-        <span class="text-xl font-black uppercase tracking-tighter italic bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">CastNow</span>
+        <span class="text-xl font-black uppercase tracking-tighter italic bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent pr-2">CastNow</span>
       </div>
       <div class="flex items-center gap-2">
+        <button @click="openPro" class="hidden md:flex px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded-full items-center gap-2 text-[10px] font-bold uppercase tracking-tighter transition-all mr-2">
+            <span>Get Pro</span>
+        </button>
         <div class="px-3 py-1 bg-slate-900 rounded-full border border-slate-800 flex items-center gap-2">
            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
            <span class="text-[10px] font-bold uppercase tracking-tighter">P2P Secure</span>
@@ -337,10 +354,16 @@ const resetApp = () => {
             </button>
           </div>
           
-          <div class="mt-16 flex items-center gap-8 text-slate-600 font-bold text-[10px] uppercase tracking-[0.2em]">
-            <span>Source</span>
-            <span>Privacy</span>
-            <span>Terms</span>
+          <div class="mt-auto pb-6 flex flex-col items-center gap-4 pt-10">
+            <div class="flex items-center gap-8 text-slate-600 font-bold text-[10px] uppercase tracking-[0.2em]">
+               <button @click="openSource" class="hover:text-amber-500 transition-colors">Source</button>
+               <button @click="showPrivacy = true" class="hover:text-amber-500 transition-colors">Privacy</button>
+               <button @click="showTerms = true" class="hover:text-amber-500 transition-colors">Terms</button>
+            </div>
+            <div class="text-slate-700 text-[10px] font-medium flex items-center gap-1">
+               <span>Designed by</span>
+               <span class="text-slate-500">Matthew Liu</span>
+            </div>
           </div>
         </div>
 
@@ -496,6 +519,44 @@ const resetApp = () => {
            </div>
         </div>
       </Transition>
+
+      <!-- Modals (Privacy & Terms) -->
+      <Transition name="fade">
+        <div v-if="showPrivacy" class="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6">
+           <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-lg w-full relative">
+              <button @click="showPrivacy = false" class="absolute top-4 right-4 text-slate-500 hover:text-white"><X class="w-6 h-6" /></button>
+              <div class="flex items-center gap-3 mb-6">
+                <Shield class="w-8 h-8 text-amber-500" />
+                <h2 class="text-2xl font-black uppercase">Privacy Policy</h2>
+              </div>
+              <div class="space-y-4 text-slate-400 text-sm leading-relaxed h-64 overflow-y-auto pr-2 custom-scrollbar">
+                <p><strong>1. Zero Data Collection:</strong> CastNow operates on a strictly peer-to-peer basis. Your video and audio streams are encrypted and transmitted directly between your device and the receiver's device. No stream data passes through or is stored on our servers.</p>
+                <p><strong>2. Connection Metadata:</strong> To establish a connection, a temporary signaling handshake occurs. This involves exchanging random connection tokens. This data is ephemeral and discarded immediately after connection.</p>
+                <p><strong>3. Local Processing:</strong> All media processing (encoding, rendering) happens locally on your device.</p>
+                <p><strong>4. No Accounts:</strong> We do not require sign-ups, emails, or personal information.</p>
+              </div>
+           </div>
+        </div>
+      </Transition>
+
+      <Transition name="fade">
+        <div v-if="showTerms" class="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6">
+           <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-lg w-full relative">
+              <button @click="showTerms = false" class="absolute top-4 right-4 text-slate-500 hover:text-white"><X class="w-6 h-6" /></button>
+              <div class="flex items-center gap-3 mb-6">
+                <FileText class="w-8 h-8 text-amber-500" />
+                <h2 class="text-2xl font-black uppercase">Terms of Service</h2>
+              </div>
+              <div class="space-y-4 text-slate-400 text-sm leading-relaxed h-64 overflow-y-auto pr-2 custom-scrollbar">
+                <p><strong>1. Usage:</strong> CastNow is provided "as is" for personal and commercial use. You agree not to use this service for illegal activities or to stream content you do not own rights to.</p>
+                <p><strong>2. Liability:</strong> The creators of CastNow are not liable for any damages arising from the use or inability to use the service.</p>
+                <p><strong>3. Availability:</strong> While we strive for 99.9% uptime, we do not guarantee uninterrupted service.</p>
+                <p><strong>4. Changes:</strong> We reserve the right to update these terms at any time.</p>
+              </div>
+           </div>
+        </div>
+      </Transition>
+
     </main>
   </div>
 </template>
@@ -504,4 +565,15 @@ const resetApp = () => {
 .fade-enter-active, .fade-leave-active { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .fade-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.5); 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.5); 
+  border-radius: 10px;
+}
 </style>
