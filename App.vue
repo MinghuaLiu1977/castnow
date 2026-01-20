@@ -52,7 +52,7 @@ const isTouch = computed(() => {
 
 // --- Actions ---
 const openPro = () => {
-  window.open('https://castnow.gumroad.com/l/ihhtg', '_blank');
+  window.open('https://minghster.gumroad.com/l/ihhtg', '_blank');
 };
 
 const openSource = () => {
