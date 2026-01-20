@@ -115,8 +115,10 @@ const getIceServers = () => {
 const getVideoConstraints = (facing) => ({
   video: { 
     facingMode: facing,
-    width: { ideal: 1920 }, // Request 1080p for sharpness
-    height: { ideal: 1080 },
+    // Mobile: 720p (Better compatibility with Firefox Android encoders & bandwidth)
+    // Desktop: 1080p
+    width: { ideal: isMobile.value ? 1280 : 1920 }, 
+    height: { ideal: isMobile.value ? 720 : 1080 },
     frameRate: { ideal: 30 }
   },
   audio: true
@@ -442,9 +444,11 @@ const handleBackspace = () => {
 const connectToBroadcaster = (destPeerId, retryCount = 0) => {
     if (!peerInstance.value || peerInstance.value.destroyed) return;
     
-    // Smart Fallback: If 1st attempt (count 0) fails, next attempts try unreliable (UDP)
-    // UDP is faster and negotiation often succeeds where TCP fails on mobile
-    const useReliable = retryCount === 0; 
+    // Smart Fallback Strategy for Mobile & Firefox:
+    // 1. On Mobile devices, default to Unreliable (UDP) immediately. 
+    //    Mobile networks + Reliable DataChannels often fail negotiation.
+    // 2. On Desktop, try Reliable (TCP) first, then fallback.
+    const useReliable = !isMobile.value && retryCount === 0; 
     
     console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1}). Reliable: ${useReliable}`);
     
@@ -496,7 +500,8 @@ const handleJoin = () => {
   peer.on('open', (id) => {
     console.log("Receiver Peer Open:", id);
     // Delegate to helper for robust connection logic
-    connectToBroadcaster(joinCode.value);
+    // Add 500ms delay for Firefox Mobile to stabilize ICE gathering
+    setTimeout(() => connectToBroadcaster(joinCode.value), 500);
   });
 
   peer.on('disconnected', () => {
