@@ -21,13 +21,16 @@ const isConnecting = ref(false);
 const error = ref(null);
 const peerId = ref('');
 const peerInstance = ref(null);
+
+// Streams
 const localStream = ref(null);
 const localVideo = ref(null);
+const remoteStream = ref(null); // Added: Reactive remote stream
+const remoteVideo = ref(null);
 const activeConnections = ref([]);
 
 // Receiver Refs
 const joinCode = ref('');
-const remoteVideo = ref(null);
 const isMuted = ref(false);
 const showControls = ref(true);
 let controlsTimeout = null;
@@ -36,6 +39,11 @@ let controlsTimeout = null;
 const isMobile = computed(() => {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+});
+
+const isTouch = computed(() => {
+  if (typeof navigator === 'undefined') return false;
+  return navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
 });
 
 // --- WebRTC Core ---
@@ -51,16 +59,15 @@ const getIceServers = () => {
     : [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
 };
 
-// --- Watchers for Video Elements ---
-// 当 SENDER 模式激活时，localVideo 元素挂载到 DOM 后，立即绑定流
+// --- Watchers for Video Elements (Robust Rendering) ---
+
+// 1. Local Video Binding
 watch(localVideo, (videoEl) => {
   if (videoEl && localStream.value) {
     videoEl.srcObject = localStream.value;
     videoEl.play().catch(e => console.error("Local preview play error:", e));
   }
 });
-
-// 当流发生变化（如切换摄像头）且 video 元素存在时，更新绑定
 watch(localStream, (newStream) => {
   if (localVideo.value && newStream) {
     localVideo.value.srcObject = newStream;
@@ -68,15 +75,55 @@ watch(localStream, (newStream) => {
   }
 });
 
+// 2. Remote Video Binding (Fix for Screen Sharing Black Screen)
+watch(remoteVideo, (videoEl) => {
+  if (videoEl && remoteStream.value) {
+    videoEl.srcObject = remoteStream.value;
+    videoEl.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
+  }
+});
+watch(remoteStream, (newStream) => {
+  if (remoteVideo.value && newStream) {
+    remoteVideo.value.srcObject = newStream;
+    remoteVideo.value.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
+  }
+});
+
+// --- Keyboard Event Handling ---
+const handleKeydown = (e) => {
+  if (appState.value !== STATES.RECEIVER_INPUT) return;
+
+  // Numbers
+  if (/^[0-9]$/.test(e.key)) {
+    handleDigitInput(e.key);
+  }
+  // Backspace
+  else if (e.key === 'Backspace') {
+    handleBackspace();
+  }
+  // Enter
+  else if (e.key === 'Enter') {
+    if (joinCode.value.length === 6 && !isConnecting.value) {
+      handleJoin();
+    }
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
+
 // --- Sender Logic ---
 const handleStartCasting = async (mode) => {
   castingMode.value = mode;
 
-  // 检查浏览器兼容性
   if (mode === 'screen') {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      // iOS WebView 或旧版安卓 WebView 可能不支持
-      alert("This device or browser does not support Screen Sharing.\n\nPlease try using the Camera broadcast mode instead.");
+      alert("This device or browser does not support Screen Sharing.");
       return;
     }
   }
@@ -115,18 +162,13 @@ const handleStartCasting = async (mode) => {
     peer.on('open', (id) => { peerId.value = id; isConnecting.value = false; });
     peer.on('connection', (conn) => {
       activeConnections.value.push(conn);
-      // Sender initiates the call upon data connection
       peer.call(conn.peer, localStream.value);
     });
     
-    // 如果是屏幕共享，监听停止事件（用户点击浏览器/系统自带的停止共享按钮）
     stream.getVideoTracks()[0].onended = () => resetApp();
-    
-    // 注意：srcObject 的绑定现在由 watch(localVideo) 自动处理，移除了不稳定的 nextTick 逻辑
 
   } catch (err) {
     console.error(err);
-    // 处理用户取消屏幕共享的情况
     if (err.name === 'NotAllowedError') {
       error.value = null;
       isConnecting.value = false;
@@ -152,13 +194,11 @@ const toggleCamera = async () => {
     oldTracks.forEach(t => t.stop());
     
     localStream.value = newStream;
-    // localStream 的 watcher 会自动更新 localVideo.srcObject
-    
     activeConnections.value.forEach(conn => {
        peerInstance.value.call(conn.peer, newStream);
     });
   } catch (err) {
-    alert("Camera switch failed");
+    console.error("Camera switch failed", err);
   }
 };
 
@@ -177,7 +217,6 @@ const handleJoin = () => {
   isConnecting.value = true;
   error.value = null;
 
-  // Viewer needs their own Peer ID to receive the call
   const peer = new window.Peer({
     config: { iceServers: getIceServers() }
   });
@@ -185,7 +224,6 @@ const handleJoin = () => {
   peerInstance.value = peer;
 
   peer.on('open', () => {
-    // 1. Connect to Broadcaster (Signal intent)
     const conn = peer.connect(joinCode.value);
     
     conn.on('open', () => {
@@ -200,24 +238,17 @@ const handleJoin = () => {
       isConnecting.value = false;
     });
     
-    // Auto close if broadcaster leaves
+    // Auto close if broadcaster leaves (removed alert)
     conn.on('close', () => {
-        alert("Broadcast ended.");
         resetApp();
     });
   });
 
-  // 2. Wait for Broadcaster to call us with the stream
   peer.on('call', (call) => {
-    call.answer(); // Answer without sending a stream back
-    call.on('stream', (remoteStream) => {
-      nextTick(() => {
-        if (remoteVideo.value) {
-           remoteVideo.value.srcObject = remoteStream;
-           // Ensure audio plays (browsers often block auto-play audio)
-           remoteVideo.value.play().catch(e => console.log("Autoplay blocked", e));
-        }
-      });
+    call.answer(); 
+    call.on('stream', (stream) => {
+      // Use reactive variable to trigger watcher
+      remoteStream.value = stream;
     });
   });
 
@@ -260,6 +291,7 @@ const resetApp = () => {
   appState.value = STATES.LANDING;
   peerId.value = '';
   localStream.value = null;
+  remoteStream.value = null; // Reset remote stream
   activeConnections.value = [];
   joinCode.value = '';
   isConnecting.value = false;
@@ -320,7 +352,6 @@ const resetApp = () => {
              <span class="w-8 h-[2px] bg-amber-500"></span>
            </h2>
            <div class="grid grid-cols-1 gap-4 w-full max-w-sm">
-              <!-- Desktop/Screen Option: Enabled for Mobile now -->
               <button @click="handleStartCasting('screen')" class="flex items-center gap-6 p-6 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-amber-500 transition-all group text-left relative overflow-hidden">
                 <div class="w-16 h-16 bg-slate-950 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Monitor class="w-8 h-8 text-amber-500" />
@@ -403,8 +434,12 @@ const resetApp = () => {
               </div>
            </div>
            
-           <!-- Keypad -->
-           <div class="grid grid-cols-3 gap-4 w-full max-w-[280px] mb-8">
+           <div v-if="!isTouch" class="mb-8 text-slate-500 text-sm font-medium animate-pulse">
+             Type code on keyboard...
+           </div>
+
+           <!-- Touch Keypad (Only on Touch Devices) -->
+           <div v-if="isTouch" class="grid grid-cols-3 gap-4 w-full max-w-[280px] mb-8">
               <button v-for="n in 9" :key="n" @click="handleDigitInput(n.toString())" class="h-16 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">
                 {{ n }}
               </button>
