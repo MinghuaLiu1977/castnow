@@ -205,7 +205,10 @@ const getPeerConfig = () => ({
   debug: 2,
   pingInterval: 5000, // Critical for mobile: keep connection alive
   secure: true,
-  config: { iceServers: getIceServers() }
+  config: { 
+    iceServers: getIceServers(),
+    sdpSemantics: 'unified-plan' // Force standard SDP
+  }
 });
 
 // --- Sender Logic ---
@@ -429,6 +432,48 @@ const handleBackspace = () => {
   joinCode.value = joinCode.value.slice(0, -1);
 };
 
+// --- Internal Helper for Reliable Connection ---
+const connectToBroadcaster = (destPeerId, retryCount = 0) => {
+    if (!peerInstance.value || peerInstance.value.destroyed) return;
+    
+    console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1})...`);
+    
+    // Fix: Use JSON serialization for better mobile compatibility
+    // Reliable: true ensures packets aren't lost during handshake
+    const conn = peerInstance.value.connect(destPeerId, {
+        reliable: true,
+        serialization: 'json',
+    });
+
+    conn.on('open', () => {
+      console.log("Connected to broadcaster signaling (Data Channel Open)");
+      appState.value = STATES.RECEIVER_ACTIVE;
+      isConnecting.value = false;
+    });
+
+    conn.on('error', (err) => {
+      console.error(`DataConnection Error (Attempt ${retryCount+1}):`, err);
+      // Specific handling for "Negotiation failed"
+      if (err.message && err.message.includes('Negotiation')) {
+          if (retryCount < 3) {
+             console.warn("Negotiation failed. Retrying in 1s...");
+             setTimeout(() => connectToBroadcaster(destPeerId, retryCount + 1), 1000);
+             return;
+          }
+      }
+      
+      if (retryCount >= 3) {
+        error.value = "Connection negotiation failed.";
+        isConnecting.value = false;
+      }
+    });
+    
+    conn.on('close', () => {
+        console.log("Broadcaster closed connection");
+        resetApp();
+    });
+};
+
 const handleJoin = () => {
   if (joinCode.value.length !== 6) return;
   console.log("Attempting to join with code:", joinCode.value);
@@ -437,48 +482,20 @@ const handleJoin = () => {
   error.value = null;
 
   const peer = new window.Peer(getPeerConfig());
-  
   peerInstance.value = peer;
 
   peer.on('open', (id) => {
     console.log("Receiver Peer Open:", id);
-    console.log("Connecting to broadcaster:", joinCode.value);
-    const conn = peer.connect(joinCode.value);
-    
-    conn.on('open', () => {
-      console.log("Connected to broadcaster signaling (Data Channel Open)");
-      appState.value = STATES.RECEIVER_ACTIVE;
-      isConnecting.value = false;
-    });
-
-    conn.on('error', (err) => {
-      console.error("Data Connection Error", err);
-      // Don't fail immediately on network blips
-      if (err.type !== 'network') {
-          error.value = "Connection failed. Check code.";
-          isConnecting.value = false;
-      }
-    });
-    
-    conn.on('close', () => {
-        console.log("Broadcaster closed connection");
-        resetApp();
-    });
+    // Delegate to helper for robust connection logic
+    connectToBroadcaster(joinCode.value);
   });
 
   peer.on('disconnected', () => {
       console.warn(`[Receiver] Peer disconnected. AppState: ${appState.value}`);
-      
-      // Critical check to avoid reconnecting if we are leaving
       if (appState.value === STATES.RECEIVER_ACTIVE || appState.value === STATES.RECEIVER_INPUT) {
           if (!peer.destroyed) {
               console.log("[Receiver] Lost connection to server. Auto-reconnecting...");
-              try { 
-                peer.reconnect(); 
-                console.log("[Receiver] Reconnect command sent.");
-              } catch(e) { 
-                console.error("[Receiver] Reconnect failed", e); 
-              }
+              try { peer.reconnect(); } catch(e) { console.error("Reconnect failed", e); }
           }
       }
   });
@@ -488,7 +505,6 @@ const handleJoin = () => {
     call.answer(); 
     call.on('stream', (stream) => {
       console.log("Received Remote Stream:", stream.id);
-      // Use reactive variable to trigger watcher
       remoteStream.value = stream;
     });
     call.on('error', (err) => {
@@ -499,20 +515,21 @@ const handleJoin = () => {
   peer.on('error', (err) => {
     console.error("Receiver Peer Error:", err);
     
+    // Check if it is a negotiation error during peer creation (rare, usually on connect)
+    if (err.type === 'peer-unavailable') {
+         error.value = "Broadcaster not found.";
+         isConnecting.value = false;
+         return;
+    }
+
     if (err.message && err.message.includes('Lost connection')) {
          console.log("[Receiver] Error: Lost connection. Initiating recovery...");
          if (peer && !peer.destroyed && (appState.value === STATES.RECEIVER_ACTIVE)) {
-             try { 
-                peer.reconnect();
-                console.log("[Receiver] Recovery reconnect sent.");
-             } catch(e) {
-                console.error("[Receiver] Recovery failed:", e);
-             }
+             try { peer.reconnect(); } catch(e) {}
          }
          return;
     }
 
-    // Only reset if it's a fatal error and we are not already connected/streaming
     if (appState.value !== STATES.RECEIVER_ACTIVE) {
         error.value = "Connection Error: " + (err.type || 'Unknown');
         isConnecting.value = false;
