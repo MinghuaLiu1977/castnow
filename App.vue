@@ -3,7 +3,7 @@
 import { ref, onUnmounted, watch, nextTick, computed, onMounted } from 'vue';
 import { inject as injectAnalytics } from '@vercel/analytics';
 import { 
-  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone, Shield, FileText, Code, ExternalLink, User
+  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone, Shield, FileText, Code, ExternalLink, User, RefreshCw
 } from 'lucide-vue-next';
 
 const STATES = {
@@ -21,6 +21,7 @@ const isConnecting = ref(false);
 const error = ref(null);
 const peerId = ref('');
 const peerInstance = ref(null);
+const peerError = ref(null); // Dedicated error for PeerJS connection
 
 // Streams
 const localStream = ref(null);
@@ -35,6 +36,7 @@ const joinCode = ref('');
 const isMuted = ref(true);
 const showControls = ref(true);
 let controlsTimeout = null;
+let peerConnectionTimeout = null;
 
 // Modals
 const showPrivacy = ref(false);
@@ -73,6 +75,17 @@ const getIceServers = () => {
     : [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
 };
 
+// Helper for High-Quality Video Constraints
+const getVideoConstraints = (facing) => ({
+  video: { 
+    facingMode: facing,
+    width: { ideal: 1920 }, // Request 1080p for sharpness
+    height: { ideal: 1080 },
+    frameRate: { ideal: 30 }
+  },
+  audio: true
+});
+
 // --- Watchers for Video Elements (Robust Rendering) ---
 
 // 1. Local Video Binding
@@ -80,12 +93,16 @@ watch(localVideo, (videoEl) => {
   if (videoEl && localStream.value) {
     videoEl.srcObject = localStream.value;
     videoEl.play().catch(e => console.error("Local preview play error:", e));
+  } else if (videoEl) {
+    videoEl.srcObject = null;
   }
 });
 watch(localStream, (newStream) => {
-  if (localVideo.value && newStream) {
-    localVideo.value.srcObject = newStream;
-    localVideo.value.play().catch(e => console.error("Local preview play error:", e));
+  if (localVideo.value) {
+    localVideo.value.srcObject = newStream || null;
+    if (newStream) {
+      localVideo.value.play().catch(e => console.error("Local preview play error:", e));
+    }
   }
 });
 
@@ -96,13 +113,17 @@ watch(remoteVideo, (videoEl) => {
     // Ensure muted for mobile autoplay
     videoEl.muted = isMuted.value;
     videoEl.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
+  } else if (videoEl) {
+    videoEl.srcObject = null;
   }
 });
 watch(remoteStream, (newStream) => {
-  if (remoteVideo.value && newStream) {
-    remoteVideo.value.srcObject = newStream;
-    remoteVideo.value.muted = isMuted.value;
-    remoteVideo.value.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
+  if (remoteVideo.value) {
+    remoteVideo.value.srcObject = newStream || null;
+    if (newStream) {
+      remoteVideo.value.muted = isMuted.value;
+      remoteVideo.value.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
+    }
   }
 });
 
@@ -132,15 +153,73 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
+  resetApp();
 });
 
 // --- Sender Logic ---
+const initPeerConnection = () => {
+  if (peerInstance.value) peerInstance.value.destroy();
+  peerError.value = null;
+  peerId.value = '';
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Set a timeout to warn user if connection hangs
+  if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
+  peerConnectionTimeout = setTimeout(() => {
+    if (!peerId.value) {
+      peerError.value = "Connection timed out.";
+    }
+  }, 15000); // 15s timeout for mobile networks
+
+  const peer = new window.Peer(code, {
+    debug: 1,
+    pingInterval: 5000, // Keep-alive for mobile
+    config: { iceServers: getIceServers() }
+  });
+  
+  peerInstance.value = peer;
+  
+  peer.on('open', (id) => { 
+      console.log('Peer Open:', id);
+      if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
+      peerId.value = id; 
+      isConnecting.value = false; 
+      peerError.value = null;
+  });
+  
+  peer.on('error', (err) => {
+      console.error('Peer Error:', err);
+      if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
+
+      if (err.type === 'unavailable-id') {
+        // Retry automatically with a new ID if collision
+        console.log('ID collision, retrying...');
+        setTimeout(() => initPeerConnection(), 500);
+        return;
+      }
+      
+      if (err.type === 'network' || err.type === 'peer-unavailable' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+         peerError.value = "Network unstable. Retrying...";
+      } else {
+         peerError.value = "Connection Error.";
+      }
+      isConnecting.value = false;
+  });
+
+  peer.on('connection', (conn) => {
+    activeConnections.value.push(conn);
+    if (localStream.value) {
+       peer.call(conn.peer, localStream.value);
+    }
+  });
+};
+
 const handleStartCasting = async (mode) => {
   // Mobile Screen Share Check
   if (mode === 'screen') {
     if (isMobile.value) {
       error.value = "Screen sharing not supported on mobile.";
-      // Clear error after 3 seconds so UI resets
       setTimeout(() => error.value = null, 3000);
       return; 
     }
@@ -149,6 +228,12 @@ const handleStartCasting = async (mode) => {
       setTimeout(() => error.value = null, 3000);
       return;
     }
+  }
+
+  // Stop any existing stream before starting a new one
+  if (localStream.value) {
+    localStream.value.getTracks().forEach(t => t.stop());
+    localStream.value = null;
   }
 
   castingMode.value = mode;
@@ -164,44 +249,21 @@ const handleStartCasting = async (mode) => {
         audio: true 
       });
     } else {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: facingMode.value,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      });
+      // Use helper for consistent high quality
+      stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(facingMode.value));
+    }
+
+    // Check if user canceled operation while waiting for stream
+    if (!isConnecting.value) {
+      stream.getTracks().forEach(t => t.stop());
+      return;
     }
 
     localStream.value = stream;
     appState.value = STATES.SENDER;
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const peer = new window.Peer(code, {
-      debug: 1,
-      config: { iceServers: getIceServers() }
-    });
     
-    peerInstance.value = peer;
-    
-    peer.on('open', (id) => { 
-        console.log('Peer Open:', id);
-        peerId.value = id; 
-        isConnecting.value = false; 
-    });
-    
-    peer.on('error', (err) => {
-        console.error('Peer Error:', err);
-        error.value = "Network Error. Retrying...";
-        isConnecting.value = false;
-        // Optionally handle unavailable-id by retrying with new code
-    });
-
-    peer.on('connection', (conn) => {
-      activeConnections.value.push(conn);
-      peer.call(conn.peer, localStream.value);
-    });
+    // Initialize PeerJS *after* we have the stream to ensure UI is ready
+    initPeerConnection();
     
     stream.getVideoTracks()[0].onended = () => resetApp();
 
@@ -214,32 +276,43 @@ const handleStartCasting = async (mode) => {
     }
     error.value = "Device access denied or not supported.";
     isConnecting.value = false;
-    // Don't force reset to LANDING immediately, let user see error in Source Select if possible, 
-    // but here we might be in SENDER state already or before. 
-    // If stream failed, we are likely still in SOURCE_SELECT visually if we didn't change state yet.
-    // But we changed appState before Peer init. 
-    // Let's reset to LANDING if stream fails.
-    if (!localStream.value) {
-        appState.value = STATES.LANDING;
+    // Do not reset app here completely, just ensure stream is clear
+    if (localStream.value) {
+       localStream.value.getTracks().forEach(t => t.stop());
+       localStream.value = null;
     }
   }
 };
 
+const retryPeerConnection = () => {
+  peerError.value = null;
+  initPeerConnection();
+};
+
 const toggleCamera = async () => {
   if (castingMode.value !== 'camera' || !localStream.value) return;
-  facingMode.value = facingMode.value === 'user' ? 'environment' : 'user';
+  
+  // Prevent double clicks or race conditions if needed, 
+  // but for now simple swap is okay.
+  
+  const newFacing = facingMode.value === 'user' ? 'environment' : 'user';
   
   try {
-    const newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facingMode.value },
-      audio: true
-    });
+    // 1. Stop current tracks explicitly
+    localStream.value.getTracks().forEach(track => track.stop());
     
-    const oldTracks = localStream.value.getTracks();
-    oldTracks.forEach(t => t.stop());
+    // 2. Get new stream
+    const newStream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(newFacing));
     
+    // 3. Update state
+    facingMode.value = newFacing;
     localStream.value = newStream;
+    
+    // 4. Update existing peer connections
     activeConnections.value.forEach(conn => {
+       // Replace track in peer connection if supported, or recall
+       // PeerJS simplifies this by calling again usually, or we can use replaceTrack if we had direct access to RTCPeerConnection
+       // For PeerJS, calling again is the standard way to switch streams in simple scenarios
        peerInstance.value.call(conn.peer, newStream);
     });
   } catch (err) {
@@ -330,18 +403,34 @@ const handleMouseMove = () => {
 
 // --- Shared ---
 const resetApp = () => {
-  if (localStream.value) localStream.value.getTracks().forEach(t => t.stop());
-  if (peerInstance.value) peerInstance.value.destroy();
+  // 1. Clear Timeouts
+  if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
   
+  // 2. Stop Local Stream Tracks (CRITICAL for removing camera icon)
+  if (localStream.value) {
+    localStream.value.getTracks().forEach(t => t.stop());
+    localStream.value = null;
+  }
+  
+  // 3. Clear Video Elements
+  if (localVideo.value) localVideo.value.srcObject = null;
+  if (remoteVideo.value) remoteVideo.value.srcObject = null;
+
+  // 4. Destroy Peer
+  if (peerInstance.value) {
+    peerInstance.value.destroy();
+    peerInstance.value = null;
+  }
+  
+  // 5. Reset State
   appState.value = STATES.LANDING;
   peerId.value = '';
-  localStream.value = null;
-  remoteStream.value = null; // Reset remote stream
+  remoteStream.value = null;
   activeConnections.value = [];
   joinCode.value = '';
   isConnecting.value = false;
   error.value = null;
-  // Modals stay as is
+  peerError.value = null;
 };
 </script>
 
@@ -435,7 +524,7 @@ const resetApp = () => {
              {{ error }}
            </div>
 
-           <button @click="appState = STATES.LANDING" class="mt-12 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:text-white transition-colors">← Cancel Operation</button>
+           <button @click="resetApp" class="mt-12 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:text-white transition-colors">← Cancel Operation</button>
         </div>
 
         <!-- Sender View -->
@@ -456,14 +545,25 @@ const resetApp = () => {
             
             <div class="mb-10">
               <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Sharing Access Key</p>
-              <div class="flex items-center justify-center gap-2">
+              
+              <!-- Connection State Handler -->
+              <div v-if="!peerId && !peerError" class="flex items-center justify-center gap-2">
+                 <!-- Loading Skeleton -->
+                 <div v-for="n in 6" :key="n" class="w-12 h-16 bg-slate-950 rounded-2xl border border-slate-800 animate-pulse"></div>
+              </div>
+              
+              <div v-else-if="peerError" class="flex flex-col items-center gap-3">
+                 <p class="text-red-500 font-bold uppercase text-xs">{{ peerError }}</p>
+                 <button @click="retryPeerConnection" class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-bold text-xs uppercase tracking-widest transition-all">
+                    <RefreshCw class="w-3 h-3" /> Retry
+                 </button>
+              </div>
+
+              <div v-else class="flex items-center justify-center gap-2">
                  <template v-for="(char, i) in peerId.split('')" :key="i">
                     <span class="text-4xl md:text-6xl font-black bg-slate-950 w-12 md:w-16 h-16 md:h-24 flex items-center justify-center rounded-2xl border border-slate-800 text-amber-500 shadow-inner">{{ char }}</span>
                     <span v-if="i === 2" class="text-slate-800 font-black text-2xl">-</span>
                   </template>
-                  <div v-if="!peerId" class="flex gap-2">
-                    <div v-for="n in 6" :key="n" class="w-12 h-16 bg-slate-950 rounded-2xl border border-slate-800 animate-pulse"></div>
-                  </div>
               </div>
             </div>
 
