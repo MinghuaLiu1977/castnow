@@ -31,7 +31,8 @@ const activeConnections = ref([]);
 
 // Receiver Refs
 const joinCode = ref('');
-const isMuted = ref(false);
+// Autoplay policy usually requires muted. Start muted.
+const isMuted = ref(true);
 const showControls = ref(true);
 let controlsTimeout = null;
 
@@ -92,12 +93,15 @@ watch(localStream, (newStream) => {
 watch(remoteVideo, (videoEl) => {
   if (videoEl && remoteStream.value) {
     videoEl.srcObject = remoteStream.value;
+    // Ensure muted for mobile autoplay
+    videoEl.muted = isMuted.value;
     videoEl.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
   }
 });
 watch(remoteStream, (newStream) => {
   if (remoteVideo.value && newStream) {
     remoteVideo.value.srcObject = newStream;
+    remoteVideo.value.muted = isMuted.value;
     remoteVideo.value.play().catch(e => console.log("Remote autoplay blocked/pending interaction", e));
   }
 });
@@ -132,14 +136,22 @@ onUnmounted(() => {
 
 // --- Sender Logic ---
 const handleStartCasting = async (mode) => {
-  castingMode.value = mode;
-
+  // Mobile Screen Share Check
   if (mode === 'screen') {
+    if (isMobile.value) {
+      error.value = "Screen sharing not supported on mobile.";
+      // Clear error after 3 seconds so UI resets
+      setTimeout(() => error.value = null, 3000);
+      return; 
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      alert("This device or browser does not support Screen Sharing.");
+      error.value = "Browser not supported.";
+      setTimeout(() => error.value = null, 3000);
       return;
     }
   }
+
+  castingMode.value = mode;
 
   try {
     isConnecting.value = true;
@@ -172,7 +184,20 @@ const handleStartCasting = async (mode) => {
     });
     
     peerInstance.value = peer;
-    peer.on('open', (id) => { peerId.value = id; isConnecting.value = false; });
+    
+    peer.on('open', (id) => { 
+        console.log('Peer Open:', id);
+        peerId.value = id; 
+        isConnecting.value = false; 
+    });
+    
+    peer.on('error', (err) => {
+        console.error('Peer Error:', err);
+        error.value = "Network Error. Retrying...";
+        isConnecting.value = false;
+        // Optionally handle unavailable-id by retrying with new code
+    });
+
     peer.on('connection', (conn) => {
       activeConnections.value.push(conn);
       peer.call(conn.peer, localStream.value);
@@ -189,7 +214,14 @@ const handleStartCasting = async (mode) => {
     }
     error.value = "Device access denied or not supported.";
     isConnecting.value = false;
-    appState.value = STATES.LANDING;
+    // Don't force reset to LANDING immediately, let user see error in Source Select if possible, 
+    // but here we might be in SENDER state already or before. 
+    // If stream failed, we are likely still in SOURCE_SELECT visually if we didn't change state yet.
+    // But we changed appState before Peer init. 
+    // Let's reset to LANDING if stream fails.
+    if (!localStream.value) {
+        appState.value = STATES.LANDING;
+    }
   }
 };
 
@@ -375,14 +407,14 @@ const resetApp = () => {
              <span class="w-8 h-[2px] bg-amber-500"></span>
            </h2>
            <div class="grid grid-cols-1 gap-4 w-full max-w-sm">
-              <button @click="handleStartCasting('screen')" class="flex items-center gap-6 p-6 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-amber-500 transition-all group text-left relative overflow-hidden">
+              <button @click="handleStartCasting('screen')" :class="{'opacity-50 cursor-not-allowed': isMobile}" class="flex items-center gap-6 p-6 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-amber-500 transition-all group text-left relative overflow-hidden">
                 <div class="w-16 h-16 bg-slate-950 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Monitor class="w-8 h-8 text-amber-500" />
                 </div>
                 <div>
                   <span class="block font-black uppercase tracking-widest text-lg">Screen Share</span>
                   <p class="text-[10px] text-slate-500 uppercase font-bold mt-1">
-                    {{ isMobile ? 'Experimental (Android Only)' : 'System Mirroring' }}
+                    {{ isMobile ? 'Not Supported on Mobile' : 'System Mirroring' }}
                   </p>
                 </div>
               </button>
@@ -397,6 +429,12 @@ const resetApp = () => {
                 </div>
               </button>
            </div>
+           
+           <!-- Error Toast Area -->
+           <div v-if="error" class="mt-6 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-full text-xs font-bold uppercase tracking-widest animate-pulse">
+             {{ error }}
+           </div>
+
            <button @click="appState = STATES.LANDING" class="mt-12 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:text-white transition-colors">← Cancel Operation</button>
         </div>
 
@@ -444,14 +482,14 @@ const resetApp = () => {
 
         <!-- Receiver Input -->
         <div v-else-if="appState === STATES.RECEIVER_INPUT" class="flex-1 flex flex-col items-center justify-center p-6">
-           <h2 class="text-2xl font-black uppercase mb-10 tracking-widest flex items-center gap-3">
+           <h2 class="text-2xl font-black uppercase mb-8 tracking-widest flex items-center gap-3 whitespace-nowrap">
              <span class="w-8 h-[2px] bg-amber-500"></span>
              Enter Access Key
              <span class="w-8 h-[2px] bg-amber-500"></span>
            </h2>
 
            <!-- Display -->
-           <div class="mb-10 flex gap-2 h-20 md:h-24">
+           <div class="mb-6 flex gap-2 h-20 md:h-24">
               <div v-for="i in 6" :key="i" class="w-12 md:w-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-3xl md:text-4xl font-black text-white shadow-inner transition-colors duration-200" :class="{'border-amber-500/50 text-amber-500': joinCode[i-1], 'animate-pulse bg-slate-800/50': joinCode.length === i-1}">
                 {{ joinCode[i-1] || '' }}
               </div>
@@ -462,15 +500,15 @@ const resetApp = () => {
            </div>
 
            <!-- Touch Keypad (Only on Touch Devices) -->
-           <div v-if="isTouch" class="grid grid-cols-3 gap-4 w-full max-w-[280px] mb-8">
-              <button v-for="n in 9" :key="n" @click="handleDigitInput(n.toString())" class="h-16 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">
+           <div v-if="isTouch" class="grid grid-cols-3 gap-3 w-full max-w-[280px] mb-6">
+              <button v-for="n in 9" :key="n" @click="handleDigitInput(n.toString())" class="h-14 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">
                 {{ n }}
               </button>
-              <button @click="resetApp" class="h-16 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
+              <button @click="resetApp" class="h-14 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
                  <X class="w-6 h-6" />
               </button>
-              <button @click="handleDigitInput('0')" class="h-16 rounded-2xl bg-slate-950 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">0</button>
-              <button @click="handleBackspace" class="h-16 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
+              <button @click="handleDigitInput('0')" class="h-14 rounded-2xl bg-slate-950 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">0</button>
+              <button @click="handleBackspace" class="h-14 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
                  <ArrowLeft class="w-6 h-6" />
               </button>
            </div>
@@ -487,7 +525,7 @@ const resetApp = () => {
 
         <!-- Receiver Active -->
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE" class="fixed inset-0 bg-black flex items-center justify-center" @mousemove="handleMouseMove" @touchstart="handleMouseMove">
-           <video ref="remoteVideo" autoplay playsinline class="w-full h-full object-contain" />
+           <video ref="remoteVideo" autoplay playsinline :muted="isMuted" class="w-full h-full object-contain" />
            
            <!-- Overlay Controls -->
            <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 transition-opacity duration-300 pointer-events-none" :class="{'opacity-0': !showControls}"></div>
