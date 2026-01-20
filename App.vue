@@ -102,15 +102,13 @@ const clearLogs = () => {
 
 // --- WebRTC Core ---
 const getIceServers = () => {
-  const isChina = () => {
-    try {
-      const locale = navigator.language || '';
-      return locale.toLowerCase().includes('zh');
-    } catch (e) { return false; }
-  };
-  return isChina() 
-    ? [{ urls: 'stun:stun.miwifi.com:3478' }, { urls: 'stun:stun.cdn.aliyun.com:3478' }] 
-    : [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
+  // Return a consolidated list to maximize connectivity chance
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.miwifi.com:3478' },
+    { urls: 'stun:stun.cdn.aliyun.com:3478' }
+  ];
 };
 
 // Helper for High-Quality Video Constraints
@@ -207,7 +205,7 @@ const getPeerConfig = () => ({
   secure: true,
   config: { 
     iceServers: getIceServers(),
-    sdpSemantics: 'unified-plan' // Force standard SDP
+    sdpSemantics: 'unified-plan'
   }
 });
 
@@ -300,13 +298,21 @@ const initPeerConnection = () => {
     
     conn.on('open', () => {
         console.log("Data Channel Open to:", conn.peer);
-        if (localStream.value) {
-           console.log("Initiating Media Call to:", conn.peer);
-           const call = peer.call(conn.peer, localStream.value);
-           call.on('error', (e) => console.error("Media Call Error:", e));
-        } else {
-            console.warn("No local stream available to call peer");
-        }
+        
+        // Wait 500ms to ensure receiver call listeners are ready (Race condition fix)
+        setTimeout(() => {
+          if (localStream.value) {
+             console.log("Initiating Media Call to:", conn.peer);
+             try {
+                const call = peer.call(conn.peer, localStream.value);
+                call.on('error', (e) => console.error("Media Call Error:", e));
+             } catch(e) {
+                console.error("Call creation failed:", e);
+             }
+          } else {
+              console.warn("No local stream available to call peer");
+          }
+        }, 500);
     });
   });
 };
@@ -436,12 +442,14 @@ const handleBackspace = () => {
 const connectToBroadcaster = (destPeerId, retryCount = 0) => {
     if (!peerInstance.value || peerInstance.value.destroyed) return;
     
-    console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1})...`);
+    // Smart Fallback: If 1st attempt (count 0) fails, next attempts try unreliable (UDP)
+    // UDP is faster and negotiation often succeeds where TCP fails on mobile
+    const useReliable = retryCount === 0; 
     
-    // Fix: Use JSON serialization for better mobile compatibility
-    // Reliable: true ensures packets aren't lost during handshake
+    console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1}). Reliable: ${useReliable}`);
+    
     const conn = peerInstance.value.connect(destPeerId, {
-        reliable: true,
+        reliable: useReliable,
         serialization: 'json',
     });
 
@@ -455,14 +463,15 @@ const connectToBroadcaster = (destPeerId, retryCount = 0) => {
       console.error(`DataConnection Error (Attempt ${retryCount+1}):`, err);
       // Specific handling for "Negotiation failed"
       if (err.message && err.message.includes('Negotiation')) {
-          if (retryCount < 3) {
-             console.warn("Negotiation failed. Retrying in 1s...");
-             setTimeout(() => connectToBroadcaster(destPeerId, retryCount + 1), 1000);
+          if (retryCount < 4) {
+             const delay = retryCount === 0 ? 500 : 1000; // Fast retry first time
+             console.warn(`Negotiation failed. Retrying with reliable=${!useReliable} in ${delay}ms...`);
+             setTimeout(() => connectToBroadcaster(destPeerId, retryCount + 1), delay);
              return;
           }
       }
       
-      if (retryCount >= 3) {
+      if (retryCount >= 4) {
         error.value = "Connection negotiation failed.";
         isConnecting.value = false;
       }
