@@ -25,7 +25,6 @@ class CastNowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 设置状态栏样式
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
@@ -62,7 +61,6 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo Area
               Container(
                 width: 80,
                 height: 80,
@@ -101,7 +99,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 60),
 
-              // Actions
               _buildActionButton(
                 context,
                 title: "Broadcast",
@@ -215,14 +212,32 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     await _localRenderer.initialize();
   }
 
+  // --- 关键修改：提供 robust 的 ICE Servers ---
+  Map<String, dynamic> _getIceServerConfig() {
+    return {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun.cloudflare.com:3478'},
+        {'urls': 'stun:stun.miwifi.com:3478'}, // China Optimized
+        {'urls': 'stun:stun.cdn.aliyun.com:3478'}, // China Optimized
+      ],
+      'sdpSemantics': 'unified-plan'
+    };
+  }
+
   Future<void> _startBroadcast(bool isScreen) async {
     setState(() => _isLoading = true);
     try {
-      // 1. 获取 ID (与 Web 端保持一致，使用6位数字)
       final code = (100000 + Random().nextInt(900000)).toString();
 
-      // 2. 初始化 Peer
-      final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
+      // 初始化 Peer 时注入 config
+      final peer = Peer(
+        id: code, 
+        options: PeerOptions(
+          debug: LogLevel.All,
+          config: _getIceServerConfig(), 
+        )
+      );
       
       _peer = peer;
 
@@ -235,35 +250,22 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       });
 
       _peer!.on("connection").listen((conn) {
-        // 当接收端连接信令时
         _connections.add(conn);
-        // 主动呼叫接收端 (PeerJS 模式: Sender calls Receiver)
         if (_localStream != null) {
           _peer!.call(conn.peer, _localStream!);
         }
       });
 
-      // 3. 获取媒体流
-      Map<String, dynamic> mediaConstraints = {
-        'audio': true,
-        'video': isScreen
-            ? true // 屏幕共享逻辑稍后处理
-            : {
-                'facingMode': 'user',
-                'width': 1280,
-                'height': 720
-              }
-      };
-
+      // 获取媒体流
       if (isScreen) {
         if (Platform.isAndroid) {
           // Android 原生屏幕共享
+          // 注意：必须在 AndroidManifest 中注册 WebrtcMediaProjectionService
           _localStream = await navigator.mediaDevices.getDisplayMedia({
               'video': true, 
               'audio': true
           });
         } else {
-          // iOS 需要 Broadcast Extension，暂不支持
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("iOS Screen sharing requires Broadcast Extension."),
             backgroundColor: Colors.red,
@@ -275,7 +277,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
         // 摄像头
         await Permission.camera.request();
         await Permission.microphone.request();
-        _localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+        _localStream = await navigator.mediaDevices.getUserMedia({
+          'audio': true,
+          'video': {
+            'facingMode': 'user',
+            'width': 1280,
+            'height': 720
+          }
+        });
       }
 
       _localRenderer.srcObject = _localStream;
@@ -293,7 +302,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
   void _switchCamera() async {
     if (_localStream != null && !_isScreenSharing) {
-       // Helper to switch camera
        final videoTrack = _localStream!.getVideoTracks().first;
        await Helper.switchCamera(videoTrack);
     }
@@ -311,14 +319,13 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   @override
   Widget build(BuildContext context) {
     if (_peerId == null && !_isLoading) {
-      // Source Selection Mode
       return Scaffold(
         appBar: AppBar(title: const Text("Choose Source"), centerTitle: true, backgroundColor: Colors.transparent),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-               _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true)),
+               _buildSourceBtn(Icons.mobile_screen_share, "Screen Share", () => _startBroadcast(true)),
                const SizedBox(height: 20),
                _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false)),
             ],
@@ -330,7 +337,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Video Feed
           Container(
             color: Colors.black,
             child: _localStream != null 
@@ -338,7 +344,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               : Container(),
           ),
           
-          // Overlay Info
           SafeArea(
             child: Column(
               children: [
@@ -351,9 +356,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
                         child: Row(children: [
-                          const Icon(Icons.circle, color: Colors.red, size: 12),
+                          Icon(Icons.circle, color: _isScreenSharing ? Colors.blue : Colors.red, size: 12),
                           const SizedBox(width: 8),
-                          Text(_isScreenSharing ? "SCREEN" : "CAMERA", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(_isScreenSharing ? "SHARING SCREEN" : "ON AIR", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ]),
                       ),
                       IconButton(
@@ -366,7 +371,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                 
                 const Spacer(),
                 
-                // Code Display
                 if (_peerId != null)
                   Container(
                     margin: const EdgeInsets.all(24),
@@ -396,11 +400,13 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                         ),
                         const SizedBox(height: 20),
                         if (!_isScreenSharing)
-                        TextButton.icon(
-                          onPressed: _switchCamera,
-                          icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
-                          label: const Text("Switch Camera", style: TextStyle(color: Colors.white)),
-                        )
+                          TextButton.icon(
+                            onPressed: _switchCamera,
+                            icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
+                            label: const Text("Switch Camera", style: TextStyle(color: Colors.white)),
+                          )
+                        else
+                          const Text("You are sharing your screen", style: TextStyle(color: Colors.white54, fontSize: 12))
                       ],
                     ),
                   ),
@@ -468,18 +474,33 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     super.dispose();
   }
 
+  // --- 关键修改：Receive 模式也需要 ICE 配置 ---
+  Map<String, dynamic> _getIceServerConfig() {
+     return {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun.cloudflare.com:3478'},
+        {'urls': 'stun:stun.miwifi.com:3478'},
+        {'urls': 'stun:stun.cdn.aliyun.com:3478'},
+      ]
+    };
+  }
+
   void _joinStream() {
     final code = _codeController.text.trim();
     if (code.length != 6) return;
 
     setState(() => _isConnecting = true);
     
-    // Viewer creates a peer with random ID
-    final peer = Peer(options: PeerOptions(debug: LogLevel.All));
+    final peer = Peer(
+      options: PeerOptions(
+        debug: LogLevel.All,
+        config: _getIceServerConfig()
+      )
+    );
     _peer = peer;
 
     peer.on("open").listen((id) {
-      // 1. Connect to Broadcaster (Signal Intent)
       final conn = peer.connect(code);
       
       conn.on("open").listen((_) {
@@ -494,11 +515,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       });
     });
 
-    // 2. Wait for Broadcaster to call us
     peer.on("call").listen((mediaConnection) {
-      // Answer the call (no stream sent back)
       mediaConnection.answer(null);
-      
       mediaConnection.on("stream").listen((stream) {
         setState(() {
           _remoteRenderer.srcObject = stream;
@@ -510,8 +528,10 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
     peer.on("error").listen((err) {
       debugPrint("Peer Error: $err");
-      setState(() => _isConnecting = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connection Failed. Check code.")));
+      if (mounted) {
+        setState(() => _isConnecting = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connection Failed. Check code.")));
+      }
     });
   }
 

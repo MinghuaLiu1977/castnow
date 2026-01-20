@@ -51,6 +51,23 @@ const getIceServers = () => {
     : [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
 };
 
+// --- Watchers for Video Elements ---
+// 当 SENDER 模式激活时，localVideo 元素挂载到 DOM 后，立即绑定流
+watch(localVideo, (videoEl) => {
+  if (videoEl && localStream.value) {
+    videoEl.srcObject = localStream.value;
+    videoEl.play().catch(e => console.error("Local preview play error:", e));
+  }
+});
+
+// 当流发生变化（如切换摄像头）且 video 元素存在时，更新绑定
+watch(localStream, (newStream) => {
+  if (localVideo.value && newStream) {
+    localVideo.value.srcObject = newStream;
+    localVideo.value.play().catch(e => console.error("Local preview play error:", e));
+  }
+});
+
 // --- Sender Logic ---
 const handleStartCasting = async (mode) => {
   castingMode.value = mode;
@@ -105,9 +122,7 @@ const handleStartCasting = async (mode) => {
     // 如果是屏幕共享，监听停止事件（用户点击浏览器/系统自带的停止共享按钮）
     stream.getVideoTracks()[0].onended = () => resetApp();
     
-    nextTick(() => {
-      if (localVideo.value) localVideo.value.srcObject = stream;
-    });
+    // 注意：srcObject 的绑定现在由 watch(localVideo) 自动处理，移除了不稳定的 nextTick 逻辑
 
   } catch (err) {
     console.error(err);
@@ -137,7 +152,7 @@ const toggleCamera = async () => {
     oldTracks.forEach(t => t.stop());
     
     localStream.value = newStream;
-    if (localVideo.value) localVideo.value.srcObject = newStream;
+    // localStream 的 watcher 会自动更新 localVideo.srcObject
     
     activeConnections.value.forEach(conn => {
        peerInstance.value.call(conn.peer, newStream);
@@ -396,7 +411,7 @@ const resetApp = () => {
               <button @click="resetApp" class="h-16 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
                  <X class="w-6 h-6" />
               </button>
-              <button @click="handleDigitInput('0')" class="h-16 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">0</button>
+              <button @click="handleDigitInput('0')" class="h-16 rounded-2xl bg-slate-950 border border-slate-800 hover:bg-slate-800 text-xl font-bold active:scale-95 transition-all">0</button>
               <button @click="handleBackspace" class="h-16 rounded-2xl bg-slate-950 border border-slate-900 hover:bg-slate-900 text-slate-500 flex items-center justify-center active:scale-95 transition-all">
                  <ArrowLeft class="w-6 h-6" />
               </button>
