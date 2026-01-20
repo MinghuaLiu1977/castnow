@@ -200,6 +200,14 @@ onUnmounted(() => {
   resetApp();
 });
 
+// --- Peer Configuration Helper ---
+const getPeerConfig = () => ({
+  debug: 2,
+  pingInterval: 5000, // Critical for mobile: keep connection alive
+  secure: true,
+  config: { iceServers: getIceServers() }
+});
+
 // --- Sender Logic ---
 const initPeerConnection = () => {
   if (peerInstance.value) peerInstance.value.destroy();
@@ -218,11 +226,7 @@ const initPeerConnection = () => {
     }
   }, 15000); // 15s timeout for mobile networks
 
-  const peer = new window.Peer(code, {
-    debug: 2, // Increased debug level for troubleshooting
-    pingInterval: 5000, // Keep-alive for mobile
-    config: { iceServers: getIceServers() }
-  });
+  const peer = new window.Peer(code, getPeerConfig());
   
   peerInstance.value = peer;
   
@@ -234,23 +238,34 @@ const initPeerConnection = () => {
       peerError.value = null;
   });
   
+  peer.on('disconnected', () => {
+      console.warn("Peer disconnected from server. Attempting reconnect...");
+      // Auto-reconnect for Sender
+      try { peer.reconnect(); } catch(e) { console.error("Reconnect failed", e); }
+  });
+
   peer.on('error', (err) => {
       console.error('Peer Error Event:', err.type, err.message);
       if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
 
       if (err.type === 'unavailable-id') {
-        // Retry automatically with a new ID if collision
         console.warn('ID collision, retrying...');
         setTimeout(() => initPeerConnection(), 500);
         return;
       }
-      
-      if (err.type === 'network' || err.type === 'peer-unavailable' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+
+      // Handle server connection loss specifically
+      if (err.type === 'network' || err.type === 'peer-unavailable' || err.type === 'server-error' || err.message.includes('Lost connection')) {
+         console.warn("Network/Server error detected. Trying to recover...");
          peerError.value = "Network unstable. Retrying...";
+         // Try to reconnect if possible
+         if (peer && !peer.destroyed) {
+             try { peer.reconnect(); } catch(e) {}
+         }
       } else {
          peerError.value = "Connection Error: " + err.type;
+         isConnecting.value = false;
       }
-      isConnecting.value = false;
   });
 
   peer.on('connection', (conn) => {
@@ -267,10 +282,6 @@ const initPeerConnection = () => {
             console.warn("No local stream available to call peer");
         }
     });
-  });
-
-  peer.on('disconnected', () => {
-      console.warn("Peer disconnected from server (signaling lost)");
   });
 };
 
@@ -402,10 +413,7 @@ const handleJoin = () => {
   isConnecting.value = true;
   error.value = null;
 
-  const peer = new window.Peer({
-    debug: 2,
-    config: { iceServers: getIceServers() }
-  });
+  const peer = new window.Peer(getPeerConfig());
   
   peerInstance.value = peer;
 
@@ -422,14 +430,23 @@ const handleJoin = () => {
 
     conn.on('error', (err) => {
       console.error("Data Connection Error", err);
-      error.value = "Connection failed. Check code.";
-      isConnecting.value = false;
+      // Don't fail immediately on network blips
+      if (err.type !== 'network') {
+          error.value = "Connection failed. Check code.";
+          isConnecting.value = false;
+      }
     });
     
     conn.on('close', () => {
         console.log("Broadcaster closed connection");
         resetApp();
     });
+  });
+
+  peer.on('disconnected', () => {
+      console.warn("Receiver Peer disconnected from signaling server. Auto-reconnecting...");
+      // Critical for "Lost connection to server" error
+      try { peer.reconnect(); } catch(e) { console.error("Receiver reconnect failed", e); }
   });
 
   peer.on('call', (call) => {
@@ -447,9 +464,18 @@ const handleJoin = () => {
 
   peer.on('error', (err) => {
     console.error("Receiver Peer Error:", err);
-    error.value = "Invalid Code or Connection Error";
-    isConnecting.value = false;
-    joinCode.value = '';
+    
+    if (err.message && err.message.includes('Lost connection')) {
+         console.log("Trying to recover from lost connection...");
+         try { peer.reconnect(); } catch(e) {}
+         return;
+    }
+
+    // Only reset if it's a fatal error and we are not already connected/streaming
+    if (appState.value !== STATES.RECEIVER_ACTIVE) {
+        error.value = "Connection Error: " + (err.type || 'Unknown');
+        isConnecting.value = false;
+    }
   });
 };
 
