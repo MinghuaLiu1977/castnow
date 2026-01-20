@@ -449,28 +449,34 @@ const handleBackspace = () => {
 const connectToBroadcaster = (destPeerId, retryCount = 0) => {
     if (!peerInstance.value || peerInstance.value.destroyed) return;
     
-    // Mobile Connection Strategy:
-    // Some mobile browsers (Chrome Android) prefer UDP (reliable: false).
-    // Others (Firefox Android) might require TCP/SCTP (reliable: true) or struggle with UDP blocking.
-    // Strategy: Alternate between them on retries.
-    // Retry 0: False (UDP) - Fast
-    // Retry 1: True (Reliable) - Fallback
-    // Retry 2: False (UDP)
+    // BROWSER SPECIFIC STRATEGY
+    // Firefox Mobile: Prefer TCP (reliable: true) first. It handles SCTP better than raw UDP in restrictive networks.
+    // Chrome/Others: Prefer UDP (reliable: false) first. It's faster and standard for WebRTC.
+    
     let useReliable;
     
-    if (isMobile.value) {
+    if (isFirefox.value) {
+        // Firefox Strategy: 
+        // Attempt 0: Reliable (True)
+        // Attempt 1: Unreliable (False)
+        // Attempt 2: Reliable (True)
+        useReliable = (retryCount % 2 === 0);
+    } else if (isMobile.value) {
+        // Other Mobile (Chrome/Safari) Strategy:
+        // Attempt 0: Unreliable (False) - Fast start
+        // Attempt 1: Reliable (True) - Fallback
         useReliable = (retryCount % 2 !== 0);
     } else {
-        // Desktop usually handles reliable fine, only fallback if 0 fails
-        useReliable = (retryCount === 0);
+        // Desktop Strategy: Default to Unreliable (UDP) unless falling back deep
+        useReliable = (retryCount > 0);
     }
     
-    console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1}). Reliable: ${useReliable}`);
+    console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1}). Browser: ${isFirefox.value ? 'Firefox' : 'Other'}. Reliable: ${useReliable}`);
     
     const conn = peerInstance.value.connect(destPeerId, {
         reliable: useReliable,
         serialization: 'json',
-        label: 'castnow-signaling', // Explicit label helps some browsers
+        label: 'castnow-signaling',
     });
 
     conn.on('open', () => {
