@@ -239,9 +239,27 @@ const initPeerConnection = () => {
   });
   
   peer.on('disconnected', () => {
-      console.warn("Peer disconnected from server. Attempting reconnect...");
-      // Auto-reconnect for Sender
-      try { peer.reconnect(); } catch(e) { console.error("Reconnect failed", e); }
+      console.warn(`[Sender] Peer disconnected (ID: ${peer.id}). AppState: ${appState.value}`);
+      // Only reconnect if we are still in SENDER mode
+      if (appState.value === STATES.SENDER) {
+        if (!peer.destroyed) {
+            console.log("[Sender] Active session disconnected. Attempting reconnect...");
+            try { 
+              peer.reconnect(); 
+              console.log("[Sender] Reconnect command sent.");
+            } catch(e) { 
+              console.error("[Sender] Reconnect failed:", e); 
+            }
+        } else {
+             console.warn("[Sender] Peer destroyed. Cannot reconnect.");
+        }
+      } else {
+         console.log("[Sender] App not active sender. Ignoring disconnect.");
+      }
+  });
+
+  peer.on('close', () => {
+      console.warn(`[Sender] Peer connection closed/destroyed.`);
   });
 
   peer.on('error', (err) => {
@@ -256,11 +274,16 @@ const initPeerConnection = () => {
 
       // Handle server connection loss specifically
       if (err.type === 'network' || err.type === 'peer-unavailable' || err.type === 'server-error' || err.message.includes('Lost connection')) {
-         console.warn("Network/Server error detected. Trying to recover...");
+         console.warn("[Sender] Network/Server error. AppState:", appState.value);
          peerError.value = "Network unstable. Retrying...";
-         // Try to reconnect if possible
-         if (peer && !peer.destroyed) {
-             try { peer.reconnect(); } catch(e) {}
+         
+         if (appState.value === STATES.SENDER && peer && !peer.destroyed) {
+             try { 
+                 console.log("[Sender] Error recovery: calling reconnect()");
+                 peer.reconnect(); 
+             } catch(e) {
+                 console.error("[Sender] Error recovery failed:", e);
+             }
          }
       } else {
          peerError.value = "Connection Error: " + err.type;
@@ -444,9 +467,20 @@ const handleJoin = () => {
   });
 
   peer.on('disconnected', () => {
-      console.warn("Receiver Peer disconnected from signaling server. Auto-reconnecting...");
-      // Critical for "Lost connection to server" error
-      try { peer.reconnect(); } catch(e) { console.error("Receiver reconnect failed", e); }
+      console.warn(`[Receiver] Peer disconnected. AppState: ${appState.value}`);
+      
+      // Critical check to avoid reconnecting if we are leaving
+      if (appState.value === STATES.RECEIVER_ACTIVE || appState.value === STATES.RECEIVER_INPUT) {
+          if (!peer.destroyed) {
+              console.log("[Receiver] Lost connection to server. Auto-reconnecting...");
+              try { 
+                peer.reconnect(); 
+                console.log("[Receiver] Reconnect command sent.");
+              } catch(e) { 
+                console.error("[Receiver] Reconnect failed", e); 
+              }
+          }
+      }
   });
 
   peer.on('call', (call) => {
@@ -466,8 +500,15 @@ const handleJoin = () => {
     console.error("Receiver Peer Error:", err);
     
     if (err.message && err.message.includes('Lost connection')) {
-         console.log("Trying to recover from lost connection...");
-         try { peer.reconnect(); } catch(e) {}
+         console.log("[Receiver] Error: Lost connection. Initiating recovery...");
+         if (peer && !peer.destroyed && (appState.value === STATES.RECEIVER_ACTIVE)) {
+             try { 
+                peer.reconnect();
+                console.log("[Receiver] Recovery reconnect sent.");
+             } catch(e) {
+                console.error("[Receiver] Recovery failed:", e);
+             }
+         }
          return;
     }
 
@@ -504,7 +545,7 @@ const handleMouseMove = () => {
 
 // --- Shared ---
 const resetApp = () => {
-  console.log("Resetting App State");
+  console.log("Resetting App State. destroying Peer...");
   // 1. Clear Timeouts
   if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
   
@@ -520,8 +561,9 @@ const resetApp = () => {
 
   // 4. Destroy Peer
   if (peerInstance.value) {
-    peerInstance.value.destroy();
-    peerInstance.value = null;
+    const p = peerInstance.value;
+    peerInstance.value = null; // Detach first
+    p.destroy();
   }
   
   // 5. Reset State
