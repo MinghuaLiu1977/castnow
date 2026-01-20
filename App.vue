@@ -57,6 +57,11 @@ const isTouch = computed(() => {
   return navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
 });
 
+const isFirefox = computed(() => {
+  if (typeof navigator === 'undefined') return false;
+  return navigator.userAgent.toLowerCase().includes('firefox');
+});
+
 // --- Actions ---
 const openPro = () => {
   window.open('https://minghster.gumroad.com/l/ihhtg', '_blank');
@@ -192,7 +197,7 @@ const handleKeydown = (e) => {
 onMounted(() => {
   initLogger();
   window.addEventListener('keydown', handleKeydown);
-  console.log("App Mounted. Env:", isMobile.value ? 'Mobile' : 'Desktop');
+  console.log("App Mounted. Env:", isMobile.value ? 'Mobile' : 'Desktop', "Firefox:", isFirefox.value);
 });
 
 onUnmounted(() => {
@@ -444,17 +449,28 @@ const handleBackspace = () => {
 const connectToBroadcaster = (destPeerId, retryCount = 0) => {
     if (!peerInstance.value || peerInstance.value.destroyed) return;
     
-    // Smart Fallback Strategy for Mobile & Firefox:
-    // 1. On Mobile devices, default to Unreliable (UDP) immediately. 
-    //    Mobile networks + Reliable DataChannels often fail negotiation.
-    // 2. On Desktop, try Reliable (TCP) first, then fallback.
-    const useReliable = !isMobile.value && retryCount === 0; 
+    // Mobile Connection Strategy:
+    // Some mobile browsers (Chrome Android) prefer UDP (reliable: false).
+    // Others (Firefox Android) might require TCP/SCTP (reliable: true) or struggle with UDP blocking.
+    // Strategy: Alternate between them on retries.
+    // Retry 0: False (UDP) - Fast
+    // Retry 1: True (Reliable) - Fallback
+    // Retry 2: False (UDP)
+    let useReliable;
+    
+    if (isMobile.value) {
+        useReliable = (retryCount % 2 !== 0);
+    } else {
+        // Desktop usually handles reliable fine, only fallback if 0 fails
+        useReliable = (retryCount === 0);
+    }
     
     console.log(`Establishing Data Channel to ${destPeerId} (Attempt ${retryCount + 1}). Reliable: ${useReliable}`);
     
     const conn = peerInstance.value.connect(destPeerId, {
         reliable: useReliable,
         serialization: 'json',
+        label: 'castnow-signaling', // Explicit label helps some browsers
     });
 
     conn.on('open', () => {
@@ -468,7 +484,7 @@ const connectToBroadcaster = (destPeerId, retryCount = 0) => {
       // Specific handling for "Negotiation failed"
       if (err.message && err.message.includes('Negotiation')) {
           if (retryCount < 4) {
-             const delay = retryCount === 0 ? 500 : 1000; // Fast retry first time
+             const delay = retryCount === 0 ? 500 : 1000;
              console.warn(`Negotiation failed. Retrying with reliable=${!useReliable} in ${delay}ms...`);
              setTimeout(() => connectToBroadcaster(destPeerId, retryCount + 1), delay);
              return;
@@ -499,9 +515,16 @@ const handleJoin = () => {
 
   peer.on('open', (id) => {
     console.log("Receiver Peer Open:", id);
-    // Delegate to helper for robust connection logic
-    // Add 500ms delay for Firefox Mobile to stabilize ICE gathering
-    setTimeout(() => connectToBroadcaster(joinCode.value), 500);
+    // Firefox on Android often needs more time to initialize ICE agents
+    // If Firefox, wait 1000ms. If other Mobile, 500ms. Desktop 0.
+    let delay = 0;
+    if (isMobile.value) {
+        delay = isFirefox.value ? 1000 : 500;
+    }
+    
+    if (delay > 0) console.log(`Applying connection delay: ${delay}ms`);
+    
+    setTimeout(() => connectToBroadcaster(joinCode.value), delay);
   });
 
   peer.on('disconnected', () => {
