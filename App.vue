@@ -3,7 +3,7 @@
 import { ref, onUnmounted, watch, nextTick, computed, onMounted } from 'vue';
 import { inject as injectAnalytics } from '@vercel/analytics';
 import { 
-  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone, Shield, FileText, Code, ExternalLink, User, RefreshCw
+  Monitor, X, Copy, Check, AlertCircle, Loader2, Camera, Repeat, Info, Activity, Globe, Download, Play, ArrowLeft, Volume2, VolumeX, Maximize, Smartphone, Shield, FileText, Code, ExternalLink, User, RefreshCw, Bug, Trash2
 } from 'lucide-vue-next';
 
 const STATES = {
@@ -42,6 +42,10 @@ let peerConnectionTimeout = null;
 const showPrivacy = ref(false);
 const showTerms = ref(false);
 
+// Debugging
+const showDebugLogs = ref(false);
+const debugLogs = ref([]);
+
 // Environment Detection
 const isMobile = computed(() => {
   if (typeof navigator === 'undefined') return false;
@@ -60,6 +64,40 @@ const openPro = () => {
 
 const openSource = () => {
   window.open('https://github.com/MinghuaLiu1977/castnow', '_blank');
+};
+
+// --- Logger Interceptor ---
+const initLogger = () => {
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  const pushLog = (type, args) => {
+    try {
+      const message = args.map(arg => {
+        if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+        if (typeof arg === 'object') {
+          try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+        }
+        return String(arg);
+      }).join(' ');
+      
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" });
+      
+      debugLogs.value.unshift({ type, message, time });
+      if (debugLogs.value.length > 100) debugLogs.value.pop();
+    } catch (e) {
+      // safe fail
+    }
+  };
+
+  console.log = (...args) => { originalLog(...args); pushLog('info', args); };
+  console.error = (...args) => { originalError(...args); pushLog('error', args); };
+  console.warn = (...args) => { originalWarn(...args); pushLog('warn', args); };
+};
+
+const clearLogs = () => {
+  debugLogs.value = [];
 };
 
 // --- WebRTC Core ---
@@ -91,6 +129,7 @@ const getVideoConstraints = (facing) => ({
 // 1. Local Video Binding
 watch(localVideo, (videoEl) => {
   if (videoEl && localStream.value) {
+    console.log("Binding local stream to video element");
     videoEl.srcObject = localStream.value;
     videoEl.play().catch(e => console.error("Local preview play error:", e));
   } else if (videoEl) {
@@ -99,6 +138,7 @@ watch(localVideo, (videoEl) => {
 });
 watch(localStream, (newStream) => {
   if (localVideo.value) {
+    console.log("Local stream updated", newStream ? newStream.id : 'null');
     localVideo.value.srcObject = newStream || null;
     if (newStream) {
       localVideo.value.play().catch(e => console.error("Local preview play error:", e));
@@ -109,6 +149,7 @@ watch(localStream, (newStream) => {
 // 2. Remote Video Binding (Fix for Screen Sharing Black Screen)
 watch(remoteVideo, (videoEl) => {
   if (videoEl && remoteStream.value) {
+    console.log("Binding remote stream to video element");
     videoEl.srcObject = remoteStream.value;
     // Ensure muted for mobile autoplay
     videoEl.muted = isMuted.value;
@@ -119,6 +160,7 @@ watch(remoteVideo, (videoEl) => {
 });
 watch(remoteStream, (newStream) => {
   if (remoteVideo.value) {
+    console.log("Remote stream received/updated", newStream ? newStream.id : 'null');
     remoteVideo.value.srcObject = newStream || null;
     if (newStream) {
       remoteVideo.value.muted = isMuted.value;
@@ -148,7 +190,9 @@ const handleKeydown = (e) => {
 };
 
 onMounted(() => {
+  initLogger();
   window.addEventListener('keydown', handleKeydown);
+  console.log("App Mounted. Env:", isMobile.value ? 'Mobile' : 'Desktop');
 });
 
 onUnmounted(() => {
@@ -163,17 +207,19 @@ const initPeerConnection = () => {
   peerId.value = '';
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
+  console.log("Initializing Peer with requested ID:", code);
   
   // Set a timeout to warn user if connection hangs
   if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
   peerConnectionTimeout = setTimeout(() => {
     if (!peerId.value) {
       peerError.value = "Connection timed out.";
+      console.error("PeerJS open event timed out (15s)");
     }
   }, 15000); // 15s timeout for mobile networks
 
   const peer = new window.Peer(code, {
-    debug: 1,
+    debug: 2, // Increased debug level for troubleshooting
     pingInterval: 5000, // Keep-alive for mobile
     config: { iceServers: getIceServers() }
   });
@@ -181,7 +227,7 @@ const initPeerConnection = () => {
   peerInstance.value = peer;
   
   peer.on('open', (id) => { 
-      console.log('Peer Open:', id);
+      console.log('Peer Open Success:', id);
       if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
       peerId.value = id; 
       isConnecting.value = false; 
@@ -189,12 +235,12 @@ const initPeerConnection = () => {
   });
   
   peer.on('error', (err) => {
-      console.error('Peer Error:', err);
+      console.error('Peer Error Event:', err.type, err.message);
       if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
 
       if (err.type === 'unavailable-id') {
         // Retry automatically with a new ID if collision
-        console.log('ID collision, retrying...');
+        console.warn('ID collision, retrying...');
         setTimeout(() => initPeerConnection(), 500);
         return;
       }
@@ -202,20 +248,35 @@ const initPeerConnection = () => {
       if (err.type === 'network' || err.type === 'peer-unavailable' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
          peerError.value = "Network unstable. Retrying...";
       } else {
-         peerError.value = "Connection Error.";
+         peerError.value = "Connection Error: " + err.type;
       }
       isConnecting.value = false;
   });
 
   peer.on('connection', (conn) => {
+    console.log("Incoming Data Connection from:", conn.peer);
     activeConnections.value.push(conn);
-    if (localStream.value) {
-       peer.call(conn.peer, localStream.value);
-    }
+    
+    conn.on('open', () => {
+        console.log("Data Channel Open to:", conn.peer);
+        if (localStream.value) {
+           console.log("Initiating Media Call to:", conn.peer);
+           const call = peer.call(conn.peer, localStream.value);
+           call.on('error', (e) => console.error("Media Call Error:", e));
+        } else {
+            console.warn("No local stream available to call peer");
+        }
+    });
+  });
+
+  peer.on('disconnected', () => {
+      console.warn("Peer disconnected from server (signaling lost)");
   });
 };
 
 const handleStartCasting = async (mode) => {
+  console.log("Starting casting mode:", mode);
+  
   // Mobile Screen Share Check
   if (mode === 'screen') {
     if (isMobile.value) {
@@ -232,6 +293,7 @@ const handleStartCasting = async (mode) => {
 
   // Stop any existing stream before starting a new one
   if (localStream.value) {
+    console.log("Stopping existing local stream tracks");
     localStream.value.getTracks().forEach(t => t.stop());
     localStream.value = null;
   }
@@ -250,25 +312,31 @@ const handleStartCasting = async (mode) => {
       });
     } else {
       // Use helper for consistent high quality
+      console.log("Requesting User Media (Camera)...");
       stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(facingMode.value));
     }
 
     // Check if user canceled operation while waiting for stream
     if (!isConnecting.value) {
+      console.log("Operation canceled by user during stream request");
       stream.getTracks().forEach(t => t.stop());
       return;
     }
 
+    console.log("Stream acquired successfully", stream.id);
     localStream.value = stream;
     appState.value = STATES.SENDER;
     
     // Initialize PeerJS *after* we have the stream to ensure UI is ready
     initPeerConnection();
     
-    stream.getVideoTracks()[0].onended = () => resetApp();
+    stream.getVideoTracks()[0].onended = () => {
+        console.log("Video track ended (user stopped share)");
+        resetApp();
+    };
 
   } catch (err) {
-    console.error(err);
+    console.error("Media Error:", err);
     if (err.name === 'NotAllowedError') {
       error.value = null;
       isConnecting.value = false;
@@ -285,15 +353,14 @@ const handleStartCasting = async (mode) => {
 };
 
 const retryPeerConnection = () => {
+  console.log("Manual Retry Triggered");
   peerError.value = null;
   initPeerConnection();
 };
 
 const toggleCamera = async () => {
   if (castingMode.value !== 'camera' || !localStream.value) return;
-  
-  // Prevent double clicks or race conditions if needed, 
-  // but for now simple swap is okay.
+  console.log("Toggling camera...");
   
   const newFacing = facingMode.value === 'user' ? 'environment' : 'user';
   
@@ -303,6 +370,7 @@ const toggleCamera = async () => {
     
     // 2. Get new stream
     const newStream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(newFacing));
+    console.log("Camera switched. New Stream:", newStream.id);
     
     // 3. Update state
     facingMode.value = newFacing;
@@ -310,9 +378,7 @@ const toggleCamera = async () => {
     
     // 4. Update existing peer connections
     activeConnections.value.forEach(conn => {
-       // Replace track in peer connection if supported, or recall
-       // PeerJS simplifies this by calling again usually, or we can use replaceTrack if we had direct access to RTCPeerConnection
-       // For PeerJS, calling again is the standard way to switch streams in simple scenarios
+       console.log("Replacing stream for connection:", conn.peer);
        peerInstance.value.call(conn.peer, newStream);
     });
   } catch (err) {
@@ -331,47 +397,56 @@ const handleBackspace = () => {
 
 const handleJoin = () => {
   if (joinCode.value.length !== 6) return;
+  console.log("Attempting to join with code:", joinCode.value);
   
   isConnecting.value = true;
   error.value = null;
 
   const peer = new window.Peer({
+    debug: 2,
     config: { iceServers: getIceServers() }
   });
   
   peerInstance.value = peer;
 
-  peer.on('open', () => {
+  peer.on('open', (id) => {
+    console.log("Receiver Peer Open:", id);
+    console.log("Connecting to broadcaster:", joinCode.value);
     const conn = peer.connect(joinCode.value);
     
     conn.on('open', () => {
-      console.log("Connected to broadcaster signaling");
+      console.log("Connected to broadcaster signaling (Data Channel Open)");
       appState.value = STATES.RECEIVER_ACTIVE;
       isConnecting.value = false;
     });
 
     conn.on('error', (err) => {
-      console.error("Connection Error", err);
+      console.error("Data Connection Error", err);
       error.value = "Connection failed. Check code.";
       isConnecting.value = false;
     });
     
-    // Auto close if broadcaster leaves (removed alert)
     conn.on('close', () => {
+        console.log("Broadcaster closed connection");
         resetApp();
     });
   });
 
   peer.on('call', (call) => {
+    console.log("Receiving Call from Broadcaster...");
     call.answer(); 
     call.on('stream', (stream) => {
+      console.log("Received Remote Stream:", stream.id);
       // Use reactive variable to trigger watcher
       remoteStream.value = stream;
+    });
+    call.on('error', (err) => {
+        console.error("Call Error:", err);
     });
   });
 
   peer.on('error', (err) => {
-    console.error(err);
+    console.error("Receiver Peer Error:", err);
     error.value = "Invalid Code or Connection Error";
     isConnecting.value = false;
     joinCode.value = '';
@@ -403,6 +478,7 @@ const handleMouseMove = () => {
 
 // --- Shared ---
 const resetApp = () => {
+  console.log("Resetting App State");
   // 1. Clear Timeouts
   if (peerConnectionTimeout) clearTimeout(peerConnectionTimeout);
   
@@ -443,6 +519,11 @@ const resetApp = () => {
         <span class="text-xl font-black uppercase tracking-tighter italic bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent pr-2">CastNow</span>
       </div>
       <div class="flex items-center gap-2">
+        <!-- Debug Toggle -->
+        <button @click="showDebugLogs = !showDebugLogs" class="p-2 rounded-full hover:bg-slate-800 transition-colors" :class="{'bg-amber-500/20 text-amber-500': showDebugLogs, 'text-slate-500': !showDebugLogs}">
+           <Bug class="w-4 h-4" />
+        </button>
+
         <button @click="openPro" class="hidden md:flex px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded-full items-center gap-2 text-[10px] font-bold uppercase tracking-tighter transition-all mr-2">
             <span>Get Pro</span>
         </button>
@@ -654,6 +735,34 @@ const resetApp = () => {
                    <Maximize class="w-6 h-6" />
                  </button>
               </div>
+           </div>
+        </div>
+      </Transition>
+
+      <!-- Debug Console Overlay -->
+      <Transition name="fade">
+        <div v-if="showDebugLogs" class="fixed inset-x-0 bottom-0 h-1/2 bg-slate-950/95 border-t border-slate-800 z-[100] flex flex-col font-mono text-xs">
+           <div class="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
+             <div class="flex items-center gap-2">
+                <span class="text-amber-500 font-bold">DEBUG CONSOLE</span>
+                <span class="text-slate-500">|</span>
+                <span class="text-slate-400">{{ debugLogs.length }} events</span>
+             </div>
+             <div class="flex items-center gap-2">
+                <button @click="clearLogs" class="p-1 hover:text-red-500 transition-colors"><Trash2 class="w-4 h-4" /></button>
+                <button @click="showDebugLogs = false" class="p-1 hover:text-white transition-colors"><X class="w-4 h-4" /></button>
+             </div>
+           </div>
+           <div class="flex-1 overflow-y-auto p-4 space-y-1">
+             <div v-for="(log, i) in debugLogs" :key="i" class="break-words">
+                <span class="text-slate-500 mr-2">[{{ log.time }}]</span>
+                <span :class="{
+                   'text-red-500 font-bold': log.type === 'error',
+                   'text-yellow-500': log.type === 'warn',
+                   'text-slate-300': log.type === 'info'
+                }">{{ log.message }}</span>
+             </div>
+             <div v-if="debugLogs.length === 0" class="text-slate-600 italic">No logs captured yet...</div>
            </div>
         </div>
       </Transition>
