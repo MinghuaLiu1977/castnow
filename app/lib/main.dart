@@ -1297,48 +1297,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     );
   }
 
-  Future<void> _takeScreenshot() async {
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Screenshot not yet supported on Web")));
-      return;
-    }
-    try {
-      // ignore: undefined_method
-      final frame = await (_remoteRenderer as dynamic).captureFrame();
-      if (frame != null && mounted) {
-        _showScreenshotDialog(frame);
-      }
-    } catch (e) {
-      debugPrint("Capture error: $e");
-    }
-  }
-
-  void _showScreenshotDialog(Uint8List frame) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: kSurfaceColor,
-        title: const Text("Remote Screen Captured", style: TextStyle(color: kPrimaryColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(frame),
-            ),
-            const SizedBox(height: 12),
-            const Text("Viewer snapshot saved to cache.", style: TextStyle(color: kTextSecondary, fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK", style: TextStyle(color: kPrimaryColor)),
-          )
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
