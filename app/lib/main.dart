@@ -741,19 +741,19 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
            
             }
           }
-          const _channel = MethodChannel('media_projection');
+          const channel = MethodChannel('media_projection');
 
-          // 1. Start Foreground Service (Empty/Placeholder)
-          debugPrint("🚀 Starting foreground service placeholder...");
-          await _channel.invokeMethod('startMediaProjectionService');
-          
-          debugPrint("⏳ Waiting for service to stabilize...");
-          await Future.delayed(const Duration(milliseconds: 500));
- 
+          // 1. Start Media Projection Service
+          // The native code will handle the Android 14 bridge/polling automatically.
+          debugPrint("🚀 Starting media projection service...");
+          await channel.invokeMethod('startMediaProjectionService', {'type': 'mediaProjection'});
+
           // 2. Request Screen Capture (Plugin's native prompt)
+          debugPrint("📸 Requesting screen capture permission...");
           _localStream = await navigator.mediaDevices.getDisplayMedia({
             'audio': false
           });
+          debugPrint("✅ Screen capture stream acquired successfully.");
 
           // 3. Listen for "Stop" from System UI
           // When user clicks "Stop sharing" in notification panel, this fires.

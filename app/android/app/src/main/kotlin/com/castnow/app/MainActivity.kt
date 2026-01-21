@@ -60,7 +60,11 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "startMediaProjectionService" -> {
-                    val serviceIntent = Intent(this, MediaProjectionService::class.java)
+                    val type = call.argument<String>("type") ?: "mediaProjection"
+                    val serviceIntent =
+                            Intent(this, MediaProjectionService::class.java).apply {
+                                putExtra("type", type)
+                            }
                     startForegroundService(serviceIntent)
                     result.success(null)
                 }
@@ -75,6 +79,28 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // Detect if this is the media projection permission result
+        // The flutter_webrtc plugin often doesn't give us the request code,
+        // but the system resultCode will be OK if granted.
+        // On Android 14, if we just granted permission, we should immediately 'upgrade'
+        // our foreground service so that the capturer (which is about to start)
+        // finds the service in the correct state.
+
+        if (resultCode == RESULT_OK && Build.VERSION.SDK_INT >= 34) {
+            Log.d(
+                    "CastNow",
+                    "MainActivity: Permission granted (OK). Upgrading service to mediaProjection."
+            )
+            val upgradeIntent =
+                    Intent(this, MediaProjectionService::class.java).apply {
+                        putExtra("type", "mediaProjection")
+                    }
+            startForegroundService(upgradeIntent)
         }
     }
 
