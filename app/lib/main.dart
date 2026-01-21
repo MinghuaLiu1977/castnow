@@ -618,34 +618,19 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
         try {
           final tracks = _localStream!.getVideoTracks();
           if (tracks.isEmpty) {
-            debugPrint("📟 Timer: 轨道列表为空。触发退出。");
             _handleTermination();
             timer.cancel();
             return;
           }
 
           final track = tracks[0];
-          // Log status every second to debug
-          debugPrint("📟 Track Monitor: id=${track.id}, enabled=${track.enabled}, muted=${track.muted}");
-
-          // If muted becomes true, exit
-          if (track.muted == true) {
-             debugPrint("📟 Timer: Muted detected. Exiting.");
+          if (track.muted == true || track.enabled == false) {
              _handleTermination(); 
              timer.cancel();
              return;
           }
-          
-          // Also check 'enabled'
-          if (track.enabled == false) {
-             debugPrint("📟 Timer: Track disabled. Exiting.");
-             _handleTermination();
-             timer.cancel();
-             return;
-          }
-
         } catch (e) {
-          debugPrint("📟 Timer: Error: $e");
+          debugPrint("Stream Monitor Error: $e");
         }
       }
     });
@@ -669,11 +654,11 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   Future<void> _startBroadcast(bool isScreen) async {
     setState(() => _isLoading = true);
     try {
-      // 1. 获取 ID (与 Web 端保持一致，使用6位数字)
+      // 1. Generate 6-digit access key
       final code = (100000 + math.Random().nextInt(900000)).toString();      
-      // 2. 初始化 Peer
-      final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
       
+      // 2. Initialize Peer
+      final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
       _peer = peer;
 
       _peer!.on("open").listen((id) {
@@ -685,38 +670,25 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       });
 
       _peer!.on("connection").listen((conn) {
-      // 当接收端连接信令时
-      _connections.add(conn);
-      
-      // --- Auto-Minimize after receiver connects (Screen Share only) ---
-      if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
-        const _channel = MethodChannel('media_projection');
-        _channel.invokeMethod('minimizeApp');
-      }
+        _connections.add(conn);
+        
+        // Auto-minimize app after receiver connects (Android Screen Share only)
+        if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
+          const _channel = MethodChannel('media_projection');
+          _channel.invokeMethod('minimizeApp');
+        }
 
-      // 主动呼叫接收端 (PeerJS 模式: Sender calls Receiver)
+        // Active call to receiver
         if (_localStream != null) {
-          final mediaConnection = _peer!.call(conn.peer, _localStream!);
-          
-          // --- WebRTC Debug Logs ---
-          mediaConnection.peerConnection?.onIceConnectionState = (RTCIceConnectionState state) {
-            debugPrint("🔥 [手机端 ICE 状态]: ${state.toString()}");
-            if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
-              debugPrint("❌ 警告：打洞失败，请检查代理设置或 STUN/TURN 服务器");
-            }
-          };
-
-          mediaConnection.peerConnection?.onIceCandidate = (RTCIceCandidate candidate) {
-            debugPrint("🏠 [手机端候选地址]: ${candidate.candidate}");
-          };
+          _peer!.call(conn.peer, _localStream!);
         }
       });
 
-      // 3. 获取媒体流
+      // 3. Acquire media stream
       Map<String, dynamic> mediaConstraints = {
         'audio': true,
         'video': isScreen
-            ? true // 屏幕共享逻辑稍后处理
+            ? true 
             : {
                 'facingMode': 'user',
                 'width': 1280,
@@ -810,7 +782,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             };
           }
       } else if (Platform.isIOS) {
-          // iOS 需要 Broadcast Extension，暂未实现
+          // System-wide sharing requires a Broadcast Extension (not yet implemented)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("iOS Screen sharing requires Broadcast Extension."),
             backgroundColor: Colors.red,
@@ -819,7 +791,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           return;
         }
       } else {
-        // 摄像头
+        // Camera source
         if (!kIsWeb) {
           await Permission.camera.request();
           await Permission.microphone.request();
@@ -847,50 +819,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     }
   }
 
-  Future<void> _takeScreenshot() async {
-    // Web 端目前在 flutter_webrtc 中对 captureFrame 支持有限，此处先做提示或屏蔽
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Screenshot not yet supported on Web")));
-      return;
-    }
-    try {
-      // 仅在原生平台尝试调用
-      // ignore: undefined_method
-      final frame = await (_localRenderer as dynamic).captureFrame();
-      if (frame != null && mounted) {
-        _showScreenshotDialog(frame);
-      }
-    } catch (e) {
-      debugPrint("Capture error: $e");
-    }
-  }
-
-  void _showScreenshotDialog(Uint8List frame) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: kSurfaceColor,
-        title: const Text("Screen Captured", style: TextStyle(color: kPrimaryColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(frame),
-            ),
-            const SizedBox(height: 12),
-            const Text("Snapshot captured successfully.", style: TextStyle(color: kTextSecondary, fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK", style: TextStyle(color: kPrimaryColor)),
-          )
-        ],
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -972,17 +900,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                           Text(_isScreenSharing ? "SHARING SCREEN" : "ON AIR", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ]),
                       ),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _takeScreenshot, 
-                            icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20)
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context), 
-                            icon: const Icon(Icons.close, color: Colors.white)
-                          )
-                        ],
+                      IconButton(
+                        onPressed: () => Navigator.pop(context), 
+                        icon: const Icon(Icons.close, color: Colors.white)
                       )
                     ],
                   ),
@@ -1160,7 +1080,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     super.dispose();
   }
 
-  // --- 关键修改：Receive 模式也需要 ICE 配置 ---
+  // Receiver also requires ICE configuration for successful P2P traversal
   Map<String, dynamic> _getIceServerConfig() {
      return {
       'iceServers': [
@@ -1254,50 +1174,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     });
   }
 
-  Future<void> _takeScreenshot() async {
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Screenshot not yet supported on Web")));
-      return;
-    }
-    try {
-      // ignore: undefined_method
-      final frame = await (_remoteRenderer as dynamic).captureFrame();
-      if (frame != null && mounted) {
-        _showScreenshotDialog(frame);
-      }
-    } catch (e) {
-      debugPrint("Capture error: $e");
-    }
-  }
-
-  void _showScreenshotDialog(Uint8List frame) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: kSurfaceColor,
-        title: const Text("Remote Screen Captured", style: TextStyle(color: kPrimaryColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(frame),
-            ),
-            const SizedBox(height: 12),
-            const Text("Viewer snapshot saved to cache.", style: TextStyle(color: kTextSecondary, fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK", style: TextStyle(color: kPrimaryColor)),
-          )
-        ],
-      ),
-    );
-  }
-
-
   @override
   Widget build(BuildContext context) {
     if (_isConnected) {
@@ -1308,13 +1184,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             RTCVideoView(
                _remoteRenderer, 
                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
-            ),
-            Positioned(
-              top: 40, right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.camera_alt, color: Colors.white),
-                onPressed: _takeScreenshot,
-              ),
             ),
             Positioned(
               top: 40, left: 20,

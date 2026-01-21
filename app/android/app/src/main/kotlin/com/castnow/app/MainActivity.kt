@@ -19,16 +19,15 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
     private val PROJECTION_CHANNEL = "media_projection"
     private var methodChannel: MethodChannel? = null
 
-    // Defines a broadcast receiver for safety, though DisplayListener is primary
+    // Broadcast receiver to handle stop signals from the Foreground Service notification
     private val stopReceiver =
             object : android.content.BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     if (intent?.action == "com.castnow.app.STOP_SESSION") {
                         Log.d(
                                 "CastNow",
-                                "MainActivity: Received STOP_SESSION broadcast. Notifying Flutter."
+                                "MainActivity: Stop broadcast received. Sycing with Flutter."
                         )
-                        // Ensure we are on main thread
                         Handler(Looper.getMainLooper()).post {
                             methodChannel?.invokeMethod("onStopPressed", null)
                         }
@@ -38,14 +37,12 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("CastNow", "MainActivity: onCreate")
 
-        // Register DisplayListener to detect screen share termination
+        // Register DisplayListener to detect when the virtual display is stopped by the system
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         displayManager.registerDisplayListener(this, Handler(Looper.getMainLooper()))
-        Log.d("CastNow", "MainActivity: DisplayListener registered")
 
-        // Register receiver for Android 14 compat (exported)
+        // Register receiver for Android 14 compatibility
         val filter = IntentFilter("com.castnow.app.STOP_SESSION")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(stopReceiver, filter, Context.RECEIVER_EXPORTED)
@@ -90,38 +87,26 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         val display = displayManager.getDisplay(displayId)
         if (display != null) {
-            Log.d(
-                    "CastNow",
-                    "Display Changed: $displayId, State: ${display.state}, NAME: ${display.name}"
-            )
-            // If display turns OFF (1), it effectively means the screen share is stopped/paused by
-            // system
-            // Log shows: Display Changed: 65, State: 1, NAME: WebRTC_ScreenCapture
-            // Value 1 is STATE_OFF
+            // Logic: If a virtual display named "ScreenCapture" turns OFF (state 1),
+            // it usually means the system has paused or stopped the projection.
             if (display.state == 1 && display.name.contains("ScreenCapture")) {
-                Log.d(
-                        "CastNow",
-                        "Display $displayId (${display.name}) turned OFF. Triggering stop."
-                )
+                Log.d("CastNow", "Virtual display ($displayId) turned OFF. Stopping session.")
                 runOnUiThread { methodChannel?.invokeMethod("onStopPressed", null) }
             }
-        } else {
-            Log.d("CastNow", "Display Changed: $displayId but is null")
         }
     }
 
     override fun onDisplayRemoved(displayId: Int) {
-        Log.d("CastNow", "Display Removed: $displayId. Checking if it's the screen share...")
-        // If a display is removed, it's highly likely the screen share stopping.
-        // We notify Flutter to stop the session.
+        Log.d("CastNow", "Display Removed: $displayId. Notifying Flutter.")
         runOnUiThread { methodChannel?.invokeMethod("onStopPressed", null) }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(stopReceiver)
+        try {
+            unregisterReceiver(stopReceiver)
+        } catch (e: Exception) {}
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         displayManager.unregisterDisplayListener(this)
-        Log.d("CastNow", "MainActivity: onDestroy")
     }
 }

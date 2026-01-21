@@ -16,10 +16,9 @@ class MediaProjectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
-        Log.d("CastNow", "Service onStartCommand: action=$action")
 
         if (action == "ACTION_STOP_SERVICE") {
-            Log.d("CastNow", "Service: User clicked STOP in notification. Self-stopping.")
+            Log.d("CastNow", "Service: Manual stop requested via notification.")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -41,8 +40,8 @@ class MediaProjectionService : Service() {
 
         val notification =
                 NotificationCompat.Builder(this, channelId)
-                        .setContentTitle("屏幕共享激活中")
-                        .setContentText("CastNow 正在运行前台服务")
+                        .setContentTitle("Screen Sharing Active")
+                        .setContentText("CastNow is broadcasting your screen")
                         .setSmallIcon(
                                 applicationContext.resources.getIdentifier(
                                         "ic_launcher",
@@ -59,7 +58,7 @@ class MediaProjectionService : Service() {
                         )
                         .build()
 
-        // Android 14 requirements
+        // Requirements for Android 10+ (Q)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                     1002,
@@ -81,15 +80,17 @@ class MediaProjectionService : Service() {
                                     "Screen Sharing Service",
                                     NotificationManager.IMPORTANCE_LOW
                             )
-                            .apply { description = "用于维持投屏功能的前台通知" }
+                            .apply { description = "Enables background screen capture for CastNow" }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
     }
 
     override fun onDestroy() {
-        Log.d("CastNow", "MediaProjectionService destroying...")
         super.onDestroy()
+        Log.d("CastNow", "MediaProjectionService: onDestroy. Broadcasting stop signal.")
+
+        // Signal MainActivity that the service is shutting down
         val intent = Intent("com.castnow.app.STOP_SESSION")
         intent.setPackage(packageName)
         sendBroadcast(intent)
