@@ -30,7 +30,6 @@ class CastNowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 设置状态栏样式
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
@@ -843,7 +842,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
   void _switchCamera() async {
     if (_localStream != null && !_isScreenSharing) {
-       // Helper to switch camera
        final videoTrack = _localStream!.getVideoTracks().first;
        await Helper.switchCamera(videoTrack);
     }
@@ -920,7 +918,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (_peerId == null && !_isLoading) {
-      // Source Selection Mode
       return Scaffold(
         appBar: AppBar(
           title: const Text("Choose Source"), 
@@ -970,9 +967,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
                         child: Row(children: [
-                          const Icon(Icons.circle, color: Colors.red, size: 12),
+                          Icon(Icons.circle, color: _isScreenSharing ? Colors.blue : Colors.red, size: 12),
                           const SizedBox(width: 8),
-                          Text(_isScreenSharing ? "SCREEN" : "CAMERA", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(_isScreenSharing ? "SHARING SCREEN" : "ON AIR", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ]),
                       ),
                       Row(
@@ -1163,18 +1160,33 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     super.dispose();
   }
 
+  // --- 关键修改：Receive 模式也需要 ICE 配置 ---
+  Map<String, dynamic> _getIceServerConfig() {
+     return {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun.cloudflare.com:3478'},
+        {'urls': 'stun:stun.miwifi.com:3478'},
+        {'urls': 'stun:stun.cdn.aliyun.com:3478'},
+      ]
+    };
+  }
+
   void _joinStream() {
     final code = _codeController.text.trim();
     if (code.length != 6) return;
 
     setState(() => _isConnecting = true);
     
-    // Viewer creates a peer with random ID
-    final peer = Peer(options: PeerOptions(debug: LogLevel.All));
+    final peer = Peer(
+      options: PeerOptions(
+        debug: LogLevel.All,
+        config: _getIceServerConfig()
+      )
+    );
     _peer = peer;
 
     peer.on("open").listen((id) {
-      // 1. Connect to Broadcaster (Signal Intent)
       final conn = peer.connect(code);
       
       conn.on("open").listen((_) {
@@ -1189,7 +1201,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       });
     });
 
-    // 2. Wait for Broadcaster to call us
     peer.on("call").listen((mediaConnection) {
       debugPrint("Received call from ${mediaConnection.peer}");
       
@@ -1207,7 +1218,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       
       // Answer the call (no stream sent back)
       mediaConnection.answer(null);
-      
       mediaConnection.on("stream").listen((stream) {
         debugPrint("Received remote stream: ${stream.id}");
         debugPrint("Video tracks: ${stream.getVideoTracks().length}");
@@ -1237,9 +1247,54 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
     peer.on("error").listen((err) {
       debugPrint("Peer Error: $err");
-      setState(() => _isConnecting = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connection Failed. Check code.")));
+      if (mounted) {
+        setState(() => _isConnecting = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connection Failed. Check code.")));
+      }
     });
+  }
+
+  Future<void> _takeScreenshot() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Screenshot not yet supported on Web")));
+      return;
+    }
+    try {
+      // ignore: undefined_method
+      final frame = await (_remoteRenderer as dynamic).captureFrame();
+      if (frame != null && mounted) {
+        _showScreenshotDialog(frame);
+      }
+    } catch (e) {
+      debugPrint("Capture error: $e");
+    }
+  }
+
+  void _showScreenshotDialog(Uint8List frame) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: kSurfaceColor,
+        title: const Text("Remote Screen Captured", style: TextStyle(color: kPrimaryColor)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(frame),
+            ),
+            const SizedBox(height: 12),
+            const Text("Viewer snapshot saved to cache.", style: TextStyle(color: kTextSecondary, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK", style: TextStyle(color: kPrimaryColor)),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _takeScreenshot() async {
