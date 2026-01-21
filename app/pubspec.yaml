@@ -11,15 +11,18 @@ dependencies:
   flutter:
     sdk: flutter
   # 原生 WebRTC 支持 (音视频核心)
-  flutter_webrtc: ^0.10.8
+  flutter_webrtc: ^0.12.5
   # PeerJS 的 Dart 实现 (与 Web 端互通)
-  peerdart: ^0.0.4
+  peerdart: ^0.5.6
   # 权限处理
-  permission_handler: ^11.3.0
+  permission_handler: ^11.3.1
   # 屏幕常亮
   wakelock_plus: ^1.1.2
   # 唯一 ID 生成
   uuid: ^4.3.3
+  url_launcher: ^6.3.2
+  shared_preferences: ^2.2.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -28,5 +31,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/ # 如果有本地图片资源
+#   assets:
+#     - assets/images/ # 如果有本地图片资源
+dependency_overrides:
+  flutter_webrtc: ^0.12.1
