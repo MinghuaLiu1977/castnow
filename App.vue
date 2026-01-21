@@ -407,6 +407,11 @@ const resetApp = () => {
              <span v-else>Connect Now</span>
            </button>
            
+           <!-- Cancel Button during connecting -->
+           <button v-if="isConnecting" @click="resetApp" class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-[10px] hover:text-white transition-colors flex items-center gap-2">
+             <X class="w-3 h-3" /> Stop Connecting
+           </button>
+           
            <p v-if="error" class="mt-4 text-red-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
              <AlertCircle class="w-4 h-4" /> {{ error }}
            </p>
