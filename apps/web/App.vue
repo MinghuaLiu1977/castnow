@@ -296,6 +296,27 @@ const handleStartCasting = async (mode) => {
       peer.call(conn.peer, localStream.value);
     });
 
+    peer.on("error", (err) => {
+      console.error("PeerJS Error:", err);
+      // If ID is taken (unavailable-id), try again or show error
+      if (err.type === 'unavailable-id') {
+        // Retry logic could go here, but for now just show error
+        error.value = "Code collision. Please try again.";
+      } else if (err.type === 'peer-unavailable') {
+        // Usually happens on receiver side
+      } else if (err.type === 'network') {
+        error.value = "Network error. Check connection/firewall.";
+      } else {
+        error.value = `Connection Error: ${err.message}`;
+      }
+      isConnecting.value = false;
+    });
+
+    peer.on("disconnected", () => {
+      console.log("Peer disconnected from server");
+      // peer.reconnect(); // Optional: Auto reconnect
+    });
+
     // 如果是屏幕共享，监听停止事件（用户点击浏览器/系统自带的停止共享按钮）
     stream.getVideoTracks()[0].onended = () => resetApp();
   } catch (err) {
@@ -499,7 +520,7 @@ const resetApp = (forceLanding = false) => {
             <span class="text-[9px] font-black uppercase tracking-tighter text-amber-500">PRO 7-DAY</span>
           </div>
           <span class="text-[8px] font-bold text-amber-500/70 uppercase leading-none">{{ formatExpiry(proExpiresAt)
-            }}</span>
+          }}</span>
         </button>
         <div class="px-3 py-1 bg-slate-900 rounded-full border border-slate-800 flex items-center gap-2">
           <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -628,7 +649,7 @@ const resetApp = (forceLanding = false) => {
                 <Repeat class="w-3 h-3" />
                 <span class="text-[10px] font-black uppercase">{{
                   facingMode === "user" ? "Front" : "Back"
-                  }}</span>
+                }}</span>
               </button>
             </div>
 
@@ -658,7 +679,7 @@ const resetApp = (forceLanding = false) => {
                 <div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                 <span class="text-[10px] font-black uppercase tracking-widest">{{
                   castingMode === "screen" ? "Desktop Mirror" : "Camera Feed"
-                }}</span>
+                  }}</span>
               </div>
             </div>
 
