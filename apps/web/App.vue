@@ -522,8 +522,7 @@ const resetApp = (forceLanding = false) => {
             Instant<br /><span class="text-amber-500">Casting.</span>
           </h1>
           <p class="text-slate-500 max-w-xs mb-10 text-sm font-medium italic">
-            No plugins. No latency. Pure P2P screen sharing for mobile &
-            desktop.
+            Native performance on Mobile. No install needed for Desktop. Zero Latency P2P.
           </p>
 
           <div class="flex flex-col gap-4 w-full max-w-xs">
