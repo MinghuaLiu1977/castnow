@@ -602,14 +602,17 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     await _localRenderer.initialize();
     
     // Listen for native stop signal (from notification)
-    const channel = MethodChannel('media_projection');
-    channel.setMethodCallHandler((call) async {
-      debugPrint("📢 Received MethodChannel call: ${call.method}");
-      if (call.method == "onStopPressed") {
-        debugPrint("🛑 Native STOP signal received. Navigating back.");
-        _stopBroadcast();
-      }
-    });
+    // Listen for native stop signal (from notification)
+    if (Platform.isAndroid) {
+      const channel = MethodChannel('media_projection');
+      channel.setMethodCallHandler((call) async {
+        debugPrint("📢 Received MethodChannel call: ${call.method}");
+        if (call.method == "onStopPressed") {
+          debugPrint("🛑 Native STOP signal received. Navigating back.");
+          _stopBroadcast();
+        }
+      });
+    }
 
     if (mounted) setState(() {});
   }
@@ -628,7 +631,10 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     _peer = null;
 
     // 2. Stop Service (Native notification)
-    const MethodChannel('media_projection').invokeMethod('stopMediaProjectionService');
+    // 2. Stop Service (Native notification)
+    if (Platform.isAndroid) {
+      const MethodChannel('media_projection').invokeMethod('stopMediaProjectionService');
+    }
 
     // 3. Cleanup local state
     _localStream?.dispose();
@@ -767,11 +773,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             };
           }
       } else if (Platform.isIOS) {
-          // System-wide sharing requires a Broadcast Extension (not yet implemented)
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("iOS Screen sharing requires Broadcast Extension."),
-            backgroundColor: Colors.red,
-          ));
+          // Trigger System Broadcast Picker via our custom native bridge
+          debugPrint("🚀 Launching iOS Broadcast Picker...");
+          const channel = MethodChannel('media_projection');
+          await channel.invokeMethod('startMediaProjectionService');
+          
+          // Note: On iOS, showing the picker doesn't immediately return a stream.
+          // The extension will start sending frames to the socket一旦用户确认。
+          // We set loading back to false so the user can see the status once connected.
           setState(() => _isLoading = false);
           return;
         }
@@ -839,8 +848,10 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       
       // Attempt to clean up native service if it was started
       try {
-        const channel = MethodChannel('media_projection');
-        await channel.invokeMethod('stopMediaProjectionService');
+        if (Platform.isAndroid) {
+          const channel = MethodChannel('media_projection');
+          await channel.invokeMethod('stopMediaProjectionService');
+        }
       } catch (_) {}
 
       if (mounted) {
@@ -868,8 +879,12 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
   void _switchCamera() async {
     if (_localStream != null && !_isScreenSharing) {
-       final videoTrack = _localStream!.getVideoTracks().first;
-       await Helper.switchCamera(videoTrack);
+       final tracks = _localStream!.getVideoTracks();
+       if (tracks.isNotEmpty) {
+          await Helper.switchCamera(tracks.first);
+       } else {
+          debugPrint("❌ No video tracks found to switch.");
+       }
     }
   }
 
