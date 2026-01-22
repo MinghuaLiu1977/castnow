@@ -65,14 +65,18 @@ export default async function handler(req, res) {
   console.log(`[Verify] Cache miss for ${licenseKey.substring(0, 8)}... Verifying with Gumroad.`);
 
   try {
+    console.log('[Verify] Sending request to Gumroad API...');
     const gumroadResponse = await fetch('https://api.gumroad.com/v2/licenses/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         product_permalink: 'ihhtg', // Product ID from webhook.js
+        product_id: 'R5-_fqX5FkrXsVsC874Cdw==',
         license_key: licenseKey
       })
     });
+
+    console.log(`[Verify] Gumroad HTTP Status: ${gumroadResponse.status}`);
 
     if (!gumroadResponse.ok) {
       console.warn('[Verify] Gumroad API error:', gumroadResponse.status);
@@ -80,6 +84,7 @@ export default async function handler(req, res) {
     }
 
     const data = await gumroadResponse.json();
+    console.log(`[Verify] Gumroad Body success=${data.success}`);
 
     if (data.success && !data.purchase.refunded && !data.purchase.chargebacked) {
       // Security: Verify Seller ID
@@ -97,6 +102,7 @@ export default async function handler(req, res) {
 
       if (diffMs < sevenDaysMs) {
         // Valid and active!
+        console.log('[Verify] Fallback verification SUCCESS. License is valid.');
         const remainingMs = sevenDaysMs - diffMs;
         const remainingSeconds = Math.ceil(remainingMs / 1000);
 
