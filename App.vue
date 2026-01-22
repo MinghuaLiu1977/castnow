@@ -65,7 +65,25 @@ watch([localVideo, localStream], ([el, stream]) => {
 watch([remoteVideo, remoteStream], ([el, stream]) => {
   if (el && stream) {
     el.srcObject = stream;
-    el.play().catch((e) => console.log("Remote autoplay blocked", e));
+
+    // Ensure muted and playsinline are set for autoplay reliability
+    el.muted = isMuted.value;
+    el.setAttribute("playsinline", "true");
+    el.setAttribute("webkit-playsinline", "true");
+
+    const playVideo = () => {
+      el.play().catch((e) => {
+        console.log("Remote autoplay blocked, waiting for interaction", e);
+        showControls.value = true;
+      });
+    };
+
+    // Give it a tiny bit of time to settle or wait for metadata
+    if (el.readyState >= 2) {
+      playVideo();
+    } else {
+      el.onloadedmetadata = playVideo;
+    }
 
     // Start Session Limit Timer for Free Users if not already started
     if (!isPro.value && !sessionInterval) {
@@ -328,7 +346,7 @@ const handleMouseMove = () => {
 };
 
 // --- Shared ---
-const resetApp = () => {
+const resetApp = (forceLanding = false) => {
   if (localStream.value) localStream.value.getTracks().forEach((t) => t.stop());
   if (peerInstance.value) peerInstance.value.destroy();
   if (sessionInterval) {
@@ -339,7 +357,7 @@ const resetApp = () => {
 
   // Ensure BROADCAST_ENDED dialog sticks if we just timed out, 
   // otherwise default to LANDING
-  if (appState.value !== STATES.BROADCAST_ENDED) {
+  if (forceLanding || appState.value !== STATES.BROADCAST_ENDED) {
     appState.value = STATES.LANDING;
   }
 
@@ -614,7 +632,7 @@ const resetApp = () => {
             <p class="text-slate-400 text-base mb-10 font-medium">
               The session has been terminated by the broadcaster.
             </p>
-            <button @click="resetApp"
+            <button @click="resetApp(true)"
               class="w-full py-6 bg-amber-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-sm active:scale-95 transition-all shadow-xl shadow-amber-500/20">
               Back to Home
             </button>
