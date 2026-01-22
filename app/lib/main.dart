@@ -640,6 +640,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
   void _handleTermination() {
     if (!mounted || _isTerminated) return;
+
+    // If we haven't even started (no stream, no peer id), don't pop.
+    // This happens when cancelling the permission dialog.
+    if (_localStream == null && _peerId == null) {
+      debugPrint("🛑 Termination signal ignored because broadcast hasn't started yet.");
+      return;
+    }
+
     _isTerminated = true;
     debugPrint("🛑 Termination triggered. Popping to home screen.");
     
@@ -655,36 +663,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     setState(() => _isLoading = true);
     try {
       // 1. Generate 6-digit access key
-      final code = (100000 + math.Random().nextInt(900000)).toString();      
-      
-      // 2. Initialize Peer
-      final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
-      _peer = peer;
+      final code = (100000 + math.Random().nextInt(900000)).toString();
 
-      _peer!.on("open").listen((id) {
-        if (!mounted) return;
-        setState(() {
-          _peerId = id;
-          _isLoading = false;
-        });
-      });
-
-      _peer!.on("connection").listen((conn) {
-        _connections.add(conn);
-        
-        // Auto-minimize app after receiver connects (Android Screen Share only)
-        if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
-          const _channel = MethodChannel('media_projection');
-          _channel.invokeMethod('minimizeApp');
-        }
-
-        // Active call to receiver
-        if (_localStream != null) {
-          _peer!.call(conn.peer, _localStream!);
-        }
-      });
-
-      // 3. Acquire media stream
+      // 2. Acquire media stream FIRST
       Map<String, dynamic> mediaConstraints = {
         'audio': true,
         'video': isScreen
@@ -695,6 +676,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                 'height': 720
               }
       };
+
 
       if (isScreen) {
         // 跨平台屏幕共享逻辑
@@ -801,13 +783,64 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
       _localRenderer.srcObject = _localStream;
       _isScreenSharing = isScreen;
+
+      // 3. Initialize Peer AFTER stream is acquired
+      final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
+      _peer = peer;
+
+      _peer!.on("open").listen((id) {
+        if (!mounted) return;
+        setState(() {
+          _peerId = id;
+          _isLoading = false;
+        });
+      });
+
+      _peer!.on("connection").listen((conn) {
+        _connections.add(conn);
+        
+        // Auto-minimize app after receiver connects (Android Screen Share only)
+        if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
+          const _channel = MethodChannel('media_projection');
+          _channel.invokeMethod('minimizeApp');
+        }
+
+        // Active call to receiver
+        if (_localStream != null) {
+          _peer!.call(conn.peer, _localStream!);
+        }
+      });
+
       setState(() {});
 
     } catch (e) {
       debugPrint("Error starting broadcast: $e");
+      
+      // Attempt to clean up native service if it was started
+      try {
+        const channel = MethodChannel('media_projection');
+        await channel.invokeMethod('stopMediaProjectionService');
+      } catch (_) {}
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-        setState(() => _isLoading = false);
+        // Reset state so we stay on the selection screen
+        setState(() {
+          _isLoading = false;
+          _peerId = null;
+          _peer = null;
+        });
+
+        // Only show error if it's not a user cancellation
+        final errorStr = e.toString().toLowerCase();
+        if (!errorStr.contains('cancel') && 
+            !errorStr.contains('denied') && 
+            !errorStr.contains('user_rejected') && 
+            !errorStr.contains('give permission')) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        } else {
+          debugPrint("User cancelled or denied permission. Returning to selection.");
+        }
+
       }
     }
   }
