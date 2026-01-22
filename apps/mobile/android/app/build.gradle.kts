@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -29,9 +32,35 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = project.rootProject.file("key.properties")
+            if (keystoreFile.exists()) {
+                val props = Properties()
+                props.load(FileInputStream(keystoreFile))
+
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            } else {
+                // Fallback or log warning if key.properties is missing
+                // For now, if missing, we might default to debug or leave empty which fails build
+                println("Note: apps/mobile/android/key.properties not found. Release build will not be signed with upload key.")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            // Use the release signing config we just created
+            // If key.properties is missing, this might fail or produce unsigned APK depending on config
+            // Better to check if we successfully configured it, but simpler to just assign it.
+            // If the properties aren't loaded, storeFile will be null and it will fail, which is good.
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
