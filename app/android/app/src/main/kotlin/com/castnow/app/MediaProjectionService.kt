@@ -16,10 +16,12 @@ import androidx.core.app.NotificationCompat
 
 class MediaProjectionService : Service() {
     private val handler = Handler(Looper.getMainLooper())
+    private var castCode: String? = null
     private var upgradeRunnable: Runnable? = null
     private var currentNotificationId = 1002
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
         val action = intent?.action
 
         if (action == "ACTION_STOP_SERVICE") {
@@ -28,9 +30,69 @@ class MediaProjectionService : Service() {
             return START_NOT_STICKY
         }
 
+        // Update cast code if provided
+        intent?.getStringExtra("code")?.let { castCode = it }
+
         val channelId = "screen_share"
         createNotificationChannel(channelId)
 
+        val notification = buildNotification(channelId)
+
+        // Requirements for Android 10+ (Q)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val typeStr = intent?.getStringExtra("type")
+            Log.d("CastNow", "MediaProjectionService: Received start request for type: $typeStr")
+
+            if (typeStr == "mediaProjection") {
+                // Try to start as mediaProjection immediately.
+                // This will work if permission was already granted (e.g., from MainActivity upgrade
+                // intent).
+                try {
+                    Log.d(
+                            "CastNow",
+                            "MediaProjectionService: Attempting immediate start as mediaProjection..."
+                    )
+                    startForeground(
+                            currentNotificationId,
+                            notification,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                    )
+                    Log.d("CastNow", "MediaProjectionService: Immediate start SUCCESSFUL.")
+                    // Stop any existing polling if it was running
+                    upgradeRunnable?.let { handler.removeCallbacks(it) }
+                    upgradeRunnable = null
+                } catch (e: SecurityException) {
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        Log.d(
+                                "CastNow",
+                                "MediaProjectionService: Immediate start failed (no permission). Starting bridge."
+                        )
+                        startWithBridge(notification)
+                    } else {
+                        Log.e(
+                                "CastNow",
+                                "MediaProjectionService: Failed to start foreground: ${e.message}"
+                        )
+                    }
+                }
+            } else {
+                // Default to dataSync or specified type
+                val type =
+                        if (typeStr == "dataSync") {
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                        } else {
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                        }
+                startForeground(currentNotificationId, notification, type)
+            }
+        } else {
+            startForeground(currentNotificationId, notification)
+        }
+
+        return START_NOT_STICKY
+    }
+
+    private fun buildNotification(channelId: String): android.app.Notification {
         val stopIntent =
                 Intent(this, MediaProjectionService::class.java).apply {
                     setAction("ACTION_STOP_SERVICE")
@@ -45,48 +107,22 @@ class MediaProjectionService : Service() {
 
         val iconId =
                 applicationContext.resources.getIdentifier("ic_launcher", "mipmap", packageName)
-        val notification =
-                NotificationCompat.Builder(this, channelId)
-                        .setContentTitle("Screen Sharing Active")
-                        .setContentText("CastNow is broadcasting your screen")
-                        .setSmallIcon(
-                                if (iconId != 0) iconId else android.R.drawable.ic_dialog_info
-                        )
-                        .setPriority(NotificationCompat.PRIORITY_LOW)
-                        .setOngoing(true)
-                        .addAction(
-                                android.R.drawable.ic_menu_close_clear_cancel,
-                                "STOP",
-                                stopPendingIntent
-                        )
-                        .build()
 
-        // Requirements for Android 10+ (Q)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val typeStr = intent?.getStringExtra("type")
-            Log.d("CastNow", "MediaProjectionService: Received start request for type: $typeStr")
+        val contentText =
+                if (castCode != null) {
+                    "CastNow is broadcasting • Code: $castCode"
+                } else {
+                    "CastNow is broadcasting your screen"
+                }
 
-            if (typeStr == "mediaProjection" && Build.VERSION.SDK_INT >= 34) {
-                Log.d(
-                        "CastNow",
-                        "MediaProjectionService: Android 14 detected. Starting as bridge first."
-                )
-                startWithBridge(notification)
-            } else {
-                val type =
-                        when (typeStr) {
-                            "mediaProjection" ->
-                                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-                            "dataSync" -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                            else -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                        }
-                startForeground(currentNotificationId, notification, type)
-            }
-        } else {
-            startForeground(currentNotificationId, notification)
-        }
-
-        return START_NOT_STICKY
+        return NotificationCompat.Builder(this, channelId)
+                .setContentTitle("Screen Sharing Active")
+                .setContentText(contentText)
+                .setSmallIcon(if (iconId != 0) iconId else android.R.drawable.ic_dialog_info)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP", stopPendingIntent)
+                .build()
     }
 
     private fun startWithBridge(notification: android.app.Notification) {

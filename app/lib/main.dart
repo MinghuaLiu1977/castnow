@@ -187,14 +187,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      _buildProFeature(Icons.hd_rounded, "Uncompressed 4K Streaming"),
-                      const SizedBox(height: 12),
-                      _buildProFeature(Icons.block_rounded, "No Advertisements"),
-                      const SizedBox(height: 12),
-                      _buildProFeature(Icons.speed_rounded, "Priority P2P Tunneling"),
-                      const SizedBox(height: 24),
+                child: Column(
+                  children: [
+                    _buildProFeature(Icons.timer_off_rounded, "Unlimited Session Time"),
+                    const SizedBox(height: 12),
+                    _buildProFeature(Icons.event_available_rounded, "7-Day Activation Pass"),
+                    const SizedBox(height: 12),
+                    _buildProFeature(Icons.speed_rounded, "Priority P2P Tunneling"),
+                    const SizedBox(height: 24),
+
                       if (!_isPro) ...[
                         TextField(
                           controller: _controller,
@@ -559,46 +560,43 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   String? _peerId;
   bool _isScreenSharing = false;
   
-  // Timer for Free Tier
-  bool _isTerminated = false;
-  Timer? _countdownTimer;
+  bool _isBroadcasting = false;
+  Timer? _sessionTimer;
   int _remainingSeconds = 1800; // 30 minutes
+  Timer? _countdownTimer;
   final List<DataConnection> _connections = [];
+
   bool _isLoading = false;
-  Timer? _statusPollingTimer;
 
   @override
   void initState() {
     super.initState();
     _initRenderer();
     WakelockPlus.enable();
+    
+    // Start Countdown for Free Users
     if (!widget.isPro) {
-      _startTimer();
+      _startCountdown();
     }
   }
 
-  void _startTimer() {
+  void _startCountdown() {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
+        if (mounted) setState(() => _remainingSeconds--);
       } else {
-        _countdownTimer?.cancel();
-        if (mounted) {
-          debugPrint("⏲️ Timer expired: Free session ended.");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Free session expired. Please upgrade to Pro for unlimited streaming."), backgroundColor: Colors.orange),
-          );
-          Navigator.pop(context);
-        }
+        timer.cancel();
+        _stopBroadcast();
       }
     });
   }
 
   String _formatDuration(int seconds) {
-    int minutes = seconds ~/ 60;
-    int remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+    int m = seconds ~/ 60;
+    int s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
+
 
   Future<void> _initRenderer() async {
     await _localRenderer.initialize();
@@ -609,54 +607,39 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       debugPrint("📢 Received MethodChannel call: ${call.method}");
       if (call.method == "onStopPressed") {
         debugPrint("🛑 Native STOP signal received. Navigating back.");
-        _handleTermination();
-      }
-    });
-
-    _statusPollingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_localStream != null && !_isTerminated && mounted) {
-        try {
-          final tracks = _localStream!.getVideoTracks();
-          if (tracks.isEmpty) {
-            _handleTermination();
-            timer.cancel();
-            return;
-          }
-
-          final track = tracks[0];
-          if (track.muted == true || track.enabled == false) {
-             _handleTermination(); 
-             timer.cancel();
-             return;
-          }
-        } catch (e) {
-          debugPrint("Stream Monitor Error: $e");
-        }
+        _stopBroadcast();
       }
     });
 
     if (mounted) setState(() {});
   }
 
-  void _handleTermination() {
-    if (!mounted || _isTerminated) return;
+  void _stopBroadcast() {
+    if (!mounted || !_isBroadcasting) return;
 
-    // If we haven't even started (no stream, no peer id), don't pop.
-    // This happens when cancelling the permission dialog.
-    if (_localStream == null && _peerId == null) {
-      debugPrint("🛑 Termination signal ignored because broadcast hasn't started yet.");
-      return;
-    }
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
 
-    _isTerminated = true;
-    debugPrint("🛑 Termination triggered. Popping to home screen.");
-    
-    // Clear renderer to avoid the "frozen frame" look
+    // 1. Close Peer & Connections
+    _peer?.dispose();
+    _peer = null;
+
+    // 2. Stop Service (Native notification)
+    const MethodChannel('media_projection').invokeMethod('stopMediaProjectionService');
+
+    // 3. Cleanup local state
+    _localStream?.dispose();
+    _localStream = null;
     _localRenderer.srcObject = null;
-    
-    Future.microtask(() {
-      if (mounted) Navigator.of(context).pop();
-    });
+
+    if (mounted) {
+      setState(() {
+        _isBroadcasting = false;
+        _peerId = null;
+        _isLoading = false;
+      });
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _startBroadcast(bool isScreen) async {
@@ -728,7 +711,11 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           // 1. Start Media Projection Service
           // The native code will handle the Android 14 bridge/polling automatically.
           debugPrint("🚀 Starting media projection service...");
-          await channel.invokeMethod('startMediaProjectionService', {'type': 'mediaProjection'});
+          await channel.invokeMethod('startMediaProjectionService', {
+            'type': 'mediaProjection',
+            'code': code,
+          });
+
 
           // 2. Request Screen Capture (Plugin's native prompt)
           debugPrint("📸 Requesting screen capture permission...");
@@ -742,7 +729,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           var videoTrack = _localStream!.getVideoTracks()[0];
           videoTrack.onEnded = () {
              debugPrint("📷 MEDIA TRACK ENDED: System 'Stop' button clicked.");
-             _handleTermination();
+             _stopBroadcast();
           };
           
           videoTrack.onMute = () {
@@ -753,14 +740,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           // 4. Listen for track removal (common in some implementations)
           _localStream!.onRemoveTrack = (track) {
              debugPrint("👋 TRACK REMOVED from stream. Triggering termination.");
-             _handleTermination();
+             _stopBroadcast();
           };
 
           // --- Session Lifecycle: Detect system stop ---
           for (var track in _localStream!.getTracks()) {
             track.onEnded = () {
               debugPrint("🎥 [${track.kind}] system signal: track.onEnded triggered.");
-              _handleTermination();
+              _stopBroadcast();
             };
           }
       } else if (Platform.isIOS) {
@@ -788,13 +775,30 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       final peer = Peer(id: code, options: PeerOptions(debug: LogLevel.All));
       _peer = peer;
 
-      _peer!.on("open").listen((id) {
+      // 3. Setup signaling
+      peer.on("open").listen((id) {
         if (!mounted) return;
         setState(() {
           _peerId = id;
-          _isLoading = false;
+          _isBroadcasting = true;
+
+          // Start Session Limit Timer for Free Users
+          if (!widget.isPro) {
+            _sessionTimer = Timer(const Duration(minutes: 30), () {
+              if (mounted && _isBroadcasting) {
+                _stopBroadcast();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Free session limited to 30 minutes. Please reconnect or upgrade to Pro."),
+                    duration: Duration(seconds: 5),
+                  )
+                );
+              }
+            });
+          }
         });
       });
+
 
       _peer!.on("connection").listen((conn) {
         _connections.add(conn);
@@ -856,23 +860,13 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   @override
   void dispose() {
     debugPrint("🧹 Disposing BroadcastScreenState");
-    _statusPollingTimer?.cancel();
     _countdownTimer?.cancel();
-    
-    // Explicitly ask native to stop service
-    try {
-      const channel = MethodChannel('media_projection');
-      channel.invokeMethod('stopMediaProjectionService');
-    } catch (e) {
-      debugPrint("Error calling stopMediaProjectionService: $e");
-    }
-
-    _localStream?.dispose();
-    _localRenderer.dispose();
-    _peer?.dispose();
+    _sessionTimer?.cancel();
+    _stopBroadcast();
     WakelockPlus.disable();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -889,23 +883,56 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: isLandscape 
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(child: _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape)),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape)),
-                  ],
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                     _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape),
-                     const SizedBox(height: 20),
-                     _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape),
-                  ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _remainingSeconds < 300 ? Colors.red.withOpacity(0.1) : Colors.red.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _remainingSeconds < 300 ? Colors.redAccent.withOpacity(0.5) : Colors.red.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.timer_outlined, color: _remainingSeconds < 300 ? Colors.redAccent : Colors.red.withOpacity(0.5), size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.isPro 
+                          ? "UNLIMITED SESSION" 
+                          : (_remainingSeconds < 300 ? "ENDING IN ${_formatDuration(_remainingSeconds)}" : "FREE SESSION: 30M LIMIT"),
+                        style: TextStyle(
+                          color: _remainingSeconds < 300 ? Colors.redAccent : Colors.red.withOpacity(0.7), 
+                          fontSize: 10, 
+                          fontWeight: FontWeight.bold, 
+                          letterSpacing: 1
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+
+                const SizedBox(height: 32),
+                isLandscape 
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(child: _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape)),
+                        const SizedBox(width: 24),
+                        Expanded(child: _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape)),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                         _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape),
+                         const SizedBox(height: 20),
+                         _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape),
+                      ],
+                    ),
+              ],
+            ),
           ),
         ),
       );
@@ -1013,27 +1040,28 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                             icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
                             label: const Text("Switch Camera", style: TextStyle(color: Colors.white)),
                           ),
-                        if (!widget.isPro) ...[
+                        if (!widget.isPro && _remainingSeconds < 300) ...[
                           const SizedBox(height: 12),
                           const Divider(color: Colors.white10),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.timer_outlined, color: Colors.orange, size: 16),
+                              const Icon(Icons.timer_outlined, color: Colors.redAccent, size: 16),
                               const SizedBox(width: 8),
                               Text(
-                                "FREE SESSION ENDS IN: ${_formatDuration(_remainingSeconds)}",
-                                style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                                "SESSION ENDS IN: ${_formatDuration(_remainingSeconds)}",
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ],
                         const SizedBox(height: 24),
+
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _handleTermination,
+                            onPressed: _stopBroadcast,
                             icon: const Icon(Icons.stop_circle_rounded, color: Colors.white),
                             label: const Text("TERMINATE STREAM", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                             style: ElevatedButton.styleFrom(
@@ -1244,7 +1272,28 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                     const Text("ENTER ACCESS KEY", style: TextStyle(color: kTextSecondary, letterSpacing: 2, fontSize: 12, fontWeight: FontWeight.bold)),
+                     Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.timer_outlined, color: Colors.redAccent, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          "FREE SESSION: 30M LIMIT",
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text("ENTER ACCESS KEY", style: TextStyle(color: kTextSecondary, letterSpacing: 3, fontSize: 10, fontWeight: FontWeight.bold)),
+
                      const SizedBox(height: 24),
                      ConstrainedBox(
                        constraints: const BoxConstraints(maxWidth: 400),

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   const client = createClient({ url: process.env.REDIS_URL });
-  
+
   // Error handling for the Redis client itself
   client.on('error', (err) => console.error('[Redis Client Error]', err));
 
@@ -44,11 +44,12 @@ export default async function handler(req, res) {
     if (licenseKey) {
       // 5. Redis Operations
       await client.connect();
-      
-      // Store status 'active' with a 24-hour TTL (86400 seconds)
+
+      // Store status 'active' with a 7-day TTL (604800 seconds)
       // We use the key format `license:{LICENSE_KEY}`
-      await client.set(`license:${licenseKey}`, 'active', { EX: 86400 });
-      
+      await client.set(`license:${licenseKey}`, 'active', { EX: 604800 });
+
+
       console.log(`[Success] License activated in Redis: ${licenseKey.substring(0, 8)}...`);
     } else {
       console.warn('[Webhook] No license_key found in payload');

@@ -18,6 +18,7 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
 
     private val PROJECTION_CHANNEL = "media_projection"
     private var methodChannel: MethodChannel? = null
+    private var castCode: String? = null
 
     // Broadcast receiver to handle stop signals from the Foreground Service notification
     private val stopReceiver =
@@ -61,9 +62,11 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
             when (call.method) {
                 "startMediaProjectionService" -> {
                     val type = call.argument<String>("type") ?: "mediaProjection"
+                    castCode = call.argument<String>("code")
                     val serviceIntent =
                             Intent(this, MediaProjectionService::class.java).apply {
                                 putExtra("type", type)
+                                putExtra("code", castCode)
                             }
                     startForegroundService(serviceIntent)
                     result.success(null)
@@ -71,6 +74,7 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
                 "stopMediaProjectionService" -> {
                     val serviceIntent = Intent(this, MediaProjectionService::class.java)
                     stopService(serviceIntent)
+                    castCode = null
                     result.success(null)
                 }
                 "minimizeApp" -> {
@@ -99,6 +103,7 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
             val upgradeIntent =
                     Intent(this, MediaProjectionService::class.java).apply {
                         putExtra("type", "mediaProjection")
+                        putExtra("code", castCode)
                     }
             startForegroundService(upgradeIntent)
         }
