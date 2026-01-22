@@ -21,6 +21,7 @@ import {
   Maximize,
   Smartphone,
   Zap,
+  Shield,
 } from "lucide-vue-next";
 
 const STATES = {
@@ -53,6 +54,7 @@ const showControls = ref(true);
 const showEndedDialog = ref(false);
 const showInfo = ref(null); // 'source', 'privacy', 'terms'
 const showProModal = ref(false);
+const showFirefoxGuide = ref(false);
 const activationCode = ref("");
 const activeCode = ref("");
 const proExpiresAt = ref(null);
@@ -241,6 +243,25 @@ const getIceServers = () => {
 };
 
 // --- Sender Logic ---
+const handlePeerError = (err) => {
+  console.error("PeerJS Error:", err);
+  if (err.type === 'unavailable-id') {
+    error.value = "Code collision. Please try again.";
+  } else if (err.type === 'peer-unavailable') {
+    // Receiver side issue usually
+  } else if (err.type === 'network') {
+    error.value = "Network error. Check connection/firewall.";
+  } else if (err.type === 'browser-incompatible' || (err.message && err.message.includes('not support WebRTC'))) {
+    // Firefox Block Detection
+    showFirefoxGuide.value = true;
+    error.value = null; // Hide generic error
+    return;
+  } else {
+    error.value = `Connection Error: ${err.message}`;
+  }
+  isConnecting.value = false;
+};
+
 const handleStartCasting = async (mode) => {
   castingMode.value = mode;
 
@@ -296,21 +317,7 @@ const handleStartCasting = async (mode) => {
       peer.call(conn.peer, localStream.value);
     });
 
-    peer.on("error", (err) => {
-      console.error("PeerJS Error:", err);
-      // If ID is taken (unavailable-id), try again or show error
-      if (err.type === 'unavailable-id') {
-        // Retry logic could go here, but for now just show error
-        error.value = "Code collision. Please try again.";
-      } else if (err.type === 'peer-unavailable') {
-        // Usually happens on receiver side
-      } else if (err.type === 'network') {
-        error.value = "Network error. Check connection/firewall.";
-      } else {
-        error.value = `Connection Error: ${err.message}`;
-      }
-      isConnecting.value = false;
-    });
+    peer.on("error", handlePeerError);
 
     peer.on("disconnected", () => {
       console.log("Peer disconnected from server");
@@ -436,10 +443,10 @@ const handleJoin = () => {
   });
 
   peer.on("error", (err) => {
-    console.error(err);
-    error.value = "Invalid Code or Connection Error";
-    isConnecting.value = false;
-    joinCode.value = "";
+    handlePeerError(err);
+    if (!showFirefoxGuide.value) {
+      joinCode.value = "";
+    }
   });
 };
 
@@ -520,7 +527,7 @@ const resetApp = (forceLanding = false) => {
             <span class="text-[9px] font-black uppercase tracking-tighter text-amber-500">PRO 7-DAY</span>
           </div>
           <span class="text-[8px] font-bold text-amber-500/70 uppercase leading-none">{{ formatExpiry(proExpiresAt)
-          }}</span>
+            }}</span>
         </button>
         <div class="px-3 py-1 bg-slate-900 rounded-full border border-slate-800 flex items-center gap-2">
           <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -528,6 +535,44 @@ const resetApp = (forceLanding = false) => {
         </div>
       </div>
     </header>
+
+    <!-- Firefox Privacy Guide Overlay -->
+    <div v-if="showFirefoxGuide"
+      class="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+      <div
+        class="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] max-w-md w-full shadow-2xl relative overflow-hidden">
+        <!-- Glow effect -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-amber-500 blur-sm"></div>
+
+        <div class="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Shield class="w-10 h-10 text-amber-500" />
+        </div>
+
+        <h3 class="text-2xl font-black uppercase mb-4 text-white">Firefox Detected</h3>
+
+        <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+          Firefox's <strong>"Enhanced Tracking Protection"</strong> is blocking the P2P connection.
+        </p>
+
+        <div class="bg-black/50 rounded-xl p-4 mb-8 border border-white/5 text-left text-xs text-slate-300 space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-full font-bold text-amber-500">1
+            </div>
+            <span>Click the <span class="font-bold text-white">Shield Icon</span> 🛡️ in the URL bar.</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-full font-bold text-amber-500">2
+            </div>
+            <span>Toggle the switch to <span class="font-bold text-white">OFF</span>.</span>
+          </div>
+        </div>
+
+        <button @click="() => { showFirefoxGuide = false; window.location.reload(); }"
+          class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl uppercase tracking-widest transition-all active:scale-95">
+          I've Fixed It · Retry
+        </button>
+      </div>
+    </div>
 
     <main class="flex-1 flex flex-col relative overflow-hidden">
       <Transition name="fade" mode="out-in">
@@ -649,7 +694,7 @@ const resetApp = (forceLanding = false) => {
                 <Repeat class="w-3 h-3" />
                 <span class="text-[10px] font-black uppercase">{{
                   facingMode === "user" ? "Front" : "Back"
-                }}</span>
+                  }}</span>
               </button>
             </div>
 
@@ -679,7 +724,7 @@ const resetApp = (forceLanding = false) => {
                 <div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                 <span class="text-[10px] font-black uppercase tracking-widest">{{
                   castingMode === "screen" ? "Desktop Mirror" : "Camera Feed"
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
