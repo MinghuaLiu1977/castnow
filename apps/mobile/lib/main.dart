@@ -614,8 +614,11 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     if (mounted) setState(() {});
   }
 
+  bool _isStopping = false;
+
   void _stopBroadcast() {
-    if (!mounted || !_isBroadcasting) return;
+    if (!mounted || _isStopping) return;
+    _isStopping = true;
 
     _sessionTimer?.cancel();
     _sessionTimer = null;
@@ -633,12 +636,16 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     _localRenderer.srcObject = null;
 
     if (mounted) {
+      if (Navigator.canPop(context)) {
+         Navigator.of(context).pop();
+      }
+      
+      // Optional: Reset state if not popped (shouldn't happen if pushed correctly)
       setState(() {
         _isBroadcasting = false;
         _peerId = null;
         _isLoading = false;
       });
-      Navigator.of(context).pop();
     }
   }
 
@@ -670,6 +677,13 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               
             if (status.isDenied) {
               status = await Permission.notification.request();
+              // 🛑 CRITICAL FIX: After system permission dialog closes, Activity might be in proper resume cycle.
+              // Starting Foreground Service immediately can crash (Background Service Start Restriction).
+              // Wait for 1s to ensure App is recognized as "Foreground" and permission is synced.
+              if (status.isGranted) {
+                  debugPrint("✅ Notification permission granted. Waiting for system sync...");
+                  await Future.delayed(const Duration(milliseconds: 500));
+              }
             }
 
             // 🛑 核心拦截点 🛑
@@ -716,7 +730,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             'code': code,
           });
 
+          //await Future.delayed(const Duration(milliseconds: 1500));
 
+          
           // 2. Request Screen Capture (Plugin's native prompt)
           debugPrint("📸 Requesting screen capture permission...");
           _localStream = await navigator.mediaDevices.getDisplayMedia({
@@ -780,8 +796,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
         if (!mounted) return;
         setState(() {
           _peerId = id;
-          _isBroadcasting = true;
 
+          _isLoading = false;
+          
           // Start Session Limit Timer for Free Users
           if (!widget.isPro) {
             _sessionTimer = Timer(const Duration(minutes: 30), () {
@@ -802,7 +819,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
       _peer!.on("connection").listen((conn) {
         _connections.add(conn);
-        
+        _isBroadcasting = true;
         // Auto-minimize app after receiver connects (Android Screen Share only)
         if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
           const _channel = MethodChannel('media_projection');

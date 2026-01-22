@@ -167,9 +167,9 @@ class MediaProjectionService : Service() {
                             } catch (e: SecurityException) {
                                 Log.d(
                                         "CastNow",
-                                        "MediaProjectionService: Upgrade failed (no permission yet), retrying in 500ms..."
+                                        "MediaProjectionService: Upgrade failed (no permission yet), retrying in 100ms..."
                                 )
-                                handler.postDelayed(this, 500)
+                                handler.postDelayed(this, 10)
                             } catch (e: Exception) {
                                 Log.e(
                                         "CastNow",

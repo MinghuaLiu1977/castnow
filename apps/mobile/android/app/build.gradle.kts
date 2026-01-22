@@ -1,13 +1,12 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.castnow.app"
-    compileSdk = 36//flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -32,13 +31,39 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    // 自定义 APK 输出文件名逻辑
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
+            .forEach { output ->
+                val versionName = project.findProperty("flutter.versionName") as? String 
+                    ?: variant.versionName 
+                    ?: "1.0.0"
+                
+                val buildType = variant.buildType.name
+                
+                val newName = if (buildType == "release") {
+                    "CastNow_v${versionName}.apk"
+                } else {
+                    "CastNow_v${versionName}_${buildType}.apk"
+                }
+                
+                output.outputFileName = newName
+            }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // 修复 Kotlin 和 Android 核心库缺失的关键依赖
+    implementation(kotlin("stdlib"))
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }

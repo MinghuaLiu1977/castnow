@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.display.DisplayManager
+import android.hardware.display.DisplayManager.DisplayListener
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -14,7 +15,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
+class MainActivity : FlutterActivity(), DisplayListener {
 
     private val PROJECTION_CHANNEL = "media_projection"
     private var methodChannel: MethodChannel? = null
@@ -87,18 +88,14 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        // Detect if this is the media projection permission result
-        // The flutter_webrtc plugin often doesn't give us the request code,
-        // but the system resultCode will be OK if granted.
-        // On Android 14, if we just granted permission, we should immediately 'upgrade'
-        // our foreground service so that the capturer (which is about to start)
-        // finds the service in the correct state.
-
+        // 🛑 CRITICAL: We must upgrade the service BEFORE the plugin processes the result.
+        // flutter_webrtc will consume the result in super.onActivityResult() and immediately try to
+        // start projection.
+        // If the service isn't "mediaProjection" type by then, it crashes.
         if (resultCode == RESULT_OK && Build.VERSION.SDK_INT >= 34) {
             Log.d(
                     "CastNow",
-                    "MainActivity: Permission granted (OK). Upgrading service to mediaProjection."
+                    "MainActivity: Permission granted (OK). Pre-emptively upgrading service to mediaProjection."
             )
             val upgradeIntent =
                     Intent(this, MediaProjectionService::class.java).apply {
@@ -106,7 +103,16 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
                         putExtra("code", castCode)
                     }
             startForegroundService(upgradeIntent)
+
+            // Give the system a tiny moment to process the service type update?
+            // We can't really sleep on main thread, but execution order matters.
+            // DELAY the plugin processing to ensure Service has processed the command.
+            Handler(Looper.getMainLooper())
+                    .postDelayed({ super.onActivityResult(requestCode, resultCode, data) }, 1000)
+            return
         }
+
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     // --- DisplayListener Implementation ---
@@ -117,19 +123,32 @@ class MainActivity : FlutterActivity(), DisplayManager.DisplayListener {
     override fun onDisplayChanged(displayId: Int) {
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         val display = displayManager.getDisplay(displayId)
-        if (display != null) {
-            // Logic: If a virtual display named "ScreenCapture" turns OFF (state 1),
+        if (display != null && castCode != null) {
+            // Logic: If a virtual display turns OFF (state 1), or matches criteria
             // it usually means the system has paused or stopped the projection.
-            if (display.state == 1 && display.name.contains("ScreenCapture")) {
+            // checking state == 1 (STATE_OFF)
+            if (display.state == 1 &&
+                            (display.name.contains("ScreenCapture") ||
+                                    display.name.contains("flutter_webrtc"))
+            ) {
                 Log.d("CastNow", "Virtual display ($displayId) turned OFF. Stopping session.")
+                val serviceIntent = Intent(this, MediaProjectionService::class.java)
+                stopService(serviceIntent)
+                castCode = null
                 runOnUiThread { methodChannel?.invokeMethod("onStopPressed", null) }
             }
         }
     }
 
     override fun onDisplayRemoved(displayId: Int) {
-        Log.d("CastNow", "Display Removed: $displayId. Notifying Flutter.")
-        runOnUiThread { methodChannel?.invokeMethod("onStopPressed", null) }
+        Log.d("CastNow", "Display Removed: $displayId.")
+        if (castCode != null) {
+            Log.d("CastNow", "Display removed while casting. Stopping service synchronously.")
+            val serviceIntent = Intent(this, MediaProjectionService::class.java)
+            stopService(serviceIntent)
+            castCode = null
+            runOnUiThread { methodChannel?.invokeMethod("onStopPressed", null) }
+        }
     }
 
     override fun onDestroy() {
