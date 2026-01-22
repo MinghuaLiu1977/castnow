@@ -38,11 +38,10 @@
     </filter>
   </defs>
 
-  <!-- Container: Squircle Shape -->
-  <rect x="0" y="0" width="512" height="512" rx="120" fill="url(#bg-gradient)" filter="url(#inner-glow)"/>
+  <!-- Container: Transparent Background (Removed solid rect) -->
   
-  <!-- Subtle Border Stroke -->
-  <rect x="10" y="10" width="492" height="492" rx="110" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="4"/>
+  <!-- Subtle Border Stroke (Optional: keeping a very faint ring or remove) -->
+  <rect x="10" y="10" width="492" height="492" rx="110" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="4"/>
 
   <!-- The Icon: Stylized Lightning Bolt -->
   <!-- Centered and sized roughly 60% of container -->

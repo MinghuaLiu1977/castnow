@@ -20,6 +20,7 @@ import {
   VolumeX,
   Maximize,
   Smartphone,
+  Zap,
 } from "lucide-vue-next";
 
 const STATES = {
@@ -51,7 +52,12 @@ const isMuted = ref(false);
 const showControls = ref(true);
 const showEndedDialog = ref(false);
 const showInfo = ref(null); // 'source', 'privacy', 'terms'
+const showProModal = ref(false);
+const activationCode = ref("");
+const activeCode = ref("");
+const proExpiresAt = ref(null);
 const remainingSeconds = ref(1800); // 30 minutes
+const toast = ref({ show: false, message: "", type: "info" });
 let controlsTimeout = null;
 let sessionInterval = null;
 
@@ -102,6 +108,101 @@ watch([remoteVideo, remoteStream], ([el, stream]) => {
     }
   }
 });
+
+const showToast = (message, type = "info") => {
+  toast.value = { show: true, message, type };
+  setTimeout(() => {
+    toast.value.show = false;
+  }, 3000);
+};
+
+const handleActivatePro = async () => {
+  const code = activationCode.value.trim().toUpperCase();
+  const formatRegex = /^[0-9A-F]{8}-[0-9A-F]{8}-[0-9A-F]{8}-[0-9A-F]{8}$/i;
+
+  if (!formatRegex.test(code)) {
+    alert("Invalid format. Please use: XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX");
+    return;
+  }
+
+  isConnecting.value = true;
+  try {
+    const response = await fetch("https://castnow.vercel.app/api/verify-pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ licenseKey: code }),
+    });
+
+    const data = await response.json();
+
+    if (data.valid) {
+      isPro.value = true;
+      activeCode.value = code;
+      proExpiresAt.value = Date.now() + data.expiresIn * 1000;
+      showProModal.value = false;
+
+      localStorage.setItem("pro_code", code);
+      localStorage.setItem("pro_expiry", proExpiresAt.value.toString());
+
+      showToast("Pro Status Activated! Enjoy unlimited casting.", "success");
+    } else {
+      showToast(data.message || "Invalid or expired activation code.", "error");
+      isPro.value = false;
+    }
+  } catch (err) {
+    console.error("Activation failed:", err);
+    showToast("Service error. Please try again later.", "error");
+  } finally {
+    isConnecting.value = false;
+  }
+};
+
+const checkProStatus = async () => {
+  const code = localStorage.getItem("pro_code");
+  if (!code) return;
+
+  activeCode.value = code;
+  try {
+    const response = await fetch("https://castnow.vercel.app/api/verify-pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ licenseKey: code }),
+    });
+    const data = await response.json();
+    if (data.valid) {
+      isPro.value = true;
+      proExpiresAt.value = Date.now() + data.expiresIn * 1000;
+      localStorage.setItem("pro_expiry", proExpiresAt.value.toString());
+    } else {
+      isPro.value = false;
+      localStorage.removeItem("pro_code");
+      localStorage.removeItem("pro_expiry");
+    }
+  } catch (err) {
+    console.error("Pro verification failed:", err);
+    // If offline/error, trust the last known expiry but don't clear it yet
+    const cachedExpiry = localStorage.getItem("pro_expiry");
+    if (cachedExpiry && parseInt(cachedExpiry) > Date.now()) {
+      isPro.value = true;
+      proExpiresAt.value = parseInt(cachedExpiry);
+    }
+  }
+};
+
+const formatExpiry = (timestamp) => {
+  if (!timestamp) return "";
+  const diff = timestamp - Date.now();
+  if (diff <= 0) return "Expired";
+
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+
+  if (days > 0) return `${days}d ${hours}h left`;
+  return `${hours}h left`;
+};
+
+const proModalTitle = computed(() => isPro.value ? 'Extend Pro' : 'Activate Pro');
+const proModalDesc = computed(() => isPro.value ? 'You have an active Pro subscription. Enter a new code to extend your time.' : 'Enter your 7-day activation code to unlock unlimited casting time and premium features.');
 
 
 
@@ -230,7 +331,7 @@ const toggleCamera = async () => {
       peerInstance.value.call(conn.peer, newStream);
     });
   } catch (err) {
-    alert("Camera switch failed");
+    showToast("Camera switch failed", "error");
   }
 };
 
@@ -260,6 +361,7 @@ const handleKeyDown = (e) => {
 
 onMounted(() => {
   window.addEventListener("keydown", handleKeyDown);
+  checkProStatus();
 });
 
 onUnmounted(() => {
@@ -385,6 +487,20 @@ const resetApp = (forceLanding = false) => {
 
       </div>
       <div class="flex items-center gap-2">
+        <button v-if="!isPro" @click="showProModal = true"
+          class="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full hover:bg-amber-500/20 transition-all group">
+          <Zap class="w-3 h-3 text-amber-500 group-hover:scale-110 transition-transform" />
+          <span class="text-[10px] font-black uppercase tracking-tighter text-amber-500">Upgrade Pro</span>
+        </button>
+        <button v-else @click="showProModal = true"
+          class="px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full flex flex-col items-end gap-0.5 hover:bg-amber-500/20 transition-all">
+          <div class="flex items-center gap-1.5">
+            <Zap class="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+            <span class="text-[9px] font-black uppercase tracking-tighter text-amber-500">PRO 7-DAY</span>
+          </div>
+          <span class="text-[8px] font-bold text-amber-500/70 uppercase leading-none">{{ formatExpiry(proExpiresAt)
+            }}</span>
+        </button>
         <div class="px-3 py-1 bg-slate-900 rounded-full border border-slate-800 flex items-center gap-2">
           <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           <span class="text-[10px] font-bold uppercase tracking-tighter">P2P Secure</span>
@@ -423,14 +539,6 @@ const resetApp = (forceLanding = false) => {
               Receive
             </button>
 
-            <a href="https://minghster.gumroad.com/l/ihhtg" target="_blank"
-              class="group mt-2 flex items-center justify-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-6 py-4 hover:bg-amber-500/10 transition-all">
-              <div
-                class="rounded bg-amber-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-tighter text-slate-950 transition-transform group-hover:scale-110">
-                Pro
-              </div>
-              <span class="text-xs font-black uppercase tracking-widest text-amber-500">7-Day Unlimited Pass</span>
-            </a>
 
           </div>
 
@@ -515,7 +623,7 @@ const resetApp = (forceLanding = false) => {
                 <Repeat class="w-3 h-3" />
                 <span class="text-[10px] font-black uppercase">{{
                   facingMode === "user" ? "Front" : "Back"
-                }}</span>
+                  }}</span>
               </button>
             </div>
 
@@ -545,7 +653,7 @@ const resetApp = (forceLanding = false) => {
                 <div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                 <span class="text-[10px] font-black uppercase tracking-widest">{{
                   castingMode === "screen" ? "Desktop Mirror" : "Camera Feed"
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
@@ -760,6 +868,69 @@ const resetApp = (forceLanding = false) => {
         </div>
       </div>
     </div>
+
+    <!-- Pro Activation Modal -->
+    <div v-if="showProModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl"
+      @click.self="showProModal = false">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 shadow-2xl relative">
+        <button @click="showProModal = false"
+          class="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors">
+          <X class="w-6 h-6" />
+        </button>
+
+        <div class="text-center">
+          <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <Zap class="w-8 h-8 text-amber-500 fill-amber-500" />
+          </div>
+          <h3 class="text-2xl font-black uppercase mb-2 tracking-tight text-white">{{ proModalTitle }}</h3>
+          <p class="text-slate-400 text-sm mb-8">
+            {{ proModalDesc }}
+          </p>
+
+          <div v-if="isPro" class="mb-6 p-4 bg-slate-950 border border-amber-500/20 rounded-2xl text-left">
+            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Current License</div>
+            <div class="text-xs font-mono text-amber-500 break-all mb-3">{{ activeCode }}</div>
+            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</div>
+            <div class="text-xs font-bold text-white uppercase">{{ formatExpiry(proExpiresAt) }}</div>
+          </div>
+
+          <div class="mb-6">
+            <input v-model="activationCode" type="text" placeholder="FCCA8ACF-..."
+              class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-center text-sm font-mono tracking-wider text-amber-500 focus:outline-none focus:border-amber-500/50 transition-colors"
+              @keyup.enter="handleActivatePro" />
+          </div>
+
+          <button @click="handleActivatePro" :disabled="isConnecting"
+            class="w-full py-4 bg-amber-500 disabled:bg-slate-700 text-slate-900 font-black rounded-2xl uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-amber-500/20 mb-4">
+            {{ isConnecting ? 'Verifying...' : (isPro ? 'Extend Activation' : 'Verify & Activate') }}
+          </button>
+
+          <a href="https://minghster.gumroad.com/l/ihhtg" target="_blank"
+            class="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">
+            Don't have a code? Purchase here
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <Transition name="fade">
+      <div v-if="toast.show"
+        class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-in slide-in-from-bottom-5 duration-300"
+        :class="{
+          'bg-amber-500/90 text-slate-950 border-amber-400': toast.type === 'success',
+          'bg-red-500/90 text-white border-red-400': toast.type === 'error',
+          'bg-slate-800/90 text-white border-slate-700': toast.type === 'info'
+        }">
+        <div class="flex items-center gap-3">
+          <Zap v-if="toast.type === 'success'" class="w-4 h-4 fill-current" />
+          <AlertCircle v-else-if="toast.type === 'error'" class="w-4 h-4" />
+          <Info v-else class="w-4 h-4" />
+          <span class="font-bold text-sm tracking-tight">{{ toast.message }}</span>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 

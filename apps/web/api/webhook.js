@@ -8,9 +8,17 @@ export default async function handler(req, res) {
   }
 
   // 2. Environment Check
-  if (!process.env.REDIS_URL) {
-    console.error('[System] REDIS_URL is missing in environment variables.');
+  if (!process.env.REDIS_URL || !process.env.GUMROAD_WEBHOOK_SECRET || !process.env.GUMROAD_SELLER_ID) {
+    console.error('[System] Missing environment variables (REDIS_URL, GUMROAD_WEBHOOK_SECRET, or GUMROAD_SELLER_ID).');
     return res.status(500).send('Server Configuration Error');
+  }
+
+  // 3. Security: URL Query Secret Check
+  // Gumroad doesn't sign requests, so we use a secret in the URL (e.g. ?secret=XYZ)
+  const { secret } = req.query;
+  if (secret !== process.env.GUMROAD_WEBHOOK_SECRET) {
+    console.warn('[Security] Unauthorized webhook attempt (invalid secret).');
+    return res.status(403).send('Forbidden');
   }
 
   const client = createClient({ url: process.env.REDIS_URL });
@@ -19,7 +27,7 @@ export default async function handler(req, res) {
   client.on('error', (err) => console.error('[Redis Client Error]', err));
 
   try {
-    // 3. Body Parsing Check
+    // 4. Body Parsing Check
     const body = req.body;
     if (!body || typeof body !== 'object') {
       console.warn('[Webhook] Invalid Payload received');
@@ -29,13 +37,16 @@ export default async function handler(req, res) {
     // Log the event (masking sensitive data)
     console.log(`[Webhook] Received for product: ${body.permalink}, sale_id: ${body.sale_id}`);
 
-    // 4. Security Check: Permalink Verification
-    // Ensure this webhook is for the correct product.
-    // Replace 'ihhtg' with your actual Gumroad product permalink if it changes.
+    // 5. Security Check: Permalink & Seller ID Verification
+    // Ensure this webhook is for the correct product and from the correct seller.
     if (body.permalink !== 'ihhtg') {
       console.warn(`[Security] Unauthorized webhook attempt for permalink: ${body.permalink}`);
-      // Return 200 to Gumroad so they stop retrying, but don't process it.
       return res.status(200).send('Ignored: Product ID Mismatch');
+    }
+
+    if (body.seller_id !== process.env.GUMROAD_SELLER_ID) {
+      console.warn(`[Security] Seller ID mismatch: ${body.seller_id}`);
+      return res.status(403).send('Forbidden: Seller ID Mismatch');
     }
 
     // Gumroad sends 'license_key'
