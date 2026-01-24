@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -46,7 +48,7 @@ class CastNowApp extends StatelessWidget {
           primary: kPrimaryColor,
           surface: kSurfaceColor,
         ),
-        fontFamily: 'Roboto', 
+        fontFamily: 'Roboto',
       ),
       home: const HomeScreen(),
     );
@@ -93,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _verifyLicense(String key) async {
     if (key.isEmpty) return;
     setState(() => _isVerifying = true);
-    
+
     try {
       final response = await http.post(
         Uri.parse('https://castnow.vercel.app/api/verify-pass'),
@@ -107,7 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
           await _saveProStatus(true, key);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Activation Successful! Enjoy CastNow Pro."), backgroundColor: Colors.green),
+              const SnackBar(
+                  content: Text("Activation Successful! Enjoy CastNow Pro."),
+                  backgroundColor: Colors.green),
             );
             Navigator.pop(context); // Close dialog
           }
@@ -120,7 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Activation Failed: $e"), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text("Activation Failed: $e"),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -135,23 +141,32 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showInfoDialog(BuildContext context, String title, String content, {String? url}) {
+  void _showInfoDialog(BuildContext context, String title, String content,
+      {String? url}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: kSurfaceColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title, style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(child: Text(content, style: const TextStyle(color: kTextSecondary))),
+        title: Text(title,
+            style: const TextStyle(
+                color: kPrimaryColor, fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+            child:
+                Text(content, style: const TextStyle(color: kTextSecondary))),
         actions: [
           if (url != null)
             TextButton(
               onPressed: () => _launchURL(url),
-              child: const Text("VIEW ON GITHUB", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
+              child: const Text("VIEW ON GITHUB",
+                  style: TextStyle(
+                      color: kPrimaryColor, fontWeight: FontWeight.bold)),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("CLOSE", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
+            child: const Text("CLOSE",
+                style: TextStyle(
+                    color: kPrimaryColor, fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -159,13 +174,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showProDialog(BuildContext context) {
-    final TextEditingController _controller = TextEditingController();
+    final TextEditingController controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: kSurfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           contentPadding: EdgeInsets.zero,
           content: SingleChildScrollView(
             child: Column(
@@ -175,36 +191,45 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(24),
                   decoration: const BoxDecoration(
                     color: kPrimaryColor,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   child: const Column(
                     children: [
                       Icon(Icons.stars_rounded, color: Colors.black, size: 48),
                       SizedBox(height: 12),
-                      Text("CastNow Pro", style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text("CastNow Pro",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    _buildProFeature(Icons.timer_off_rounded, "Unlimited Session Time"),
-                    const SizedBox(height: 12),
-                    _buildProFeature(Icons.event_available_rounded, "7-Day Activation Pass"),
-                    const SizedBox(height: 12),
-                    _buildProFeature(Icons.speed_rounded, "Priority P2P Tunneling"),
-                    const SizedBox(height: 24),
-
+                  child: Column(
+                    children: [
+                      _buildProFeature(
+                          Icons.timer_off_rounded, "Unlimited Session Time"),
+                      const SizedBox(height: 12),
+                      _buildProFeature(Icons.event_available_rounded,
+                          "7-Day Activation Pass"),
+                      const SizedBox(height: 12),
+                      _buildProFeature(
+                          Icons.speed_rounded, "Priority P2P Tunneling"),
+                      const SizedBox(height: 24),
                       if (!_isPro) ...[
                         TextField(
-                          controller: _controller,
+                          controller: controller,
                           decoration: InputDecoration(
                             hintText: "Enter Activation Code",
                             hintStyle: const TextStyle(color: Colors.white24),
                             filled: true,
                             fillColor: Colors.black26,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
                           ),
                           style: const TextStyle(color: kPrimaryColor),
                         ),
@@ -212,36 +237,55 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _isVerifying ? null : () => _verifyLicense(_controller.text),
+                            onPressed: _isVerifying
+                                ? null
+                                : () => _verifyLicense(controller.text),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kPrimaryColor,
                               foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
-                            child: _isVerifying 
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                              : const Text("ACTIVATE NOW", style: TextStyle(fontWeight: FontWeight.bold)),
+                            child: _isVerifying
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.black))
+                                : const Text("ACTIVATE NOW",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text("OR", style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+                        const Text("OR",
+                            style: TextStyle(
+                                color: Colors.white24,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                       ],
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () => _launchURL("https://minghster.gumroad.com/l/ihhtg"),
+                          onPressed: () => _launchURL(
+                              "https://minghster.gumroad.com/l/ihhtg"),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: kPrimaryColor),
                             foregroundColor: kPrimaryColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text("BUY ON GUMROAD", style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text("BUY ON GUMROAD",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                       if (_isPro) ...[
                         const SizedBox(height: 24),
-                        const Text("✓ PRO ACTIVATED", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Text("✓ PRO ACTIVATED",
+                            style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold)),
                       ]
                     ],
                   ),
@@ -259,7 +303,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Icon(icon, color: kPrimaryColor, size: 20),
         const SizedBox(width: 12),
-        Expanded(child: Text(text, style: const TextStyle(color: kTextPrimary, fontSize: 14))),
+        Expanded(
+            child: Text(text,
+                style: const TextStyle(color: kTextPrimary, fontSize: 14))),
       ],
     );
   }
@@ -284,11 +330,18 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 6, height: 6,
-                decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                    color: Colors.green, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
-              const Text("P2P SECURE", style: TextStyle(color: kTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const Text("P2P SECURE",
+                  style: TextStyle(
+                      color: kTextSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1)),
             ],
           ),
         ),
@@ -345,8 +398,10 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.wifi_tethering,
             color: kPrimaryColor,
             textColor: Colors.black,
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => BroadcastScreen(isPro: _isPro))),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => BroadcastScreen(isPro: _isPro))),
           ),
           const SizedBox(height: 16),
           _buildActionButton(
@@ -371,18 +426,26 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildFooterLink(context, "SOURCE", "Source Code", "The source code for CastNow is available on GitHub under the MIT license.", url: "https://github.com/MinghuaLiu1977/castnow"),
+              _buildFooterLink(context, "SOURCE", "Source Code",
+                  "The source code for CastNow is available on GitHub under the MIT license.",
+                  url: "https://github.com/MinghuaLiu1977/castnow"),
               if (!isLandscape) const SizedBox(width: 32),
               if (isLandscape) const SizedBox(width: 24),
-              _buildFooterLink(context, "PRIVACY", "Privacy Policy", "We value your privacy. CastNow utilizes direct peer-to-peer connections. Your stream data never touches our servers. We do not collect or store any personal information."),
+              _buildFooterLink(context, "PRIVACY", "Privacy Policy",
+                  "We value your privacy. CastNow utilizes direct peer-to-peer connections. Your stream data never touches our servers. We do not collect or store any personal information."),
               if (!isLandscape) const SizedBox(width: 32),
               if (isLandscape) const SizedBox(width: 24),
-              _buildFooterLink(context, "TERMS", "Terms of Service", "By using CastNow, you agree that you are responsible for the content you share. The service is provided 'as is' without warranties of any kind."),
+              _buildFooterLink(context, "TERMS", "Terms of Service",
+                  "By using CastNow, you agree that you are responsible for the content you share. The service is provided 'as is' without warranties of any kind."),
               if (isLandscape) ...[
                 const SizedBox(width: 24),
                 const Text(
                   "EASTLAKE STUDIO",
-                  style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  style: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1),
                 ),
               ],
             ],
@@ -391,7 +454,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             const Text(
               "MADE BY EASTLAKE STUDIO",
-              style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+              style: TextStyle(
+                  color: Colors.white24,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1),
             ),
           ],
           const SizedBox(height: 24),
@@ -407,7 +474,8 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
@@ -422,13 +490,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               isLandscape
                                   ? Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
                                       children: [
                                         Expanded(child: brandSection),
                                         const SizedBox(width: 40),
                                         Expanded(
                                           child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               actionsSection,
                                             ],
@@ -437,7 +507,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ],
                                     )
                                   : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         brandSection,
                                         const SizedBox(height: 60),
@@ -463,13 +534,21 @@ class _HomeScreenState extends State<HomeScreen> {
             child: GestureDetector(
               onTap: () => _showProDialog(context),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: kPrimaryColor,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: kPrimaryColor.withOpacity(0.3), blurRadius: 10)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: kPrimaryColor.withOpacity(0.3), blurRadius: 10)
+                  ],
                 ),
-                child: Text(_isPro ? "PRO ACTIVE" : "GET PRO", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
+                child: Text(_isPro ? "PRO ACTIVE" : "GET PRO",
+                    style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10)),
               ),
             ),
           ),
@@ -478,12 +557,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFooterLink(BuildContext context, String label, String title, String content, {String? url}) {
+  Widget _buildFooterLink(
+      BuildContext context, String label, String title, String content,
+      {String? url}) {
     return GestureDetector(
       onTap: () => _showInfoDialog(context, title, content, url: url),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
+        style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2),
       ),
     );
   }
@@ -511,7 +596,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isOutlined ? Colors.white.withOpacity(0.05) : Colors.black12,
+                color: isOutlined
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black12,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(icon, color: textColor, size: 28),
@@ -559,7 +646,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   String? _peerId;
   bool _isScreenSharing = false;
-  
+
   bool _isBroadcasting = false;
   Timer? _sessionTimer;
   int _remainingSeconds = 1800; // 30 minutes
@@ -573,7 +660,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     super.initState();
     _initRenderer();
     WakelockPlus.enable();
-    
+
     // Start Countdown for Free Users
     if (!widget.isPro) {
       _startCountdown();
@@ -597,10 +684,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-
   Future<void> _initRenderer() async {
     await _localRenderer.initialize();
-    
+
     // Listen for native stop signal (from notification)
     // Listen for native stop signal (from notification)
     if (Platform.isAndroid) {
@@ -633,7 +719,8 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     // 2. Stop Service (Native notification)
     // 2. Stop Service (Native notification)
     if (Platform.isAndroid) {
-      const MethodChannel('media_projection').invokeMethod('stopMediaProjectionService');
+      const MethodChannel('media_projection')
+          .invokeMethod('stopMediaProjectionService');
     }
 
     // 3. Cleanup local state
@@ -643,9 +730,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
     if (mounted) {
       if (Navigator.canPop(context)) {
-         Navigator.of(context).pop();
+        Navigator.of(context).pop();
       }
-      
+
       // Optional: Reset state if not popped (shouldn't happen if pushed correctly)
       setState(() {
         _isBroadcasting = false;
@@ -665,30 +752,29 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       Map<String, dynamic> mediaConstraints = {
         'audio': true,
         'video': isScreen
-            ? true 
-            : {
-                'facingMode': 'user',
-                'width': 1280,
-                'height': 720
-              }
+            ? true
+            : {'facingMode': 'user', 'width': 1280, 'height': 720}
       };
-
 
       if (isScreen) {
         // 跨平台屏幕共享逻辑
-        if (kIsWeb || Platform.isAndroid || Platform.isMacOS || Platform.isWindows) {
+        if (kIsWeb ||
+            Platform.isAndroid ||
+            Platform.isMacOS ||
+            Platform.isWindows) {
           if (Platform.isAndroid) {
             // 1. 检查当前状态
             var status = await Permission.notification.status;
-              
+
             if (status.isDenied) {
               status = await Permission.notification.request();
               // 🛑 CRITICAL FIX: After system permission dialog closes, Activity might be in proper resume cycle.
               // Starting Foreground Service immediately can crash (Background Service Start Restriction).
               // Wait for 1s to ensure App is recognized as "Foreground" and permission is synced.
               if (status.isGranted) {
-                  debugPrint("✅ Notification permission granted. Waiting for system sync...");
-                  await Future.delayed(const Duration(milliseconds: 500));
+                debugPrint(
+                    "✅ Notification permission granted. Waiting for system sync...");
+                await Future.delayed(const Duration(milliseconds: 500));
               }
             }
 
@@ -696,13 +782,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             // 如果此时还是没授权（可能是用户拒绝，也可能是 manifest 缓存问题）
             if (!status.isGranted) {
               debugPrint("❌ 致命错误：没有通知权限，前台服务无法启动！");
-              
+
               if (mounted) {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text("权限缺失"),
-                    content: const Text("检测到通知权限缺失。\n\nAndroid 系统要求：开启录屏必须先授予通知权限。\n\n请检查：\n1. 是否已卸载重装 App？\n2. 请去设置中手动开启权限。"),
+                    content: const Text(
+                        "检测到通知权限缺失。\n\nAndroid 系统要求：开启录屏必须先授予通知权限。\n\n请检查：\n1. 是否已卸载重装 App？\n2. 请去设置中手动开启权限。"),
                     actions: [
                       TextButton(
                         onPressed: () {
@@ -719,11 +806,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                   ),
                 );
               }
-            // ⛔️ 绝对不能继续，否则必崩 ⛔️
-            setState(() => _isLoading = false);
-            return;
-    
-           
+              // ⛔️ 绝对不能继续，否则必崩 ⛔️
+              setState(() => _isLoading = false);
+              return;
             }
           }
           const channel = MethodChannel('media_projection');
@@ -738,46 +823,46 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
           //await Future.delayed(const Duration(milliseconds: 1500));
 
-          
           // 2. Request Screen Capture (Plugin's native prompt)
           debugPrint("📸 Requesting screen capture permission...");
-          _localStream = await navigator.mediaDevices.getDisplayMedia({
-            'audio': false
-          });
+          _localStream =
+              await navigator.mediaDevices.getDisplayMedia({'audio': false});
           debugPrint("✅ Screen capture stream acquired successfully.");
 
           // 3. Listen for "Stop" from System UI
           // When user clicks "Stop sharing" in notification panel, this fires.
           var videoTrack = _localStream!.getVideoTracks()[0];
           videoTrack.onEnded = () {
-             debugPrint("📷 MEDIA TRACK ENDED: System 'Stop' button clicked.");
-             _stopBroadcast();
+            debugPrint("📷 MEDIA TRACK ENDED: System 'Stop' button clicked.");
+            _stopBroadcast();
           };
-          
+
           videoTrack.onMute = () {
-             debugPrint("🔇 MEDIA TRACK MUTED: Stream paused or stopped sending frames.");
-             // Optional: If muted for extensive time, could treat as stop.
+            debugPrint(
+                "🔇 MEDIA TRACK MUTED: Stream paused or stopped sending frames.");
+            // Optional: If muted for extensive time, could treat as stop.
           };
 
           // 4. Listen for track removal (common in some implementations)
           _localStream!.onRemoveTrack = (track) {
-             debugPrint("👋 TRACK REMOVED from stream. Triggering termination.");
-             _stopBroadcast();
+            debugPrint("👋 TRACK REMOVED from stream. Triggering termination.");
+            _stopBroadcast();
           };
 
           // --- Session Lifecycle: Detect system stop ---
           for (var track in _localStream!.getTracks()) {
             track.onEnded = () {
-              debugPrint("🎥 [${track.kind}] system signal: track.onEnded triggered.");
+              debugPrint(
+                  "🎥 [${track.kind}] system signal: track.onEnded triggered.");
               _stopBroadcast();
             };
           }
-      } else if (Platform.isIOS) {
+        } else if (Platform.isIOS) {
           // Trigger System Broadcast Picker via our custom native bridge
           debugPrint("🚀 Launching iOS Broadcast Picker...");
           const channel = MethodChannel('media_projection');
           await channel.invokeMethod('startMediaProjectionService');
-          
+
           // Note: On iOS, showing the picker doesn't immediately return a stream.
           // The extension will start sending frames to the socket一旦用户确认。
           // We set loading back to false so the user can see the status once connected.
@@ -790,7 +875,8 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           await Permission.camera.request();
           await Permission.microphone.request();
         }
-        _localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+        _localStream =
+            await navigator.mediaDevices.getUserMedia(mediaConstraints);
       }
 
       _localRenderer.srcObject = _localStream;
@@ -807,32 +893,30 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           _peerId = id;
 
           _isLoading = false;
-          
+
           // Start Session Limit Timer for Free Users
           if (!widget.isPro) {
             _sessionTimer = Timer(const Duration(minutes: 30), () {
               if (mounted && _isBroadcasting) {
                 _stopBroadcast();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Free session limited to 30 minutes. Please reconnect or upgrade to Pro."),
-                    duration: Duration(seconds: 5),
-                  )
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text(
+                      "Free session limited to 30 minutes. Please reconnect or upgrade to Pro."),
+                  duration: Duration(seconds: 5),
+                ));
               }
             });
           }
         });
       });
 
-
       _peer!.on("connection").listen((conn) {
         _connections.add(conn);
         _isBroadcasting = true;
         // Auto-minimize app after receiver connects (Android Screen Share only)
         if (_isScreenSharing && !kIsWeb && Platform.isAndroid) {
-          const _channel = MethodChannel('media_projection');
-          _channel.invokeMethod('minimizeApp');
+          const channel0 = MethodChannel('media_projection');
+          channel0.invokeMethod('minimizeApp');
         }
 
         // Active call to receiver
@@ -842,10 +926,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       });
 
       setState(() {});
-
     } catch (e) {
       debugPrint("Error starting broadcast: $e");
-      
+
       // Attempt to clean up native service if it was started
       try {
         if (Platform.isAndroid) {
@@ -864,30 +947,30 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 
         // Only show error if it's not a user cancellation
         final errorStr = e.toString().toLowerCase();
-        if (!errorStr.contains('cancel') && 
-            !errorStr.contains('denied') && 
-            !errorStr.contains('user_rejected') && 
+        if (!errorStr.contains('cancel') &&
+            !errorStr.contains('denied') &&
+            !errorStr.contains('user_rejected') &&
             !errorStr.contains('give permission')) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text("Error: $e")));
         } else {
-          debugPrint("User cancelled or denied permission. Returning to selection.");
+          debugPrint(
+              "User cancelled or denied permission. Returning to selection.");
         }
-
       }
     }
   }
 
   void _switchCamera() async {
     if (_localStream != null && !_isScreenSharing) {
-       final tracks = _localStream!.getVideoTracks();
-       if (tracks.isNotEmpty) {
-          await Helper.switchCamera(tracks.first);
-       } else {
-          debugPrint("❌ No video tracks found to switch.");
-       }
+      final tracks = _localStream!.getVideoTracks();
+      if (tracks.isNotEmpty) {
+        await Helper.switchCamera(tracks.first);
+      } else {
+        debugPrint("❌ No video tracks found to switch.");
+      }
     }
   }
-
 
   @override
   void dispose() {
@@ -899,16 +982,16 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (_peerId == null && !_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text("Choose Source"), 
-          centerTitle: true, 
+          title: const Text("Choose Source"),
+          centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
@@ -919,50 +1002,71 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _remainingSeconds < 300 ? Colors.red.withOpacity(0.1) : Colors.red.withOpacity(0.05),
+                    color: _remainingSeconds < 300
+                        ? Colors.red.withOpacity(0.1)
+                        : Colors.red.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _remainingSeconds < 300 ? Colors.redAccent.withOpacity(0.5) : Colors.red.withOpacity(0.2)),
+                    border: Border.all(
+                        color: _remainingSeconds < 300
+                            ? Colors.redAccent.withOpacity(0.5)
+                            : Colors.red.withOpacity(0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.timer_outlined, color: _remainingSeconds < 300 ? Colors.redAccent : Colors.red.withOpacity(0.5), size: 16),
+                      Icon(Icons.timer_outlined,
+                          color: _remainingSeconds < 300
+                              ? Colors.redAccent
+                              : Colors.red.withOpacity(0.5),
+                          size: 16),
                       const SizedBox(width: 8),
                       Text(
-                        widget.isPro 
-                          ? "UNLIMITED SESSION" 
-                          : (_remainingSeconds < 300 ? "ENDING IN ${_formatDuration(_remainingSeconds)}" : "FREE SESSION: 30M LIMIT"),
+                        widget.isPro
+                            ? "UNLIMITED SESSION"
+                            : (_remainingSeconds < 300
+                                ? "ENDING IN ${_formatDuration(_remainingSeconds)}"
+                                : "FREE SESSION: 30M LIMIT"),
                         style: TextStyle(
-                          color: _remainingSeconds < 300 ? Colors.redAccent : Colors.red.withOpacity(0.7), 
-                          fontSize: 10, 
-                          fontWeight: FontWeight.bold, 
-                          letterSpacing: 1
-                        ),
+                            color: _remainingSeconds < 300
+                                ? Colors.redAccent
+                                : Colors.red.withOpacity(0.7),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 32),
-                isLandscape 
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(child: _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape)),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape)),
-                      ],
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                         _buildSourceBtn(Icons.phone_android, "Screen Share", () => _startBroadcast(true), isLandscape),
-                         const SizedBox(height: 20),
-                         _buildSourceBtn(Icons.camera_alt, "Camera", () => _startBroadcast(false), isLandscape),
-                      ],
-                    ),
+                isLandscape
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                              child: _buildSourceBtn(
+                                  Icons.phone_android,
+                                  "Screen Share",
+                                  () => _startBroadcast(true),
+                                  isLandscape)),
+                          const SizedBox(width: 24),
+                          Expanded(
+                              child: _buildSourceBtn(Icons.camera_alt, "Camera",
+                                  () => _startBroadcast(false), isLandscape)),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildSourceBtn(Icons.phone_android, "Screen Share",
+                              () => _startBroadcast(true), isLandscape),
+                          const SizedBox(height: 20),
+                          _buildSourceBtn(Icons.camera_alt, "Camera",
+                              () => _startBroadcast(false), isLandscape),
+                        ],
+                      ),
               ],
             ),
           ),
@@ -979,29 +1083,37 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(20)),
                         child: Row(children: [
-                          Icon(Icons.circle, color: _isScreenSharing ? Colors.blue : Colors.red, size: 12),
+                          Icon(Icons.circle,
+                              color:
+                                  _isScreenSharing ? Colors.blue : Colors.red,
+                              size: 12),
                           const SizedBox(width: 8),
-                          Text(_isScreenSharing ? "SHARING SCREEN" : "ON AIR", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(_isScreenSharing ? "SHARING SCREEN" : "ON AIR",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)),
                         ]),
                       ),
                       IconButton(
-                        onPressed: () => Navigator.pop(context), 
-                        icon: const Icon(Icons.close, color: Colors.white)
-                      )
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, color: Colors.white))
                     ],
                   ),
                 ),
-                
+
                 const Spacer(),
-                
+
                 // Constrained Video Preview
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -1026,16 +1138,19 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                           ],
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: _localStream != null 
-                          ? RTCVideoView(_localRenderer, mirror: !_isScreenSharing, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover) 
-                          : Container(),
+                        child: _localStream != null
+                            ? RTCVideoView(_localRenderer,
+                                mirror: !_isScreenSharing,
+                                objectFit: RTCVideoViewObjectFit
+                                    .RTCVideoViewObjectFitCover)
+                            : Container(),
                       ),
                     ),
                   ),
                 ),
-                
+
                 const Spacer(),
-                
+
                 // Code Display
                 if (_peerId != null)
                   Container(
@@ -1049,28 +1164,45 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text("SHARING ACCESS KEY", style: TextStyle(color: kTextSecondary, fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.bold)),
+                        const Text("SHARING ACCESS KEY",
+                            style: TextStyle(
+                                color: kTextSecondary,
+                                fontSize: 10,
+                                letterSpacing: 2,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: _peerId!.split('').map((char) => Container(
-                            width: 36, height: 48,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: kPrimaryColor.withOpacity(0.5))
-                            ),
-                            child: Text(char, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kPrimaryColor)),
-                          )).toList(),
+                          children: _peerId!
+                              .split('')
+                              .map((char) => Container(
+                                    width: 36,
+                                    height: 48,
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 2),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                        color: Colors.black,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: kPrimaryColor
+                                                .withOpacity(0.5))),
+                                    child: Text(char,
+                                        style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: kPrimaryColor)),
+                                  ))
+                              .toList(),
                         ),
                         const SizedBox(height: 20),
                         if (!_isScreenSharing)
                           TextButton.icon(
                             onPressed: _switchCamera,
-                            icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
-                            label: const Text("Switch Camera", style: TextStyle(color: Colors.white)),
+                            icon: const Icon(Icons.flip_camera_ios,
+                                color: Colors.white),
+                            label: const Text("Switch Camera",
+                                style: TextStyle(color: Colors.white)),
                           ),
                         if (!widget.isPro && _remainingSeconds < 300) ...[
                           const SizedBox(height: 12),
@@ -1079,28 +1211,39 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.timer_outlined, color: Colors.redAccent, size: 16),
+                              const Icon(Icons.timer_outlined,
+                                  color: Colors.redAccent, size: 16),
                               const SizedBox(width: 8),
                               Text(
                                 "SESSION ENDS IN: ${_formatDuration(_remainingSeconds)}",
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ],
                         const SizedBox(height: 24),
-
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _stopBroadcast,
-                            icon: const Icon(Icons.stop_circle_rounded, color: Colors.white),
-                            label: const Text("TERMINATE STREAM", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                            icon: const Icon(Icons.stop_circle_rounded,
+                                color: Colors.white),
+                            label: const Text("TERMINATE STREAM",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red.withOpacity(0.2),
                               foregroundColor: Colors.redAccent,
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.redAccent.withOpacity(0.3))),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                      color:
+                                          Colors.redAccent.withOpacity(0.3))),
                             ),
                           ),
                         ),
@@ -1110,14 +1253,18 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               ],
             ),
             if (_isLoading)
-              Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: kPrimaryColor))),
+              Container(
+                  color: Colors.black87,
+                  child: const Center(
+                      child: CircularProgressIndicator(color: kPrimaryColor))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSourceBtn(IconData icon, String label, VoidCallback onTap, bool isLandscape) {
+  Widget _buildSourceBtn(
+      IconData icon, String label, VoidCallback onTap, bool isLandscape) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -1135,7 +1282,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           children: [
             Icon(icon, size: isLandscape ? 48 : 56, color: kPrimaryColor),
             const SizedBox(height: 16),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+            Text(label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
           ],
         ),
       ),
@@ -1175,7 +1324,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
   // Receiver also requires ICE configuration for successful P2P traversal
   Map<String, dynamic> _getIceServerConfig() {
-     return {
+    return {
       'iceServers': [
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun.cloudflare.com:3478'},
@@ -1190,54 +1339,55 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     if (code.length != 6) return;
 
     setState(() => _isConnecting = true);
-    
+
     final peer = Peer(
-      options: PeerOptions(
-        debug: LogLevel.All,
-        config: _getIceServerConfig()
-      )
-    );
+        options:
+            PeerOptions(debug: LogLevel.All, config: _getIceServerConfig()));
     _peer = peer;
 
     peer.on("open").listen((id) {
       final conn = peer.connect(code);
-      
+
       conn.on("open").listen((_) {
         debugPrint("Connected to broadcaster signaling");
       });
 
       conn.on("close").listen((_) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Broadcast ended")));
-           Navigator.pop(context);
-         }
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text("Broadcast ended")));
+          Navigator.pop(context);
+        }
       });
     });
 
     peer.on("call").listen((mediaConnection) {
       debugPrint("Received call from ${mediaConnection.peer}");
-      
+
       // --- WebRTC Debug Logs ---
-      mediaConnection.peerConnection?.onIceConnectionState = (RTCIceConnectionState state) {
+      mediaConnection.peerConnection?.onIceConnectionState =
+          (RTCIceConnectionState state) {
         debugPrint("🔥 [手机端 ICE 状态]: ${state.toString()}");
         if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
           debugPrint("❌ 警告：打洞失败，请检查代理设置或 STUN/TURN 服务器");
         }
       };
 
-      mediaConnection.peerConnection?.onIceCandidate = (RTCIceCandidate candidate) {
+      mediaConnection.peerConnection?.onIceCandidate =
+          (RTCIceCandidate candidate) {
         debugPrint("🏠 [手机端候选地址]: ${candidate.candidate}");
       };
-      
+
       // Answer the call (no stream sent back)
       mediaConnection.answer(null);
       mediaConnection.on("stream").listen((stream) {
         debugPrint("Received remote stream: ${stream.id}");
         debugPrint("Video tracks: ${stream.getVideoTracks().length}");
         if (stream.getVideoTracks().isNotEmpty) {
-           debugPrint("Video track enabled: ${stream.getVideoTracks().first.enabled}");
+          debugPrint(
+              "Video track enabled: ${stream.getVideoTracks().first.enabled}");
         }
-        
+
         setState(() {
           _remoteRenderer.srcObject = stream;
           _isConnected = true;
@@ -1262,7 +1412,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       debugPrint("Peer Error: $err");
       if (mounted) {
         setState(() => _isConnecting = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connection Failed. Check code.")));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Connection Failed. Check code.")));
       }
     });
   }
@@ -1274,12 +1425,11 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            RTCVideoView(
-               _remoteRenderer, 
-               objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
-            ),
+            RTCVideoView(_remoteRenderer,
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain),
             Positioned(
-              top: 40, left: 20,
+              top: 40,
+              left: 20,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
@@ -1290,86 +1440,110 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       );
     }
 
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Join Stream"), backgroundColor: Colors.transparent),
+      appBar: AppBar(
+          title: const Text("Join Stream"),
+          backgroundColor: Colors.transparent),
       body: SafeArea(
         child: SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - AppBar().preferredSize.height - MediaQuery.of(context).padding.top),
+            constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height -
+                    AppBar().preferredSize.height -
+                    MediaQuery.of(context).padding.top),
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                     Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.timer_outlined,
+                              color: Colors.redAccent, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            "FREE SESSION: 30M LIMIT",
+                            style: TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.timer_outlined, color: Colors.redAccent, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          "FREE SESSION: 30M LIMIT",
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    const SizedBox(height: 32),
+                    const Text("ENTER ACCESS KEY",
+                        style: TextStyle(
+                            color: kTextSecondary,
+                            letterSpacing: 3,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 24),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: TextField(
+                        controller: _codeController,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        style: TextStyle(
+                            fontSize: isLandscape ? 32 : 48,
+                            fontWeight: FontWeight.w900,
+                            color: kPrimaryColor,
+                            letterSpacing: isLandscape ? 4 : 8),
+                        decoration: InputDecoration(
+                          counterText: "",
+                          filled: true,
+                          fillColor: kSurfaceColor,
+                          contentPadding: EdgeInsets.symmetric(
+                              vertical: isLandscape ? 12 : 24),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none),
+                          hintText: "000000",
+                          hintStyle:
+                              TextStyle(color: kSurfaceColor.withBlue(40)),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  const Text("ENTER ACCESS KEY", style: TextStyle(color: kTextSecondary, letterSpacing: 3, fontSize: 10, fontWeight: FontWeight.bold)),
-
-                     const SizedBox(height: 24),
-                     ConstrainedBox(
-                       constraints: const BoxConstraints(maxWidth: 400),
-                       child: TextField(
-                         controller: _codeController,
-                         textAlign: TextAlign.center,
-                         keyboardType: TextInputType.number,
-                         maxLength: 6,
-                         style: TextStyle(
-                           fontSize: isLandscape ? 32 : 48, 
-                           fontWeight: FontWeight.w900, 
-                           color: kPrimaryColor, 
-                           letterSpacing: isLandscape ? 4 : 8
-                         ),
-                         decoration: InputDecoration(
-                           counterText: "",
-                           filled: true,
-                           fillColor: kSurfaceColor,
-                           contentPadding: EdgeInsets.symmetric(vertical: isLandscape ? 12 : 24),
-                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                           hintText: "000000",
-                           hintStyle: TextStyle(color: kSurfaceColor.withBlue(40)),
-                         ),
-                       ),
-                     ),
-                     const SizedBox(height: 40),
-                     ConstrainedBox(
-                       constraints: const BoxConstraints(maxWidth: 400),
-                       child: SizedBox(
-                         width: double.infinity,
-                         height: 60,
-                         child: ElevatedButton(
-                           onPressed: _isConnecting ? null : _joinStream,
-                           style: ElevatedButton.styleFrom(
-                             backgroundColor: kPrimaryColor,
-                             foregroundColor: Colors.black,
-                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-                           ),
-                           child: _isConnecting 
-                             ? const CircularProgressIndicator(color: Colors.black)
-                             : const Text("CONNECT NOW", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
-                         ),
-                       ),
-                     )
+                    const SizedBox(height: 40),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 60,
+                        child: ElevatedButton(
+                          onPressed: _isConnecting ? null : _joinStream,
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: kPrimaryColor,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16))),
+                          child: _isConnecting
+                              ? const CircularProgressIndicator(
+                                  color: Colors.black)
+                              : const Text("CONNECT NOW",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                      letterSpacing: 1)),
+                        ),
+                      ),
+                    )
                   ],
                 ),
               ),
