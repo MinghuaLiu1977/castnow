@@ -65,7 +65,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isPro = false;
-  String? _licenseKey;
+
   bool _isVerifying = false;
 
   @override
@@ -78,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isPro = prefs.getBool('is_pro') ?? false;
-      _licenseKey = prefs.getString('license_key');
     });
   }
 
@@ -88,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (key != null) await prefs.setString('license_key', key);
     setState(() {
       _isPro = status;
-      _licenseKey = key;
     });
   }
 
