@@ -62,6 +62,7 @@ const remainingSeconds = ref(1800); // 30 minutes
 const toast = ref({ show: false, message: "", type: "info" });
 let controlsTimeout = null;
 let sessionInterval = null;
+let toastTimeout = null;
 
 // 监听 localVideo/remoteVideo 的挂载，确保 stream 能正确绑定
 watch([localVideo, localStream], ([el, stream]) => {
@@ -111,11 +112,12 @@ watch([remoteVideo, remoteStream], ([el, stream]) => {
   }
 });
 
-const showToast = (message, type = "info") => {
+const showToast = (message, type = "info", duration = 3000) => {
+  if (toastTimeout) clearTimeout(toastTimeout);
   toast.value = { show: true, message, type };
-  setTimeout(() => {
+  toastTimeout = setTimeout(() => {
     toast.value.show = false;
-  }, 3000);
+  }, duration);
 };
 
 const handleActivatePro = async () => {
@@ -123,7 +125,7 @@ const handleActivatePro = async () => {
   const formatRegex = /^[0-9A-F]{8}-[0-9A-F]{8}-[0-9A-F]{8}-[0-9A-F]{8}$/i;
 
   if (!formatRegex.test(code)) {
-    alert("Invalid format. Please use: XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX");
+    showToast("Invalid format. Please use: XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX", "error");
     return;
   }
 
@@ -269,8 +271,10 @@ const handleStartCasting = async (mode) => {
   if (mode === "screen") {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       // iOS WebView 或旧版安卓 WebView 可能不支持
-      alert(
-        "This device or browser does not support Screen Sharing.\n\nPlease try using the Camera broadcast mode instead.",
+      showToast(
+        "Screen Sharing not supported on this device. Try Camera mode.",
+        "error",
+        5000
       );
       return;
     }

@@ -1142,7 +1142,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                             ? RTCVideoView(_localRenderer,
                                 mirror: !_isScreenSharing,
                                 objectFit: RTCVideoViewObjectFit
-                                    .RTCVideoViewObjectFitCover)
+                                    .RTCVideoViewObjectFitContain)
                             : Container(),
                       ),
                     ),
