@@ -322,7 +322,12 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     if (mounted) Navigator.pop(context);
   }
 
-  void _showTimeUpDialog(String limitText) {
+  void _showTimeUpDialog(String limitText) async {
+    // Immediately stop WebRTC streaming to prevent continued usage
+    // (e.g. user minimizing the app while the dialog is shown).
+    await _webrtc.persistAndStop();
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -337,7 +342,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _stopBroadcast();
+              _cleanupAndPop();
             },
             child:
                 const Text('STOP', style: TextStyle(color: Colors.grey))),
@@ -351,10 +356,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                       context: context,
                       builder: (_) => const PaywallDialog())
                   .then((_) {
-                if (mounted &&
-                    !context.read<SubscriptionService>().isSubscribed) {
-                  _stopBroadcast();
-                }
+                _cleanupAndPop();
               });
             },
             child: const Text('UPGRADE TO PRO',
@@ -363,6 +365,21 @@ class _BroadcastScreenState extends State<BroadcastScreen>
         ],
       ),
     );
+  }
+
+  /// Clean up local media resources and navigate back.
+  /// Used after WebRTC has already been stopped (e.g. by timeout).
+  void _cleanupAndPop() {
+    // macOS RTMP stop
+    if (Platform.isMacOS && _isRtmpMode) {
+      try {
+        const MethodChannel('com.eastlakestudio.castnow.pro/rtmp_macos')
+            .invokeMethod('stopRtmpBroadcast');
+      } catch (_) {}
+    }
+    _localStream?.dispose();
+    _localRenderer.srcObject = null;
+    if (mounted) Navigator.pop(context);
   }
 
   // === UI Builders ===
