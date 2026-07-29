@@ -8,6 +8,7 @@ import 'package:peerdart/peerdart.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../core/constants.dart';
+import '../l10n/app_strings.dart';
 import '../widgets/glass_container.dart';
 
 class ReceiveScreen extends StatefulWidget {
@@ -276,7 +277,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                     onPressed: () => Navigator.pop(context)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(_broadcasterInfo ?? "CONNECTED", 
+                    child: Text(_broadcasterInfo ?? AppStrings.broadcastConnected, 
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -299,7 +300,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, 
         elevation: 0, 
-        title: const Text("Join Stream"),
+        title: Text(AppStrings.receiveJoin),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: () => Navigator.pop(context)),
       ),
       body: SafeArea(
@@ -308,7 +309,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             padding: const EdgeInsets.all(32),
             child: Column(
               children: [
-                const Text("ACCESS CODE", 
+                Text(AppStrings.accessCode, 
                   style: TextStyle(color: kTextSecondary, letterSpacing: 4, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 32),
                 
@@ -371,7 +372,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                     ),
                     child: _isConnecting 
                         ? const CircularProgressIndicator(color: Colors.black) 
-                        : const Text("CONNECT", style: TextStyle(fontWeight: FontWeight.bold)),
+                        : Text(AppStrings.connect, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 
@@ -381,7 +382,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   showGradientBorder: false,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   borderRadius: 12,
-                  child: Text("Ask broadcaster for key", style: TextStyle(color: kTextSecondary.withOpacity(0.5))),
+                  child: Text(AppStrings.askBroadcasterForKey, style: TextStyle(color: kTextSecondary.withOpacity(0.5))),
                 ),
               ],
             ),

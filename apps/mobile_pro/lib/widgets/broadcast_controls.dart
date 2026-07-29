@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_strings.dart';
 import 'glass_container.dart';
 
 class BroadcastControls extends StatelessWidget {
@@ -33,19 +34,19 @@ class BroadcastControls extends StatelessWidget {
           if (shareCamera)
             _buildControl(
               icon: Icons.flip_camera_ios_rounded,
-              label: 'Flip',
+              label: AppStrings.flip,
               color: Colors.white,
               onTap: onFlipCamera,
             ),
           _buildControl(
             icon: isMuted ? Icons.mic_off : Icons.mic,
-            label: isMuted ? 'Unmute' : 'Mute',
+            label: isMuted ? AppStrings.unmute : AppStrings.muteMic,
             color: isMuted ? Colors.red : Colors.white,
             onTap: onToggleMute,
           ),
           _buildControl(
             icon: isRemoteMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-            label: 'Talk',
+            label: AppStrings.talk,
             color: isRemoteMuted ? Colors.white24 : Colors.cyanAccent,
             onTap: onToggleRemoteMute,
           ),
@@ -56,7 +57,7 @@ class BroadcastControls extends StatelessWidget {
           ),
           _buildControl(
             icon: Icons.stop_circle,
-            label: 'Stop',
+            label: AppStrings.broadcastStop,
             color: Colors.redAccent,
             onTap: onStop,
           ),

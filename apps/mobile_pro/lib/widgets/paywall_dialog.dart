@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/subscription_service.dart';
+import '../core/flavor_config.dart';
+import '../l10n/app_strings.dart';
 import 'glass_container.dart';
 
 class PaywallDialog extends StatefulWidget {
@@ -65,9 +67,9 @@ class _PaywallDialogState extends State<PaywallDialog> {
             children: [
               const Icon(Icons.bolt_rounded, color: Colors.cyanAccent, size: 48),
               const SizedBox(height: 16),
-              const Text(
-                "Upgrade to PRO",
-                style: TextStyle(
+              Text(
+                AppStrings.paywallTitle,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
@@ -75,14 +77,14 @@ class _PaywallDialogState extends State<PaywallDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Unlock unlimited P2P casting",
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+              Text(
+                AppStrings.unlockUnlimitedCasting,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
               ),
               const SizedBox(height: 32),
-              _buildFeatureRow(Icons.timer_off_rounded, "Unlimited Casting Time"),
-              _buildFeatureRow(Icons.hd_rounded, "HD Video Quality"),
-              _buildFeatureRow(Icons.mic_rounded, "Crystal Clear Audio"),
+              _buildFeatureRow(Icons.timer_off_rounded, AppStrings.paywallUnlimitedTime),
+              _buildFeatureRow(Icons.hd_rounded, AppStrings.hdVideoQuality),
+              _buildFeatureRow(Icons.mic_rounded, AppStrings.crystalClearAudio),
               // Plan Duration details
               GlassContainer(
                 blurSigma: 4,
@@ -91,11 +93,11 @@ class _PaywallDialogState extends State<PaywallDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             "CastNow VIP - 1 Year",
                             style: TextStyle(
                               color: Colors.white,
@@ -105,7 +107,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            "1 Year (Auto-Renewable)\nBilled yearly, cancel anytime",
+                            AppStrings.premiumPlanDesc,
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -147,7 +149,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
                   onPressed: isLoading
                       ? null
                       : () => subService.buyYearlySubscription(),
-                  child: isLoading
+                    child: isLoading
                       ? const SizedBox(
                           width: 24,
                           height: 24,
@@ -156,9 +158,9 @@ class _PaywallDialogState extends State<PaywallDialog> {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : const Text(
-                          "Subscribe Now",
-                          style: TextStyle(
+                      : Text(
+                          AppStrings.subscribeNow,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -169,7 +171,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
               TextButton(
                 onPressed: isLoading ? null : () => subService.restorePurchases(),
                 child: Text(
-                  "Restore Purchases",
+                  AppStrings.paywallRestore,
                   style: TextStyle(
                     color: Colors.cyanAccent.withOpacity(0.8),
                     fontSize: 14,
@@ -181,7 +183,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
               TextButton(
                 onPressed: isLoading ? null : () => Navigator.pop(context),
                 child: Text(
-                  "Maybe Later",
+                  AppStrings.maybeLater,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.5),
                     fontSize: 14,
@@ -206,13 +208,13 @@ class _PaywallDialogState extends State<PaywallDialog> {
                         debugPrint("Error launching terms EULA: $e");
                       }
                     },
-                    child: Text("Terms of Use (EULA)", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, decoration: TextDecoration.underline, decorationColor: Colors.white.withOpacity(0.4))),
+                    child: Text(AppStrings.termsOfUse, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, decoration: TextDecoration.underline, decorationColor: Colors.white.withOpacity(0.4))),
                   ),
-                  Text("  and  ", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                  Text(AppStrings.andConnector, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
                   GestureDetector(
                     onTap: () async {
                       try {
-                        final Uri uri = Uri.parse("https://castnow.vercel.app/privacy.html");
+                        final Uri uri = Uri.parse("${FlavorConfig.webFullUrl}/privacy.html");
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri, mode: LaunchMode.externalApplication);
                         } else {
@@ -223,7 +225,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
                         debugPrint("Error launching privacy: $e");
                       }
                     },
-                    child: Text("Privacy Policy", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, decoration: TextDecoration.underline, decorationColor: Colors.white.withOpacity(0.4))),
+                    child: Text(AppStrings.privacyPolicy, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, decoration: TextDecoration.underline, decorationColor: Colors.white.withOpacity(0.4))),
                   ),
                 ],
               )

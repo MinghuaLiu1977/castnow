@@ -46,6 +46,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
   bool _isMuted = true;
   bool _isRemoteMuted = false;
   bool _isScreenSharing = false;
+  bool _wasEverConnected = false;
 
   // --- RTMP ---
   bool _isRtmpMode = false;
@@ -66,7 +67,10 @@ class _BroadcastScreenState extends State<BroadcastScreen>
   void _setupServiceCallbacks() {
     _webrtc.onStateChanged = () {
       if (mounted) {
-        if (!_webrtc.isConnected && _webrtc.peerId != null && !_webrtc.isStopping) {
+        if (_webrtc.isConnected) {
+          _wasEverConnected = true;
+        }
+        if (!_webrtc.isConnected && _webrtc.peerId != null && !_webrtc.isStopping && _wasEverConnected) {
           _stopBroadcast();
           return;
         }
@@ -147,9 +151,9 @@ class _BroadcastScreenState extends State<BroadcastScreen>
 
   Future<void> _startBroadcast() async {
     if (!_shareScreen && !_shareCamera) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
-              Text('Please select at least one video (Screen or Camera).')));
+              Text(AppStrings.broadcastSelectSource)));
       return;
     }
 
@@ -196,7 +200,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                      'Free Version: Streaming is limited to $limitText.',
+                      AppStrings.broadcastTimeLimit(limitText),
                       style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
             ),
@@ -309,7 +313,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Critical Error: $e')));
+            .showSnackBar(SnackBar(content: Text(AppStrings.criticalError(e.toString()))));
         setState(() => _webrtc.isLoading = false);
       }
     }
@@ -341,10 +345,10 @@ class _BroadcastScreenState extends State<BroadcastScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: kSurfaceColor,
-        title: const Text('Time Limit Reached',
-            style: TextStyle(color: Colors.cyanAccent)),
+        title: Text(AppStrings.timeLimitReached,
+            style: const TextStyle(color: Colors.cyanAccent)),
         content: Text(
-            'Free streaming is limited to $limitText.\nUpgrade to PRO to continue this broadcast.',
+            '${AppStrings.broadcastTimeLimit(limitText)}\n${AppStrings.broadcastTimeLimitUpgrade}',
             style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -353,7 +357,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
               _cleanupAndPop();
             },
             child:
-                const Text('停止', style: TextStyle(color: Colors.grey))),
+                Text(AppStrings.broadcastStop, style: const TextStyle(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.cyanAccent,
@@ -367,8 +371,8 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                 _cleanupAndPop();
               });
             },
-            child: const Text('UPGRADE TO PRO',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(AppStrings.broadcastUpgrade,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -425,15 +429,15 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                   blurSigma: 4,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   borderRadius: 16,
-                  child: const Text('Screen Mirroring Active',
-                      style: TextStyle(
+                  child: Text(AppStrings.screenMirroringActive,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5)),
                 ),
                 const SizedBox(height: 6),
-                Text('Sharing entire screen...',
+                Text(AppStrings.sharingEntireScreen,
                     style: TextStyle(
                         color: Colors.white.withOpacity(0.5), fontSize: 12)),
               ],
@@ -462,14 +466,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                   fontSize: 12,
                   fontWeight: FontWeight.w500),
               children: [
-                TextSpan(text: 'Open '),
-                TextSpan(
-                    text: FlavorConfig.webBaseUrl,
-                    style: TextStyle(
-                        color: Colors.cyanAccent,
-                        fontWeight: FontWeight.w800,
-                        decoration: TextDecoration.underline)),
-                TextSpan(text: ' to receive'),
+                TextSpan(text: AppStrings.openToReceiveTip(FlavorConfig.webBaseUrl)),
               ],
             ),
           ),
@@ -585,16 +582,16 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                           const Icon(Icons.bolt_rounded,
                               color: Colors.cyanAccent, size: 36),
                           const SizedBox(height: 12),
-                          const Text('SELECT SOURCES',
-                              style: TextStyle(
+                          Text(AppStrings.broadcastSelectSources,
+                              style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 2)),
                           const SizedBox(height: 6),
-                          const Text(
-                              'Select what to broadcast to the receiver',
-                              style: TextStyle(
+                          Text(
+                              AppStrings.broadcastSelectDesc,
+                              style: const TextStyle(
                                   color: kTextSecondary, fontSize: 13)),
                           const SizedBox(height: 24),
                           ConstrainedBox(
@@ -645,17 +642,17 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                                     BorderRadius.circular(24)),
                             elevation: 0,
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment:
                                 MainAxisAlignment.center,
                             children: [
-                              Text('START BROADCAST',
-                                  style: TextStyle(
+                              Text(AppStrings.broadcastStart,
+                                  style: const TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 16,
                                       letterSpacing: 1.5)),
-                              SizedBox(width: 12),
-                              Icon(Icons.arrow_forward_rounded,
+                              const SizedBox(width: 12),
+                              const Icon(Icons.arrow_forward_rounded,
                                   size: 20),
                             ],
                           ),
@@ -736,8 +733,8 @@ class _BroadcastScreenState extends State<BroadcastScreen>
               const SizedBox(width: 8),
               Text(
                   _webrtc.isConnected
-                      ? 'CONNECTED'
-                      : (_isScreenSharing ? 'SHARING' : 'ON AIR'),
+                      ? AppStrings.broadcastConnected
+                      : (_isScreenSharing ? AppStrings.broadcastSharing : AppStrings.broadcastOnAir),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 12)),
               // Layer 3: Only show timer for non-Pro users after receiver connects
@@ -790,10 +787,10 @@ class _BroadcastScreenState extends State<BroadcastScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               if (FlavorConfig.isPro) ...[
-                const Opacity(
+                Opacity(
                     opacity: 0.8,
-                    child: Text('PRO EDITION',
-                        style: TextStyle(
+                    child: Text(AppStrings.broadcastProEdition,
+                        style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
                             color: Colors.cyanAccent,
@@ -818,10 +815,10 @@ class _BroadcastScreenState extends State<BroadcastScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         if (FlavorConfig.isPro) ...[
-          const Opacity(
+          Opacity(
               opacity: 0.8,
-              child: Text('PRO EDITION',
-                  style: TextStyle(
+              child: Text(AppStrings.broadcastProEdition,
+                  style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
                       color: Colors.cyanAccent,

@@ -1,24 +1,28 @@
-import { ref, computed } from 'vue'
+import { ref, reactive } from 'vue'
 
 const LOCALE_KEY = 'castnow_locale'
 
-const messages = {
-  en: null,
-  zh: null,
-}
+const messages = reactive({
+  en: {},
+  zh: {},
+})
 
-let loadPromise = null
+const messagesLoaded = ref(false)
+
 async function loadMessages() {
-  if (loadPromise) return loadPromise
-  loadPromise = Promise.all([
-    fetch('/locales/en.json').then(r => r.json()).then(m => messages.en = m),
-    fetch('/locales/zh.json').then(r => r.json()).then(m => messages.zh = m),
-  ]).catch(err => {
+  if (messagesLoaded.value) return
+  try {
+    const [en, zh] = await Promise.all([
+      fetch('/locales/en.json').then(r => r.json()),
+      fetch('/locales/zh.json').then(r => r.json()),
+    ])
+    Object.assign(messages.en, en)
+    Object.assign(messages.zh, zh)
+    messagesLoaded.value = true
+  } catch (err) {
     console.error('Failed to load locale files:', err)
-    messages.en = {}
-    messages.zh = {}
-  })
-  return loadPromise
+    messagesLoaded.value = true
+  }
 }
 
 function getBrowserLocale() {

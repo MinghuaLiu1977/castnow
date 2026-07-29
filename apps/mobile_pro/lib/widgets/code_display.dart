@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants.dart';
+import '../l10n/app_strings.dart';
 import 'glass_container.dart';
 
 class CodeDisplay extends StatelessWidget {
@@ -21,8 +22,8 @@ class CodeDisplay extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('SHARING ACCESS KEY',
-            style: TextStyle(color: kTextSecondary, letterSpacing: 2, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(AppStrings.sharingAccessKey,
+            style: const TextStyle(color: kTextSecondary, letterSpacing: 2, fontSize: 11, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -54,7 +55,7 @@ class CodeDisplay extends StatelessWidget {
               children: [
                 const Icon(Icons.devices_rounded, color: Colors.green, size: 14),
                 const SizedBox(width: 8),
-                Text('Receiver: $receiverInfo',
+                Text(AppStrings.receiverPrefix(receiverInfo!),
                     style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
               ],
             ),

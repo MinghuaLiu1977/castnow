@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/constants.dart';
+import '../l10n/app_strings.dart';
 import 'glass_container.dart';
 
 class SourceSelector extends StatelessWidget {
@@ -35,8 +36,8 @@ class SourceSelector extends StatelessWidget {
       children: [
         _buildSourceCard(
           icon: Icons.phone_android_rounded,
-          title: 'Screen Mirror',
-          subtitle: 'Broadcast your entire iOS screen',
+          title: AppStrings.screenMirror,
+          subtitle: AppStrings.screenMirrorDesc,
           value: shareScreen,
           onChanged: (val) {
             HapticFeedback.selectionClick();
@@ -47,8 +48,8 @@ class SourceSelector extends StatelessWidget {
         ),
         _buildSourceCard(
           icon: Icons.videocam_rounded,
-          title: 'Camera View',
-          subtitle: 'Share high-quality camera stream',
+          title: AppStrings.cameraView,
+          subtitle: AppStrings.cameraViewDesc,
           value: shareCamera,
           onChanged: (val) {
             HapticFeedback.selectionClick();
@@ -59,8 +60,8 @@ class SourceSelector extends StatelessWidget {
         ),
         _buildSourceCard(
           icon: Icons.mic_rounded,
-          title: 'HD Microphone',
-          subtitle: 'Capture crystal clear audio (Muted by default)',
+          title: AppStrings.hdMicrophone,
+          subtitle: AppStrings.hdMicrophoneDesc,
           value: shareMic,
           onChanged: (val) {
             HapticFeedback.selectionClick();
@@ -69,8 +70,8 @@ class SourceSelector extends StatelessWidget {
         ),
         _buildSourceCard(
           icon: Icons.rss_feed_rounded,
-          title: 'RTMP Mode',
-          subtitle: 'Broadcast to RTMP server (YouTube, Twitch, etc.)',
+          title: AppStrings.rtmpMode,
+          subtitle: AppStrings.rtmpModeDesc,
           value: isRtmpMode,
           onChanged: (val) {
             HapticFeedback.selectionClick();
@@ -88,14 +89,14 @@ class SourceSelector extends StatelessWidget {
                     TextField(
                       controller: rtmpUrlController,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _rtmpInputDecoration('RTMP URL', 'rtmp://your-server/live'),
+                      decoration: _rtmpInputDecoration(AppStrings.rtmpUrlLabel, 'rtmp://your-server/live'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: rtmpKeyController,
                       obscureText: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _rtmpInputDecoration('Stream Key', 'Enter stream key'),
+                      decoration: _rtmpInputDecoration(AppStrings.streamKeyLabel, AppStrings.enterStreamKey),
                     ),
                   ],
                 )

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:peerdart/peerdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_strings.dart';
 
 /// Service class encapsulating all PeerJS WebRTC broadcast lifecycle logic.
 ///
@@ -64,8 +65,7 @@ class WebrtcBroadcastService {
     if (attempt > 8) {
       isLoading = false;
       onStateChanged?.call();
-      onShowSnackBar?.call(
-          'Signal Server Unavailable. Please check your internet connection.');
+      onShowSnackBar?.call(AppStrings.signalServerUnavailable);
       return;
     }
 
