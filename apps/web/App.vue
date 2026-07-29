@@ -8,6 +8,7 @@ import {
 import { useMediaStream } from './composables/useMediaStream';
 import { useWebRTC } from './composables/useWebRTC';
 import { useLayout } from './composables/useLayout';
+import { useI18n } from './composables/useI18n';
 import SenderView from './components/SenderView.vue';
 import ReceiverView from './components/ReceiverView.vue';
 import InfoModal from './components/InfoModal.vue';
@@ -62,6 +63,10 @@ const {
   dragType, isDragging, isMuted, isTouchDevice, isMobile,
 } = layout;
 
+const { t, locale, setLocale, availableLocales, loadMessages } = useI18n();
+
+const tModule = { loadMessages };
+
 const receiverRoot = ref(null);
 const remoteDeviceInfo = ref('');
 
@@ -79,14 +84,14 @@ const handleStartCasting = async () => {
     error.value = null;
 
     if (!window.isSecureContext && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      showToast('HTTPS is required for camera/mic on iPad/Mobile Safari. Please use a secure connection.', 'error', 8000);
+      showToast(t('errors.httpsRequired'), 'error', 8000);
       isConnecting.value = false;
       return;
     }
 
     if (selectedSources.value.includes('screen')) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        showToast('Screen sharing not supported on this device.', 'error', 5000);
+        showToast(t('errors.screenNotSupported'), 'error', 5000);
         isConnecting.value = false;
         return;
       }
@@ -117,7 +122,7 @@ const handleStartCasting = async () => {
     } else if (err.message === 'screen_share_unsupported') {
       // Already handled
     } else {
-      error.value = 'Device access denied or not supported.';
+      error.value = t('errors.deviceDenied');
     }
     isConnecting.value = false;
   }
@@ -178,6 +183,7 @@ const handleKeyDown = (e) => {
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
   await media.enumerateDevices();
+  await tModule.loadMessages();
 });
 
 onUnmounted(() => {
@@ -189,9 +195,9 @@ const toggleMic = () => media.toggleMic();
 const toggleCamera = async () => {
   const result = await media.toggleCamera();
   if (result.switched) {
-    showToast('Camera lens switched', 'success');
+    showToast(t('errors.cameraSwitched'), 'success');
   } else if (result.error) {
-    showToast('Camera switch failed', 'error');
+    showToast(t('errors.cameraSwitchFailed'), 'error');
   }
 };
 const toggleReceiverMic = async () => {
@@ -202,7 +208,9 @@ const toggleReceiverMic = async () => {
 const toggleMute = () => layout.toggleMute();
 const toggleLayout = () => layout.toggleLayout();
 const swapStreams = () => layout.swapStreams();
-const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
+const toggleLocale = () => {
+  setLocale(locale.value === 'zh' ? 'en' : 'zh');
+};
 </script>
 
 <template>
@@ -215,10 +223,10 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
         <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-xl font-black italic uppercase tracking-tight text-transparent pr-1">CastNow</span>
       </div>
       <div class="flex items-center gap-4">
-        <button @click="showInfo = 'source'"
-          class="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-600 transition-all group">
-          <Globe class="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
-          <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">Source</span>
+        <button @click="toggleLocale"
+          class="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:border-cyan-500/50 transition-all group"
+          :title="locale === 'zh' ? 'Switch to English' : '切换到中文'">
+          <Globe class="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors" />
         </button>
       </div>
     </header>
@@ -231,21 +239,21 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
         <div class="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
           <Shield class="w-10 h-10 text-cyan-400" />
         </div>
-        <h3 class="text-2xl font-black uppercase mb-4 text-white">Firefox Detected</h3>
-        <p class="text-slate-400 text-sm mb-6 leading-relaxed">Firefox's "Enhanced Tracking Protection" is blocking the P2P connection.</p>
+        <h3 class="text-2xl font-black uppercase mb-4 text-white">{{ t('firefox.title') }}</h3>
+        <p class="text-slate-400 text-sm mb-6 leading-relaxed">{{ t('firefox.desc') }}</p>
         <div class="bg-black/50 rounded-xl p-4 mb-8 border border-white/5 text-left text-xs text-slate-300 space-y-3">
           <div class="flex items-center gap-3">
             <div class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-full font-bold text-cyan-400">1</div>
-            <span>Click the Shield Icon 🛡️ in the URL bar.</span>
+            <span>{{ t('firefox.step1') }}</span>
           </div>
           <div class="flex items-center gap-3">
             <div class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-full font-bold text-cyan-400">2</div>
-            <span>Toggle the switch to OFF.</span>
+            <span>{{ t('firefox.step2') }}</span>
           </div>
         </div>
         <button @click="() => { showFirefoxGuide = false; window.location.reload(); }"
           class="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl uppercase tracking-widest transition-all active:scale-95">
-          I've Fixed It · Retry
+          {{ t('firefox.retry') }}
         </button>
       </div>
     </div>
@@ -297,11 +305,11 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
             <div class="w-24 h-24 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
               <Info class="w-12 h-12 text-cyan-400" />
             </div>
-            <h3 class="text-3xl font-black uppercase mb-4 tracking-tight text-white">Broadcast Ended</h3>
-            <p class="text-slate-400 text-base mb-10 font-medium">The session has been terminated by the broadcaster.</p>
+            <h3 class="text-3xl font-black uppercase mb-4 tracking-tight text-white">{{ t('broadcastEnded.title') }}</h3>
+            <p class="text-slate-400 text-base mb-10 font-medium">{{ t('broadcastEnded.desc') }}</p>
             <button @click="resetApp(true)"
               class="w-full py-6 bg-cyan-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-sm active:scale-95 transition-all shadow-xl shadow-cyan-500/20">
-              Back to Home
+              {{ t('broadcastEnded.backHome') }}
             </button>
           </div>
         </div>
@@ -326,7 +334,7 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
                           isDragging ? 'no-transition' : 'transition-all duration-500']"
                  :style="layoutMode === 'side-by-side' ? { width: (splitRatio * 100) + '%' } : (layoutMode === 'pip' && isSwapped ? 'order: 2' : '')">
               <video ref="screenVideo" autoplay playsinline :muted="isMuted" class="max-w-full max-h-full object-contain" />
-              <div v-if="layoutMode === 'side-by-side'" class="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">{{ isSwapped ? 'Camera' : 'Screen' }}</div>
+              <div v-if="layoutMode === 'side-by-side'" class="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">{{ isSwapped ? t('controls.camera') : t('controls.screen') }}</div>
             </div>
 
             <div v-if="layoutMode === 'side-by-side' && cameraStream && screenStream"
@@ -344,7 +352,7 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
                  @mousedown="layout.handleDragStart($event, 'move-pip')"
                  @touchstart="layout.handleDragStart($event, 'move-pip')">
               <video ref="cameraVideo" autoplay playsinline :muted="isMuted" class="max-w-full max-h-full object-contain pointer-events-none" />
-              <div v-if="layoutMode === 'side-by-side'" class="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">{{ isSwapped ? 'Screen' : 'Camera' }}</div>
+              <div v-if="layoutMode === 'side-by-side'" class="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">{{ isSwapped ? t('controls.screen') : t('controls.camera') }}</div>
               <div v-if="layoutMode === 'pip'" @mousedown.stop="layout.handleDragStart($event, 'resize-pip')"
                    class="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize flex items-end justify-end p-1 group/resize">
                 <div class="w-4 h-4 text-white/40 group-hover/resize:text-cyan-400 transition-colors">
@@ -367,17 +375,17 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
                 class="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 z-50 p-3 bg-black/60 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-2xl pointer-events-auto">
                 <button @click="resetApp"
                   class="flex items-center gap-2 px-5 py-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all font-black text-xs uppercase tracking-widest active:scale-95">
-                  <LogOut class="w-4 h-4" /> Leave
+                  <LogOut class="w-4 h-4" /> {{ t('controls.leave') }}
                 </button>
                 <div class="w-px h-8 bg-white/10"></div>
                 <div class="flex items-center gap-2">
                   <template v-if="cameraStream && screenStream">
-                    <button @click="toggleLayout" title="Toggle Layout"
+                    <button @click="toggleLayout" :title="t('controls.toggleLayout')"
                       class="p-4 bg-white/5 rounded-full text-white hover:bg-cyan-500 hover:text-slate-950 transition-all active:scale-95 group">
                       <Monitor v-if="layoutMode === 'pip'" class="w-6 h-6" />
                       <div v-else class="flex gap-0.5"><div class="w-2.5 h-4 bg-current rounded-sm"></div><div class="w-2.5 h-4 bg-current rounded-sm"></div></div>
                     </button>
-                    <button @click="swapStreams" title="Swap Streams"
+                    <button @click="swapStreams" :title="t('controls.swapStreams')"
                       class="p-4 bg-white/5 rounded-full text-white hover:bg-cyan-500 hover:text-slate-950 transition-all active:scale-95">
                       <Repeat class="w-6 h-6" />
                     </button>
@@ -397,7 +405,7 @@ const toggleFullscreen = () => layout.toggleFullscreen(receiverRoot.value);
                     :class="isReceiverMicActive ? 'bg-cyan-500 text-slate-950' : 'bg-white/5 text-white hover:bg-white/10'">
                     <Mic v-if="isReceiverMicActive" class="w-6 h-6" />
                     <MicOff v-else class="w-6 h-6 opacity-60" />
-                    <span v-if="isReceiverMicActive" class="text-[10px] font-black uppercase pr-2">Microphone</span>
+                    <span v-if="isReceiverMicActive" class="text-[10px] font-black uppercase pr-2">{{ t('controls.microphone') }}</span>
                   </button>
                 </div>
               </div>

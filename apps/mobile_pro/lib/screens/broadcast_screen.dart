@@ -6,6 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../core/constants.dart';
+import '../core/flavor_config.dart';
 import '../core/subscription_service.dart';
 import '../core/rtmp_settings_service.dart';
 import '../l10n/app_strings.dart';
@@ -64,7 +65,13 @@ class _BroadcastScreenState extends State<BroadcastScreen>
 
   void _setupServiceCallbacks() {
     _webrtc.onStateChanged = () {
-      if (mounted) setState(() {});
+      if (mounted) {
+        if (!_webrtc.isConnected && _webrtc.peerId != null && !_webrtc.isStopping) {
+          _stopBroadcast();
+          return;
+        }
+        setState(() {});
+      }
     };
     _webrtc.onShowSnackBar = (msg) {
       if (mounted) {
@@ -147,6 +154,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     }
 
     final isPro =
+        FlavorConfig.isStandard ||
         context.read<SubscriptionService>().isSubscribed || widget.isPro;
 
     // RTMP mode requires Pro
@@ -177,7 +185,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     if (!isPro) {
       final prefs = await SharedPreferences.getInstance();
       final trialUsed = prefs.getBool('free_trial_used') ?? false;
-      final limitText = trialUsed ? '30 seconds' : '2 minutes';
+      final limitText = trialUsed ? '30 秒' : '2 分钟';
       _webrtc.freeTrialUsed = trialUsed;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -345,7 +353,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
               _cleanupAndPop();
             },
             child:
-                const Text('STOP', style: TextStyle(color: Colors.grey))),
+                const Text('停止', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.cyanAccent,
@@ -448,7 +456,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
           const Icon(Icons.info_outline, color: Colors.cyanAccent, size: 16),
           const SizedBox(width: 10),
           RichText(
-            text: const TextSpan(
+            text: TextSpan(
               style: TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -456,7 +464,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
               children: [
                 TextSpan(text: 'Open '),
                 TextSpan(
-                    text: 'castnow.vercel.app',
+                    text: FlavorConfig.webBaseUrl,
                     style: TextStyle(
                         color: Colors.cyanAccent,
                         fontWeight: FontWeight.w800,
@@ -473,6 +481,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
   @override
   Widget build(BuildContext context) {
     final isPro =
+        FlavorConfig.isStandard ||
         context.watch<SubscriptionService>().isSubscribed || widget.isPro;
 
     // Layer 2: Frame-level cancel timer for Pro users
@@ -780,7 +789,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (widget.isPro) ...[
+              if (FlavorConfig.isPro) ...[
                 const Opacity(
                     opacity: 0.8,
                     child: Text('PRO EDITION',
@@ -808,7 +817,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.isPro) ...[
+        if (FlavorConfig.isPro) ...[
           const Opacity(
               opacity: 0.8,
               child: Text('PRO EDITION',

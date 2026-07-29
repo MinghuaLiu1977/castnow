@@ -1,9 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import {
   Monitor, Camera, Activity, Volume2, VolumeX, Repeat,
   CheckCircle2, Smartphone, Mic, MicOff,
 } from 'lucide-vue-next';
+import { useI18n } from '../composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   peerId: { type: String, default: '' },
@@ -32,25 +35,25 @@ const localVideoEl = ref(null);
       <div class="flex items-center justify-between mb-8">
         <div class="flex items-center gap-2">
           <Activity class="w-4 h-4 text-cyan-400" />
-          <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Tunnel</span>
+          <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">{{ t('sender.activeTunnel') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <button @click="$emit('toggleMic')"
             class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full hover:bg-cyan-500 hover:text-slate-950 transition-all"
             :class="{ 'bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white': isMicMuted }">
             <component :is="isMicMuted ? VolumeX : Volume2" class="w-3 h-3" />
-            <span class="text-[10px] font-black uppercase">{{ isMicMuted ? 'Muted' : 'Mic On' }}</span>
+            <span class="text-[10px] font-black uppercase">{{ isMicMuted ? t('sender.muted') : t('sender.micOn') }}</span>
           </button>
           <button v-if="selectedSources.includes('camera') && hasMultipleCameras" @click="$emit('toggleCamera')"
             class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full hover:bg-cyan-500 hover:text-slate-950 transition-all">
             <Repeat class="w-3 h-3" />
-            <span class="text-[10px] font-black uppercase">{{ facingMode === 'user' ? 'Front' : 'Back' }}</span>
+            <span class="text-[10px] font-black uppercase">{{ facingMode === 'user' ? t('sender.front') : t('sender.back') }}</span>
           </button>
         </div>
       </div>
 
       <div class="mb-10">
-        <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Sharing Access Key</p>
+        <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">{{ t('sender.sharingKey') }}</p>
         <div class="flex items-center justify-center gap-2">
           <template v-for="(char, i) in peerId.split('')" :key="i">
             <span class="text-4xl md:text-6xl font-black bg-slate-950 w-12 md:w-16 h-16 md:h-24 flex items-center justify-center rounded-2xl border border-slate-800 text-cyan-400 shadow-inner">{{ char }}</span>
@@ -66,7 +69,7 @@ const localVideoEl = ref(null);
         <div v-if="lastReceiverInfo" class="mt-8 pt-6 border-t border-slate-800/50 flex justify-center">
           <div class="flex items-center gap-2 text-emerald-500 bg-emerald-400/5 px-6 py-2.5 rounded-2xl border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
             <Smartphone class="w-4 h-4" />
-            <span class="text-[10px] font-black uppercase tracking-[0.2em]">Receiver Connected: {{ lastReceiverInfo }}</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em]">{{ t('sender.receiverConnected', { info: lastReceiverInfo }) }}</span>
           </div>
         </div>
       </transition>
@@ -77,7 +80,7 @@ const localVideoEl = ref(null);
           <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
           <div class="absolute bottom-4 left-6 flex items-center gap-3">
             <div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-            <span class="text-[8px] font-black uppercase tracking-widest">Screen Share</span>
+            <span class="text-[8px] font-black uppercase tracking-widest">{{ t('sender.screenShare') }}</span>
           </div>
         </div>
         <div v-if="localCameraStream" class="aspect-video bg-black rounded-3xl border border-slate-800 overflow-hidden relative group shadow-inner">
@@ -85,7 +88,7 @@ const localVideoEl = ref(null);
           <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
           <div class="absolute bottom-4 left-6 flex items-center gap-3">
             <div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-            <span class="text-[8px] font-black uppercase tracking-widest">Camera</span>
+            <span class="text-[8px] font-black uppercase tracking-widest">{{ t('controls.camera') }}</span>
           </div>
         </div>
         <div v-if="!localScreenStream && !localCameraStream" class="aspect-video bg-black rounded-3xl border border-slate-800 overflow-hidden relative group shadow-inner">
@@ -95,7 +98,7 @@ const localVideoEl = ref(null);
 
       <button @click="$emit('resetApp')"
         class="w-full py-5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black rounded-2xl transition-all border border-red-500/20 uppercase tracking-widest text-xs">
-        {{ 'Terminate Stream' }}
+        {{ t('sender.terminate') }}
       </button>
     </div>
   </div>

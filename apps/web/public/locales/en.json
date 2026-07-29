@@ -1,0 +1,108 @@
+{
+  "_lang": "English",
+  "app": {
+    "title": "CastNow | Extreme P2P Screen Sharing & Mirroring",
+    "name": "CastNow",
+    "tagline": "Secure P2P Protocol Engine",
+    "description": "High-performance, low-latency P2P screen sharing engine. Secure, browser-based, no-install.",
+    "keywords": "CastNow, p2p screen sharing, screen mirroring, webrtc, screen cast"
+  },
+  "landing": {
+    "instant": "Instant",
+    "casting": "Casting",
+    "heroDesc": "Native performance on Mobile. No install needed for Desktop. Zero Latency P2P.",
+    "broadcast": "Broadcast",
+    "receive": "Receive",
+    "downloadOn": "Download on the",
+    "appStore": "App Store",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "support": "Support",
+    "blog": "BLOG & GUIDES",
+    "madeBy": "Made by Eastlake Studio"
+  },
+  "source": {
+    "title": "Choose Source",
+    "screen": "Screen Share",
+    "screenDesc": "High Quality Stream",
+    "camera": "Camera",
+    "cameraDesc": "Live Video Feed",
+    "microphone": "Microphone",
+    "micDesc": "Sync audio from your device",
+    "on": "ON",
+    "off": "OFF",
+    "start": "Start Broadcasting",
+    "cancel": "← Cancel Operation"
+  },
+  "sender": {
+    "activeTunnel": "Active Tunnel",
+    "muted": "Muted",
+    "micOn": "Mic On",
+    "front": "Front",
+    "back": "Back",
+    "sharingKey": "Sharing Access Key",
+    "receiverConnected": "Receiver Connected: {info}",
+    "screenShare": "Screen Share",
+    "terminate": "Terminate Stream"
+  },
+  "receiver": {
+    "enterKey": "Enter Access Key",
+    "desktopHint": "Type access key via physical keyboard",
+    "connect": "Connect Now",
+    "cancel": "Cancel"
+  },
+  "info": {
+    "sourceTitle": "Source Code",
+    "sourceDesc": "CastNow is an open-source high-performance P2P engine. The source code is available on GitHub under the MIT license.",
+    "viewGithub": "View on GitHub",
+    "supportTitle": "Support & Contact",
+    "supportDesc": "Having trouble or have questions? We're here to help. CastNow is a community-driven project dedicated to private P2P communication.",
+    "stepEmail": "Email us directly for technical support or feedback.",
+    "stepGithub": "Report bugs or request features via our GitHub repository.",
+    "emailSupport": "Email Support",
+    "githubIssues": "Github Issues",
+    "privacyTitle": "Privacy Policy",
+    "privacyDesc": "We value your privacy. CastNow utilizes direct End-to-End Peer-to-Peer connections.",
+    "privacy1": "Your stream data never touches our servers.",
+    "privacy2": "No recordings are stored or processed by us.",
+    "privacy3": "We do not collect or sell personal demographic data.",
+    "termsTitle": "Terms of Service",
+    "termsDesc": "By using CastNow, you agree that you are solely responsible for the content you broadcast.",
+    "termsDisclaimer": "The service is provided 'as is' without warranties of any kind. Misuse for illegal activities will result in termination of service.",
+    "agreeClose": "Agree & Close",
+    "close": "Close"
+  },
+  "controls": {
+    "leave": "Leave",
+    "toggleLayout": "Toggle Layout",
+    "swapStreams": "Swap Streams",
+    "microphone": "Microphone",
+    "camera": "Camera",
+    "screen": "Screen"
+  },
+  "broadcastEnded": {
+    "title": "Broadcast Ended",
+    "desc": "The session has been terminated by the broadcaster.",
+    "backHome": "Back to Home"
+  },
+  "firefox": {
+    "title": "Firefox Detected",
+    "desc": "Firefox's Enhanced Tracking Protection is blocking the P2P connection.",
+    "step1": "Click the Shield Icon in the URL bar.",
+    "step2": "Toggle the switch to OFF.",
+    "retry": "I've Fixed It · Retry"
+  },
+  "errors": {
+    "httpsRequired": "HTTPS is required for camera/mic on iPad/Mobile Safari. Please use a secure connection.",
+    "screenNotSupported": "Screen sharing not supported on this device.",
+    "cameraSwitched": "Camera lens switched",
+    "cameraSwitchFailed": "Camera switch failed",
+    "deviceDenied": "Device access denied or not supported.",
+    "codeCollision": "Code collision. Please try again.",
+    "networkError": "Network error. Check connection/firewall.",
+    "connectionFailed": "Connection failed. Check code.",
+    "micDenied": "Microphone access denied",
+    "micOn": "Microphone ON",
+    "micOff": "Microphone OFF"
+  }
+}

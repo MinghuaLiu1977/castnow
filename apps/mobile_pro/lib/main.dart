@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/constants.dart';
+import 'core/flavor_config.dart';
 import 'core/subscription_service.dart';
 import 'screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final subscriptionService = SubscriptionService();
-  
-  // 初始化服务，但不阻塞 runApp
-  subscriptionService.init();
+
+  if (FlavorConfig.isSubscriptionEnabled) {
+    subscriptionService.init();
+  } else {
+    subscriptionService.initAsPaidApp();
+  }
 
   runApp(
     ChangeNotifierProvider.value(
@@ -31,11 +35,8 @@ class CastNowApp extends StatelessWidget {
     ));
 
     return MaterialApp(
-      title: 'CastNow - Screen Cast',
+      title: FlavorConfig.appTitle,
       debugShowCheckedModeBanner: false,
-
-      // 国际化配置 (English-only — locale delegates removed)
-
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: kBackgroundColor,

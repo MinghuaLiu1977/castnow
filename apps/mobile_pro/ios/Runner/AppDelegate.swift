@@ -187,7 +187,8 @@ class BroadcastPickerView: NSObject, FlutterPlatformView {
 
     init(frame: CGRect) {
         let pickerView = RPSystemBroadcastPickerView(frame: frame)
-        pickerView.preferredExtension = "com.eastlakestudio.castnow.pro.BroadcastExtension"
+        let preferredExtensionId = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String ?? "com.eastlakestudio.castnow.pro.BroadcastExtension"
+        pickerView.preferredExtension = preferredExtensionId
         pickerView.showsMicrophoneButton = true
         pickerView.backgroundColor = .clear
         

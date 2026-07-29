@@ -40,6 +40,12 @@ class SubscriptionService extends ChangeNotifier {
   StoreProduct? get localStoreProduct => _localStoreProduct;
   String? get errorMessage => _errorMessage;
 
+  Future<void> initAsPaidApp() async {
+    _isAvailable = false;
+    await _setSubscribed(true);
+    debugPrint("[SubscriptionService] Running as paid app (no subscription required).");
+  }
+
   Future<void> init() async {
     // 1. Load cached status immediately to unblock app logic
     await _loadCachedSubscriptionStatus();

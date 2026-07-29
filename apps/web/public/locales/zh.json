@@ -1,0 +1,108 @@
+{
+  "_lang": "中文",
+  "app": {
+    "title": "CastNow | 极速 P2P 屏幕投屏",
+    "name": "CastNow",
+    "tagline": "安全 P2P 投屏引擎",
+    "description": "高性能低延迟 P2P 屏幕投屏引擎。安全、浏览器原生、无需安装。",
+    "keywords": "CastNow, P2P投屏, 屏幕镜像, 屏幕共享, WebRTC"
+  },
+  "landing": {
+    "instant": "即刻",
+    "casting": "投屏",
+    "heroDesc": "移动端原生性能。桌面端无需安装。零延迟 P2P 传输。",
+    "broadcast": "开始投屏",
+    "receive": "接收投屏",
+    "downloadOn": "从",
+    "appStore": "App Store 下载",
+    "privacy": "隐私",
+    "terms": "条款",
+    "support": "支持",
+    "blog": "博客与指南",
+    "madeBy": "由 Eastlake Studio 开发"
+  },
+  "source": {
+    "title": "选择来源",
+    "screen": "屏幕共享",
+    "screenDesc": "高质量画面流",
+    "camera": "摄像头",
+    "cameraDesc": "实时视频流",
+    "microphone": "麦克风",
+    "micDesc": "同步设备音频",
+    "on": "开",
+    "off": "关",
+    "start": "开始投屏",
+    "cancel": "← 取消操作"
+  },
+  "sender": {
+    "activeTunnel": "投屏中",
+    "muted": "已静音",
+    "micOn": "麦克风开",
+    "front": "前置",
+    "back": "后置",
+    "sharingKey": "投屏配对码",
+    "receiverConnected": "接收端已连接: {info}",
+    "screenShare": "屏幕共享",
+    "terminate": "结束投屏"
+  },
+  "receiver": {
+    "enterKey": "输入配对码",
+    "desktopHint": "使用物理键盘输入配对码",
+    "connect": "立即连接",
+    "cancel": "取消"
+  },
+  "info": {
+    "sourceTitle": "源代码",
+    "sourceDesc": "CastNow 是一个开源的高性能 P2P 引擎。源代码在 GitHub 上以 MIT 协议开源，欢迎社区贡献。",
+    "viewGithub": "在 GitHub 上查看",
+    "supportTitle": "支持与联系",
+    "supportDesc": "有问题或建议？我们随时为您提供帮助。CastNow 是一个社区驱动的项目，致力于私密的 P2P 通信。",
+    "stepEmail": "通过电子邮件获取技术支持或提供反馈。",
+    "stepGithub": "通过 GitHub 仓库报告问题或请求新功能。",
+    "emailSupport": "邮件支持",
+    "githubIssues": "GitHub Issues",
+    "privacyTitle": "隐私政策",
+    "privacyDesc": "我们重视您的隐私。CastNow 采用端到端的点对点直接连接。",
+    "privacy1": "您的视频流数据不会经过我们的服务器。",
+    "privacy2": "我们不会存储或处理任何录制内容。",
+    "privacy3": "我们不会收集或出售个人数据。",
+    "termsTitle": "服务条款",
+    "termsDesc": "使用 CastNow 即表示您同意对您投屏的内容承担全部责任。",
+    "termsDisclaimer": "本服务按\"现状\"提供，不作任何形式的担保。将平台用于非法活动将导致服务终止。",
+    "agreeClose": "同意并关闭",
+    "close": "关闭"
+  },
+  "controls": {
+    "leave": "退出",
+    "toggleLayout": "切换布局",
+    "swapStreams": "切换画面",
+    "microphone": "麦克风",
+    "camera": "摄像头",
+    "screen": "屏幕"
+  },
+  "broadcastEnded": {
+    "title": "投屏已结束",
+    "desc": "投屏方已终止此会话。",
+    "backHome": "返回首页"
+  },
+  "firefox": {
+    "title": "检测到 Firefox 浏览器",
+    "desc": "Firefox 的\"增强跟踪保护\"正在阻止 P2P 连接。",
+    "step1": "点击地址栏中的盾牌图标。",
+    "step2": "将开关切换到关闭。",
+    "retry": "已修复 · 重试"
+  },
+  "errors": {
+    "httpsRequired": "iPad/移动端 Safari 需要 HTTPS 才能使用摄像头和麦克风，请使用安全连接。",
+    "screenNotSupported": "此设备不支持屏幕共享。",
+    "cameraSwitched": "摄像头已切换",
+    "cameraSwitchFailed": "摄像头切换失败",
+    "deviceDenied": "设备访问被拒绝或不支持。",
+    "codeCollision": "配对码冲突，请重试。",
+    "networkError": "网络错误，请检查连接和防火墙。",
+    "connectionFailed": "连接失败，请检查配对码。",
+    "micDenied": "麦克风权限被拒绝",
+    "micOn": "麦克风已开启",
+    "micOff": "麦克风已关闭"
+  }
+}

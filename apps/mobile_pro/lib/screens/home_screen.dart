@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants.dart';
+import '../core/flavor_config.dart';
 import 'broadcast_screen.dart';
 import 'receive_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,7 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPro = context.watch<SubscriptionService>().isSubscribed;
+    final isPro = FlavorConfig.isStandard ||
+        context.watch<SubscriptionService>().isSubscribed;
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
@@ -123,9 +125,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => _launchURL("https://castnow.vercel.app"),
-                  child: const Text(
-                    "castnow.vercel.app",
+                  onTap: () => _launchURL(FlavorConfig.webFullUrl),
+                  child: Text(
+                    FlavorConfig.webBaseUrl,
                     style: TextStyle(
                       color: kPrimaryColor,
                       fontSize: 13,
@@ -234,7 +236,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Positioned(
               top: 16,
               left: 16,
-              child: GestureDetector(
+              child: FlavorConfig.isStandard
+                  ? const SizedBox.shrink()
+                  : GestureDetector(
                 onTap: () {
                   if (!isPro) {
                     showDialog(
@@ -382,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (isPro) ...[
+            if (isPro && FlavorConfig.isPro) ...[
               _buildFooterLink(AppStrings.footerManage, () async {
                 // macOS 不支持 presentCustomerCenter，改为打开 App Store 订阅管理
                 if (Platform.isIOS) {
@@ -398,10 +402,10 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildFooterSeparator(),
             ],
             _buildFooterLink(AppStrings.footerTerms,
-                () => _launchURL("https://castnow.vercel.app/terms.html")),
+                () => _launchURL("${FlavorConfig.webFullUrl}/terms.html")),
             _buildFooterSeparator(),
             _buildFooterLink(AppStrings.footerPrivacy,
-                () => _launchURL("https://castnow.vercel.app/privacy.html")),
+                () => _launchURL("${FlavorConfig.webFullUrl}/privacy.html")),
             _buildFooterSeparator(),
             _buildFooterLink(
                 AppStrings.footerHelp, () => _launchURL("mailto:mingh.liu@gmail.com")),

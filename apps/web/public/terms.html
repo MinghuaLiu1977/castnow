@@ -1,85 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Use (EULA) - Screen Share CastNow</title>
+    <title>服务条款 - CastNow</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f9f9f9;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-        h1 {
-            color: #111;
-            font-size: 2.2em;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #eaeaea;
-            padding-bottom: 10px;
-        }
-        h2 {
-            color: #222;
-            font-size: 1.5em;
-            margin-top: 30px;
-        }
-        p, li {
-            color: #555;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        .footer {
-            margin-top: 50px;
-            font-size: 0.9em;
-            color: #888;
-            text-align: center;
-            border-top: 1px solid #eaeaea;
-            padding-top: 20px;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f9f9f9; color: #333; max-width: 800px; margin: 0 auto; padding: 20px 20px 40px; }
+        .container { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { color: #111; font-size: 2em; margin-bottom: 10px; }
+        h2 { color: #222; font-size: 1.3em; margin-top: 30px; }
+        p, li { color: #555; }
+        .lang-bar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px; }
+        .lang-bar button { padding: 6px 14px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
+        .lang-bar button.active { background: #06b6d4; color: #fff; border-color: #06b6d4; }
+        .zh, .en { transition: opacity .15s; }
+        .footer { margin-top: 40px; font-size: 0.85em; color: #888; text-align: center; border-top: 1px solid #eaeaea; padding-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Terms of Use (EULA)</h1>
-        <p><strong>Effective Date:</strong> May 27, 2026</p>
-
-        <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 30px 0;">
-
-        <p>Welcome to Screen Share CastNow ("the App"). By using this App, you agree to comply with and be bound by the following Terms of Use and End User License Agreement (EULA).</p>
-        
-        <h3>1. Standard License Agreement (EULA)</h3>
-        <p>Except as otherwise specified, this App is subject to Apple's standard End User License Agreement (EULA). You can read Apple's Standard EULA here: 
-            <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer">Apple Standard EULA</a>.
-        </p>
-
-        <h3>2. Description of Service</h3>
-        <p>The App is a P2P screen casting and mirroring utility. The service is provided "as is" and "as available". We do not warrant that the service will be uninterrupted or error-free.</p>
-
-        <h3>3. Acceptable Use</h3>
-        <p>You agree not to use the App to broadcast, transfer, or stream illegal, malicious, or copyright-infringing material. You assume full legal responsibility for any content you transmit through the App.</p>
-
-        <h3>4. Subscriptions and Payments</h3>
-        <ul>
-            <li><strong>Subscription Title:</strong> CastNow VIP - 1 Year</li>
-            <li><strong>Duration:</strong> 1 Year (Annual auto-renewing subscription)</li>
-            <li><strong>Price:</strong> As displayed in the purchase page ($2.99 USD per year or equivalent localized price).</li>
-            <li><strong>Payment & Renewal:</strong> Payment will be charged to your iTunes Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period. Account will be charged for renewal within 24-hours prior to the end of the current period.</li>
-            <li><strong>Management:</strong> You can manage or turn off auto-renew in your Apple ID Account Settings at any time after purchase.</li>
-        </ul>
-        
-        <div class="footer">
-            &copy; 2026 Eastlake Studio. All rights reserved.
+        <div class="lang-bar">
+            <button onclick="setLang('zh')" id="btn-zh">中文</button>
+            <button onclick="setLang('en')" id="btn-en">English</button>
         </div>
+        <div class="zh"><h1>服务条款 (EULA)</h1><p><strong>生效日期：</strong>2026年5月27日</p><hr style="margin:20px 0;border:0;border-top:1px solid #eaeaea">
+<p>欢迎使用 CastNow（以下简称"本应用"）。使用本应用即表示您同意遵守以下服务条款和最终用户许可协议（EULA）。</p>
+<h2>1. 标准许可协议 (EULA)</h2><p>除非另有说明，本应用受 Apple 标准最终用户许可协议约束。请参阅 <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple 标准 EULA</a>。</p>
+<h2>2. 服务说明</h2><p>本应用是 P2P 投屏和镜像工具，服务按"现状"提供。我们不保证服务不会中断或没有错误。</p>
+<h2>3. 可接受使用</h2><p>您同意不使用本应用传输非法、恶意或侵犯版权的内容。您对通过本应用传输的任何内容承担全部法律责任。</p>
+<h2>4. 购买与退款</h2><p>本应用为一次性付费下载应用，无内购或订阅。购买后如符合 App Store 退款政策可申请退款。应用功能不受时间限制，无需额外付费。</p>
+</div>
+        <div class="en" style="display:none"><h1>Terms of Use (EULA)</h1><p><strong>Effective Date:</strong> May 27, 2026</p><hr style="margin:20px 0;border:0;border-top:1px solid #eaeaea">
+<p>Welcome to CastNow ("the App"). By using this App, you agree to the following Terms of Use and EULA.</p>
+<h2>1. Standard License Agreement</h2><p>Except as otherwise specified, this App is subject to Apple's standard EULA: <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple Standard EULA</a>.</p>
+<h2>2. Description of Service</h2><p>The App is a P2P screen casting utility. The service is provided "as is". We do not warrant uninterrupted or error-free service.</p>
+<h2>3. Acceptable Use</h2><p>You agree not to use the App for illegal, malicious, or copyright-infringing content. You assume full legal responsibility for any content you transmit.</p>
+<h2>4. Purchase & Refunds</h2><p>This App is a one-time paid download with no in-app purchases or subscriptions. Refunds are subject to App Store refund policies. All features are available indefinitely without additional charges.</p>
+</div>
+        <div class="footer">&copy; 2026 Eastlake Studio. All rights reserved.</div>
     </div>
+    <script>
+        function setLang(l) {
+            document.querySelectorAll('.zh').forEach(e => e.style.display = l === 'zh' ? '' : 'none');
+            document.querySelectorAll('.en').forEach(e => e.style.display = l === 'en' ? '' : 'none');
+            document.getElementById('btn-zh').className = l === 'zh' ? 'active' : '';
+            document.getElementById('btn-en').className = l === 'en' ? 'active' : '';
+            document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en';
+            try { localStorage.setItem('castnow_lang', l); } catch (_) {}
+        }
+        var saved = localStorage.getItem('castnow_lang');
+        var browser = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        setLang(saved || browser);
+    </script>
 </body>
 </html>

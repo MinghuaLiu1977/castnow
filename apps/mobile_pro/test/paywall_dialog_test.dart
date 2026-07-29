@@ -45,6 +45,9 @@ class MockSubscriptionService extends ChangeNotifier implements SubscriptionServ
   Future<void> init() async {}
   
   @override
+  Future<void> initAsPaidApp() async {}
+  
+  @override
   Future<void> loadProducts() async {}
   
   @override

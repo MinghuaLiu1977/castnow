@@ -1,50 +1,28 @@
 <script setup>
-import { ref } from 'vue';
 import {
-  X, ArrowLeft, Loader2, AlertCircle, Download,
-  Monitor, Repeat, Volume2, VolumeX, Maximize,
-  LogOut, Mic, MicOff,
+  X, ArrowLeft, Loader2, AlertCircle,
 } from 'lucide-vue-next';
+import { useI18n } from '../composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   joinCode: { type: String, default: '' },
   isConnecting: { type: Boolean, default: false },
   isTouchDevice: { type: Boolean, default: false },
   error: { type: String, default: null },
-  // Receiver active props
-  screenStream: { default: null },
-  cameraStream: { default: null },
-  remoteStream: { default: null },
-  layoutMode: { type: String, default: 'pip' },
-  isSwapped: { type: Boolean, default: false },
-  isMuted: { type: Boolean, default: false },
-  isDragging: { type: Boolean, default: false },
-  pipPosition: { type: Object, default: () => ({ x: 20, y: 20 }) },
-  pipWidth: { type: Number, default: 320 },
-  splitRatio: { type: Number, default: 0.5 },
-  showControls: { type: Boolean, default: true },
-  isReceiverMicActive: { type: Boolean, default: false },
-  remoteVideo: { default: null },
 });
 
 const emit = defineEmits([
   'digitInput', 'backspace', 'resetApp', 'join',
-  'dragStart', 'dragMove', 'dragEnd',
-  'toggleLayout', 'swapStreams', 'toggleMute',
-  'toggleFullscreen', 'toggleReceiverMic',
 ]);
-
-const screenVideoEl = ref(null);
-const cameraVideoEl = ref(null);
-const remoteVideoEl = ref(null);
 </script>
 
 <template>
-  <!-- Receiver Input -->
   <div class="flex-1 flex flex-col items-center justify-center p-6">
     <h2 class="text-2xl font-black uppercase mb-10 tracking-widest flex items-center gap-3">
       <span class="w-8 h-[2px] bg-cyan-500"></span>
-      Enter Access Key
+      {{ t('receiver.enterKey') }}
       <span class="w-8 h-[2px] bg-cyan-500"></span>
     </h2>
 
@@ -77,24 +55,22 @@ const remoteVideoEl = ref(null);
     </div>
 
     <div v-else class="mb-12 text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-      Type access key via physical keyboard
+      {{ t('receiver.desktopHint') }}
     </div>
 
     <button @click="$emit('join')" :disabled="joinCode.length !== 6 || isConnecting"
       class="w-full max-w-[280px] py-5 bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black rounded-2xl text-lg uppercase tracking-widest shadow-xl shadow-cyan-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
       <Loader2 v-if="isConnecting" class="w-5 h-5 animate-spin" />
-      <span v-else>Connect Now</span>
+      <span v-else>{{ t('receiver.connect') }}</span>
     </button>
 
     <button v-if="isConnecting" @click="$emit('resetApp')"
       class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-[10px] hover:text-white transition-colors flex items-center gap-2">
-      <X class="w-3 h-3" /> Cancel
+      <X class="w-3 h-3" /> {{ t('receiver.cancel') }}
     </button>
 
     <p v-if="error" class="mt-4 text-red-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
       <AlertCircle class="w-4 h-4" /> {{ error }}
     </p>
   </div>
-
-  <!-- Receiver Active is complex and tightly coupled; keep in App.vue for now -->
 </template>

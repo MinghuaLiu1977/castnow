@@ -42,7 +42,6 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     
-    # Bypass Swift compiler ownership bug in HaishinKit during release builds
     if target.name == 'HaishinKit'
       target.build_configurations.each do |config|
         config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
@@ -51,12 +50,21 @@ post_install do |installer|
 
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
-      # 完全排除 x86_64 架构
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386 x86_64'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'armv7'
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
-      # 终极修复：对于 Release 模式，强制不生成 dSYM 文件，避免 Xcode 分发时报错
       config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf'
+    end
+  end
+
+  # Inject BroadcastExtension bundle ID variable for flavor support
+  broadcast_ext_dir = File.join(installer.sandbox.root, 'Target Support Files', 'Pods-BroadcastExtension')
+  Dir.glob(File.join(broadcast_ext_dir, '*.xcconfig')).each do |config_path|
+    content = File.read(config_path)
+    unless content.include?('BROADCAST_EXTENSION_BUNDLE_ID')
+      File.open(config_path, 'a') do |f|
+        f.puts "\nBROADCAST_EXTENSION_BUNDLE_ID = com.eastlakestudio.castnow.pro.BroadcastExtension"
+      end
     end
   end
 end

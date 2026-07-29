@@ -6,10 +6,10 @@
       <stop offset="100%" stop-color="#020617"/>
     </linearGradient>
     
-    <!-- Bolt Gradient: Vibrant Amber -->
+    <!-- Bolt Gradient: Cyan (matching #06B6D4) -->
     <linearGradient id="bolt-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24"/> <!-- Amber 400 -->
-      <stop offset="100%" stop-color="#d97706"/> <!-- Amber 600 -->
+      <stop offset="0%" stop-color="#22d3ee"/> <!-- Cyan 400 -->
+      <stop offset="100%" stop-color="#06b6d4"/> <!-- Cyan 500 -->
     </linearGradient>
 
     <!-- Drop Shadow for the Bolt -->
@@ -48,7 +48,7 @@
   <g filter="url(#shadow)" transform="translate(128, 110) scale(1.0)">
     <path d="M 160 0 L 30 250 L 140 250 L 110 430 L 290 140 L 170 140 L 220 0 Z" 
           fill="url(#bolt-gradient)" 
-          stroke="#fef3c7" 
+          stroke="#cffafe" 
           stroke-width="0"
           stroke-linejoin="round"/>
   </g>
