@@ -122,7 +122,27 @@ fi
 
 echo "Phase 1: Building Flutter Resources (standard flavor)..."
 cd "$PROJECT_DIR"
+
+# Temporarily remove RevenueCat dependencies from pubspec for standard build
+# (objective_c.framework has simulator platform that App Store rejects)
+_PUBSPEC_BAK=$(mktemp)
+cp pubspec.yaml "$_PUBSPEC_BAK"
+sed -i '' '/purchases_flutter/d' pubspec.yaml
+sed -i '' '/purchases_ui_flutter/d' pubspec.yaml
+
+# Remove main.dart and main_pro.dart so RC imports don't cause analysis errors
+[ -f lib/main.dart ] && mv lib/main.dart lib/main.dart.bak
+[ -f lib/main_pro.dart ] && mv lib/main_pro.dart lib/main_pro.dart.bak
+
+flutter pub get
+
 flutter build ios --release --no-codesign --dart-define=FLAVOR=standard -t lib/main_standard.dart
+
+# Restore pubspec and main files
+cp "$_PUBSPEC_BAK" pubspec.yaml && rm -f "$_PUBSPEC_BAK"
+[ -f lib/main.dart.bak ] && mv lib/main.dart.bak lib/main.dart
+[ -f lib/main_pro.dart.bak ] && mv lib/main_pro.dart.bak lib/main_pro.dart
+flutter pub get
 
 # Patch BroadcastExtension Pods xcconfig AFTER flutter build (pod install overwrites it)
 echo "Patching BroadcastExtension bundle ID..."

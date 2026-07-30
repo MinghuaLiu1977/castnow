@@ -9,7 +9,6 @@ import 'receive_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
-import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import '../core/subscription_service.dart';
 import '../core/paywall_delegate.dart';
 import '../widgets/glass_container.dart';
@@ -244,11 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   } else {
                     // macOS 不支持 presentCustomerCenter，改为打开 App Store 订阅管理
                     if (Platform.isIOS) {
-                      try {
-                        RevenueCatUI.presentCustomerCenter();
-                      } catch (e) {
-                        debugPrint("Failed to show customer center: $e");
-                      }
+                      showCustomerCenterIfAvailable();
                     } else {
                       _launchURL("https://apps.apple.com/account/subscriptions");
                     }
@@ -384,14 +379,9 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isPro && FlavorConfig.isPro) ...[
-              _buildFooterLink(AppStrings.footerManage, () async {
-                // macOS 不支持 presentCustomerCenter，改为打开 App Store 订阅管理
+              _buildFooterLink(AppStrings.footerManage, () {
                 if (Platform.isIOS) {
-                  try {
-                    await RevenueCatUI.presentCustomerCenter();
-                  } catch (e) {
-                    debugPrint("Failed to show customer center: $e");
-                  }
+                  showCustomerCenterIfAvailable();
                 } else {
                   _launchURL("https://apps.apple.com/account/subscriptions");
                 }

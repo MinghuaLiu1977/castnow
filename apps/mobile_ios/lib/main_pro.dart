@@ -8,6 +8,7 @@ import 'package:castnow_core/core/paywall_delegate.dart';
 import 'package:castnow_core/screens/home_screen.dart';
 import 'pro/revenuecat_subscription_service.dart';
 import 'pro/paywall_dialog.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,10 @@ void main() {
 
   setShowPaywall((context) {
     showDialog(context: context, builder: (_) => const PaywallDialog());
+  });
+
+  setShowCustomerCenter(() {
+    RevenueCatUI.presentCustomerCenter();
   });
 
   runApp(
