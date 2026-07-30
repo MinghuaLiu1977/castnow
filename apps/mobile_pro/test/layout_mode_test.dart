@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:castnow_pro/core/constants.dart';
+import 'package:castnow_core/core/constants.dart';
 
 void main() {
   group('CastNowLayoutMode Tests', () {

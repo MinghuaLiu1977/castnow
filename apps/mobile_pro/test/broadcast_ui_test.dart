@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:castnow_pro/core/subscription_service.dart';
-import 'package:castnow_pro/screens/broadcast_screen.dart';
+import 'package:castnow_core/core/subscription_service.dart';
+import 'package:castnow_core/screens/broadcast_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

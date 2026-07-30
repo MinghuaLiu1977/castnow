@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:castnow_pro/screens/home_screen.dart';
-import 'package:castnow_pro/core/subscription_service.dart';
+import 'package:castnow_core/screens/home_screen.dart';
+import 'package:castnow_core/core/subscription_service.dart';
 import 'package:provider/provider.dart';
 import 'package:mockito/mockito.dart';
 

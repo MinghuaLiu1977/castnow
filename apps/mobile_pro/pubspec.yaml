@@ -10,25 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # 原生 WebRTC 支持 (音视频核心)
-  flutter_webrtc: ^0.12.5
-  # PeerJS 的 Dart 实现 (与 Web 端互通)
-  peerdart: ^0.5.6
-  # 权限处理
-  permission_handler: ^11.3.1
-  # 屏幕常亮
-  wakelock_plus: ^1.1.2
-  # 唯一 ID 生成
-  uuid: ^4.3.3
-  url_launcher: ^6.3.2
-  shared_preferences: ^2.2.2
-  http: ^1.2.0
-  device_info_plus: ^12.3.0
-  package_info_plus: ^9.0.0
-  in_app_review: ^2.0.9
-  purchases_flutter: ^10.1.1
-  provider: ^6.1.5+1
-  purchases_ui_flutter: ^10.1.1
+  castnow_core:
+    path: ../core
 
 dev_dependencies:
   flutter_test:
@@ -41,9 +24,6 @@ dev_dependencies:
 flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/icon_source_pro.png"
-
-
-
 
 flutter:
   uses-material-design: true

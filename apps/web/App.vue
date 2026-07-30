@@ -2,7 +2,7 @@
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import { inject as injectAnalytics } from '@vercel/analytics';
 import {
-  Monitor, Repeat, Info, Globe, Volume2, VolumeX, Maximize,
+  Monitor, Repeat, Info, Volume2, VolumeX, Maximize,
   Zap, Shield, Mic, MicOff, LogOut, CheckCircle2, AlertCircle,
 } from 'lucide-vue-next';
 import { useMediaStream } from './composables/useMediaStream';
@@ -63,7 +63,7 @@ const {
   dragType, isDragging, isMuted, isTouchDevice, isMobile,
 } = layout;
 
-const { t, locale, setLocale, availableLocales, loadMessages } = useI18n();
+const { t, locale, loadMessages } = useI18n();
 
 const tModule = { loadMessages };
 
@@ -208,9 +208,6 @@ const toggleReceiverMic = async () => {
 const toggleMute = () => layout.toggleMute();
 const toggleLayout = () => layout.toggleLayout();
 const swapStreams = () => layout.swapStreams();
-const toggleLocale = () => {
-  setLocale(locale.value === 'zh' ? 'en' : 'zh');
-};
 </script>
 
 <template>
@@ -221,13 +218,6 @@ const toggleLocale = () => {
         <img src="/icon.svg" alt="CastNow"
           class="w-10 h-10 rounded-xl shadow-lg shadow-cyan-500/10 group-hover:scale-105 transition-transform duration-300" />
         <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-xl font-black italic uppercase tracking-tight text-transparent pr-1">CastNow</span>
-      </div>
-      <div class="flex items-center gap-4">
-        <button @click="toggleLocale"
-          class="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:border-cyan-500/50 transition-all group"
-          :title="locale === 'zh' ? 'Switch to English' : '切换到中文'">
-          <Globe class="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors" />
-        </button>
       </div>
     </header>
 

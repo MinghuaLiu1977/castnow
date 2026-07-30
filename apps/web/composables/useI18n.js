@@ -1,9 +1,6 @@
 import { ref, reactive } from 'vue'
 
-const LOCALE_KEY = 'castnow_locale'
-
 const messages = reactive({
-  en: {},
   zh: {},
 })
 
@@ -12,11 +9,7 @@ const messagesLoaded = ref(false)
 async function loadMessages() {
   if (messagesLoaded.value) return
   try {
-    const [en, zh] = await Promise.all([
-      fetch('/locales/en.json').then(r => r.json()),
-      fetch('/locales/zh.json').then(r => r.json()),
-    ])
-    Object.assign(messages.en, en)
+    const zh = await fetch('/locales/zh.json').then(r => r.json())
     Object.assign(messages.zh, zh)
     messagesLoaded.value = true
   } catch (err) {
@@ -25,21 +18,7 @@ async function loadMessages() {
   }
 }
 
-function getBrowserLocale() {
-  const lang = (navigator.language || 'en').toLowerCase()
-  if (lang.startsWith('zh')) return 'zh'
-  return 'en'
-}
-
-function getSavedLocale() {
-  try {
-    const saved = localStorage.getItem(LOCALE_KEY)
-    if (saved === 'zh' || saved === 'en') return saved
-  } catch (_) {}
-  return null
-}
-
-const locale = ref(getSavedLocale() || getBrowserLocale())
+const locale = ref('zh')
 
 export function useI18n() {
   const t = (key, params) => {
@@ -58,16 +37,5 @@ export function useI18n() {
     return value
   }
 
-  const setLocale = (l) => {
-    locale.value = l
-    document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en'
-    try { localStorage.setItem(LOCALE_KEY, l) } catch (_) {}
-  }
-
-  const availableLocales = [
-    { code: 'zh', label: '中文' },
-    { code: 'en', label: 'English' },
-  ]
-
-  return { t, locale, setLocale, availableLocales, loadMessages }
+  return { t, locale, loadMessages }
 }

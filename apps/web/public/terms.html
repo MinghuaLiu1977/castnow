@@ -10,47 +10,25 @@
         h1 { color: #111; font-size: 2em; margin-bottom: 10px; }
         h2 { color: #222; font-size: 1.3em; margin-top: 30px; }
         p, li { color: #555; }
-        .lang-bar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px; }
-        .lang-bar button { padding: 6px 14px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
-        .lang-bar button.active { background: #06b6d4; color: #fff; border-color: #06b6d4; }
-        .zh, .en { transition: opacity .15s; }
         .footer { margin-top: 40px; font-size: 0.85em; color: #888; text-align: center; border-top: 1px solid #eaeaea; padding-top: 20px; }
+        hr { margin: 20px 0; border: 0; border-top: 1px solid #eaeaea; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="lang-bar">
-            <button onclick="setLang('zh')" id="btn-zh">中文</button>
-            <button onclick="setLang('en')" id="btn-en">English</button>
-        </div>
-        <div class="zh"><h1>服务条款 (EULA)</h1><p><strong>生效日期：</strong>2026年5月27日</p><hr style="margin:20px 0;border:0;border-top:1px solid #eaeaea">
-<p>欢迎使用 CastNow（以下简称"本应用"）。使用本应用即表示您同意遵守以下服务条款和最终用户许可协议（EULA）。</p>
-<h2>1. 标准许可协议 (EULA)</h2><p>除非另有说明，本应用受 Apple 标准最终用户许可协议约束。请参阅 <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple 标准 EULA</a>。</p>
-<h2>2. 服务说明</h2><p>本应用是 P2P 投屏和镜像工具，服务按"现状"提供。我们不保证服务不会中断或没有错误。</p>
-<h2>3. 可接受使用</h2><p>您同意不使用本应用传输非法、恶意或侵犯版权的内容。您对通过本应用传输的任何内容承担全部法律责任。</p>
-<h2>4. 购买与退款</h2><p>本应用为一次性付费下载应用，无内购或订阅。购买后如符合 App Store 退款政策可申请退款。应用功能不受时间限制，无需额外付费。</p>
-</div>
-        <div class="en" style="display:none"><h1>Terms of Use (EULA)</h1><p><strong>Effective Date:</strong> May 27, 2026</p><hr style="margin:20px 0;border:0;border-top:1px solid #eaeaea">
-<p>Welcome to CastNow ("the App"). By using this App, you agree to the following Terms of Use and EULA.</p>
-<h2>1. Standard License Agreement</h2><p>Except as otherwise specified, this App is subject to Apple's standard EULA: <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple Standard EULA</a>.</p>
-<h2>2. Description of Service</h2><p>The App is a P2P screen casting utility. The service is provided "as is". We do not warrant uninterrupted or error-free service.</p>
-<h2>3. Acceptable Use</h2><p>You agree not to use the App for illegal, malicious, or copyright-infringing content. You assume full legal responsibility for any content you transmit.</p>
-<h2>4. Purchase & Refunds</h2><p>This App is a one-time paid download with no in-app purchases or subscriptions. Refunds are subject to App Store refund policies. All features are available indefinitely without additional charges.</p>
-</div>
+        <h1>服务条款 (EULA)</h1>
+        <p><strong>生效日期：</strong>2026年5月27日</p>
+        <hr>
+        <p>欢迎使用 CastNow（以下简称"本应用"）。使用本应用即表示您同意遵守以下服务条款和最终用户许可协议（EULA）。</p>
+        <h2>1. 标准许可协议 (EULA)</h2>
+        <p>除非另有说明，本应用受 Apple 标准最终用户许可协议约束。请参阅 <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple 标准 EULA</a>。</p>
+        <h2>2. 服务说明</h2>
+        <p>本应用是 P2P 投屏和镜像工具，服务按"现状"提供。我们不保证服务不会中断或没有错误。</p>
+        <h2>3. 可接受使用</h2>
+        <p>您同意不使用本应用传输非法、恶意或侵犯版权的内容。您对通过本应用传输的任何内容承担全部法律责任。</p>
+        <h2>4. 购买与退款</h2>
+        <p>本应用为一次性付费下载应用，无内购或订阅。购买后如符合 App Store 退款政策可申请退款。应用功能不受时间限制，无需额外付费。</p>
         <div class="footer">&copy; 2026 Eastlake Studio. All rights reserved.</div>
     </div>
-    <script>
-        function setLang(l) {
-            document.querySelectorAll('.zh').forEach(e => e.style.display = l === 'zh' ? '' : 'none');
-            document.querySelectorAll('.en').forEach(e => e.style.display = l === 'en' ? '' : 'none');
-            document.getElementById('btn-zh').className = l === 'zh' ? 'active' : '';
-            document.getElementById('btn-en').className = l === 'en' ? 'active' : '';
-            document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en';
-            try { localStorage.setItem('castnow_lang', l); } catch (_) {}
-        }
-        var saved = localStorage.getItem('castnow_lang');
-        var browser = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
-        setLang(saved || browser);
-    </script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'core/constants.dart';
-import 'core/flavor_config.dart';
-import 'core/subscription_service.dart';
-import 'screens/home_screen.dart';
+import 'package:castnow_core/core/constants.dart';
+import 'package:castnow_core/core/flavor_config.dart';
+import 'package:castnow_core/core/subscription_service.dart';
+import 'package:castnow_core/screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

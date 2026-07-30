@@ -12,149 +12,67 @@
         p, li { color: #555; line-height: 1.7; }
         ul { padding-left: 20px; }
         ul li { margin-bottom: 8px; }
-        .lang-bar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px; }
-        .lang-bar button { padding: 6px 14px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
-        .lang-bar button.active { background: #06b6d4; color: #fff; border-color: #06b6d4; }
-        .zh, .en { transition: opacity .15s; }
         .footer { margin-top: 40px; font-size: 0.85em; color: #888; text-align: center; border-top: 1px solid #eaeaea; padding-top: 20px; }
         hr { margin: 20px 0; border: 0; border-top: 1px solid #eaeaea; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="lang-bar">
-            <button onclick="setLang('zh')" id="btn-zh">中文</button>
-            <button onclick="setLang('en')" id="btn-en">English</button>
-        </div>
+        <h1>隐私政策</h1>
+        <p><strong>生效日期：</strong>2026年5月27日</p>
+        <hr>
+        <p>Eastlake Studio（以下简称"我们"）重视您的隐私。本隐私政策旨在说明 CastNow 应用（以下简称"本应用"）在您使用过程中如何收集、使用、存储和保护您的信息。请您仔细阅读以下内容。</p>
 
-        <!-- ========= 中文版本 ========= -->
-        <div class="zh">
-            <h1>隐私政策</h1>
-            <p><strong>生效日期：</strong>2026年5月27日</p>
-            <hr>
-            <p>Eastlake Studio（以下简称"我们"）重视您的隐私。本隐私政策旨在说明 CastNow 应用（以下简称"本应用"）在您使用过程中如何收集、使用、存储和保护您的信息。请您仔细阅读以下内容。</p>
+        <h2>1. 信息收集与使用</h2>
+        <p>本应用的核心功能基于<strong>端到端 (P2P) 点对点连接</strong>技术实现。在您使用本应用时：</p>
+        <ul>
+            <li><strong>媒体流数据：</strong>您的视频画面（屏幕共享或摄像头）和音频数据通过 WebRTC 协议直接在投屏设备与接收端之间加密传输，<strong>不会经过、存储或转发至我们的任何服务器</strong>。</li>
+            <li><strong>信令数据：</strong>建立 P2P 连接所需的信令数据（如设备配对码、网络信息）通过 PeerJS 信令服务器进行临时中转，该过程仅在连接建立期间有效，<strong>不会持久化存储</strong>。</li>
+            <li><strong>崩溃与性能数据：</strong>我们可能收集匿名的应用崩溃日志和使用统计，仅用于改进产品稳定性和用户体验，<strong>不包含任何个人身份信息</strong>。</li>
+        </ul>
 
-            <h2>1. 信息收集与使用</h2>
-            <p>本应用的核心功能基于<strong>端到端 (P2P) 点对点连接</strong>技术实现。在您使用本应用时：</p>
-            <ul>
-                <li><strong>媒体流数据：</strong>您的视频画面（屏幕共享或摄像头）和音频数据通过 WebRTC 协议直接在投屏设备与接收端之间加密传输，<strong>不会经过、存储或转发至我们的任何服务器</strong>。</li>
-                <li><strong>信令数据：</strong>建立 P2P 连接所需的信令数据（如设备配对码、网络信息）通过 PeerJS 信令服务器进行临时中转，该过程仅在连接建立期间有效，<strong>不会持久化存储</strong>。</li>
-                <li><strong>崩溃与性能数据：</strong>我们可能收集匿名的应用崩溃日志和使用统计，仅用于改进产品稳定性和用户体验，<strong>不包含任何个人身份信息</strong>。</li>
-            </ul>
+        <h2>2. 我们不收集的信息</h2>
+        <p>我们明确声明<strong>不收集</strong>以下信息：</p>
+        <ul>
+            <li>个人身份信息（姓名、邮箱、电话号码等，除非您主动联系支持）</li>
+            <li>账户凭证或密码</li>
+            <li>位置数据</li>
+            <li>通讯录、照片或其他设备本地数据</li>
+            <li>屏幕活动日志或键盘输入记录</li>
+        </ul>
 
-            <h2>2. 我们不收集的信息</h2>
-            <p>我们明确声明<strong>不收集</strong>以下信息：</p>
-            <ul>
-                <li>个人身份信息（姓名、邮箱、电话号码等，除非您主动联系支持）</li>
-                <li>账户凭证或密码</li>
-                <li>位置数据</li>
-                <li>通讯录、照片或其他设备本地数据</li>
-                <li>屏幕活动日志或键盘输入记录</li>
-            </ul>
+        <h2>3. 权限说明</h2>
+        <p>本应用在 iOS 上需要以下系统权限，均仅用于实现核心投屏功能：</p>
+        <ul>
+            <li><strong>摄像头：</strong>仅在您选择"摄像头投屏"模式时使用，用于捕捉视频画面。</li>
+            <li><strong>麦克风：</strong>仅在您开启麦克风共享时使用，用于传输音频。</li>
+            <li><strong>本地网络：</strong>用于在局域网内建立 P2P 连接，提升传输速度。</li>
+            <li><strong>屏幕录制（ReplayKit）：</strong>仅在您选择"屏幕共享"模式时使用，用于捕获屏幕内容。</li>
+        </ul>
+        <p>以上权限均需您主动授权，您可以随时在系统设置中关闭。</p>
 
-            <h2>3. 权限说明</h2>
-            <p>本应用在 iOS 上需要以下系统权限，均仅用于实现核心投屏功能：</p>
-            <ul>
-                <li><strong>摄像头：</strong>仅在您选择"摄像头投屏"模式时使用，用于捕捉视频画面。</li>
-                <li><strong>麦克风：</strong>仅在您开启麦克风共享时使用，用于传输音频。</li>
-                <li><strong>本地网络：</strong>用于在局域网内建立 P2P 连接，提升传输速度。</li>
-                <li><strong>屏幕录制（ReplayKit）：</strong>仅在您选择"屏幕共享"模式时使用，用于捕获屏幕内容。</li>
-            </ul>
-            <p>以上权限均需您主动授权，您可以随时在系统设置中关闭。</p>
+        <h2>4. 信息共享</h2>
+        <p>由于我们不收集任何个人信息，因此不存在与第三方共享、出售或交易用户数据的情形。我们也不向广告商或其他商业实体提供任何用户数据。</p>
 
-            <h2>4. 信息共享</h2>
-            <p>由于我们不收集任何个人信息，因此不存在与第三方共享、出售或交易用户数据的情形。我们也不向广告商或其他商业实体提供任何用户数据。</p>
+        <h2>5. 数据安全</h2>
+        <p>我们采用以下措施保护您的数据安全：</p>
+        <ul>
+            <li>P2P 传输采用 WebRTC 标准的 DTLS-SRTP 加密协议</li>
+            <li>信令通信通过加密的 WebSocket (WSS) 连接</li>
+            <li>应用代码遵循 Apple App Store 安全审核标准</li>
+        </ul>
 
-            <h2>5. 数据安全</h2>
-            <p>我们采用以下措施保护您的数据安全：</p>
-            <ul>
-                <li>P2P 传输采用 WebRTC 标准的 DTLS-SRTP 加密协议</li>
-                <li>信令通信通过加密的 WebSocket (WSS) 连接</li>
-                <li>应用代码遵循 Apple App Store 安全审核标准</li>
-            </ul>
+        <h2>6. 儿童隐私</h2>
+        <p>本应用不面向 13 岁以下儿童。我们不会故意收集儿童的个人信息。如发现误收集，请及时联系我们以便删除。</p>
 
-            <h2>6. 儿童隐私</h2>
-            <p>本应用不面向 13 岁以下儿童。我们不会故意收集儿童的个人信息。如发现误收集，请及时联系我们以便删除。</p>
+        <h2>7. 隐私政策更新</h2>
+        <p>我们可能会不时更新本隐私政策。更新后的政策将在本页面公布，重大变更将通过应用内通知或更新说明告知。请定期查阅以了解最新内容。</p>
 
-            <h2>7. 隐私政策更新</h2>
-            <p>我们可能会不时更新本隐私政策。更新后的政策将在本页面公布，重大变更将通过应用内通知或更新说明告知。请定期查阅以了解最新内容。</p>
-
-            <h2>8. 联系我们</h2>
-            <p>如对本隐私政策有任何疑问、意见或建议，请通过以下方式联系我们：<br>
-            邮箱：<a href="mailto:mingh.liu@gmail.com">mingh.liu@gmail.com</a></p>
-        </div>
-
-        <!-- ========= English Version ========= -->
-        <div class="en" style="display:none">
-            <h1>Privacy Policy</h1>
-            <p><strong>Effective Date:</strong> May 27, 2026</p>
-            <hr>
-            <p>Eastlake Studio ("we", "us", or "our") values your privacy. This Privacy Policy explains how CastNow ("the App") collects, uses, stores, and protects your information when you use our service. Please read carefully.</p>
-
-            <h2>1. Information Collection &amp; Usage</h2>
-            <p>The App's core functionality uses <strong>End-to-End Peer-to-Peer (P2P)</strong> connections:</p>
-            <ul>
-                <li><strong>Media Stream Data:</strong> Your video (screen share or camera) and audio data is transmitted directly between the broadcasting device and the receiving device via encrypted WebRTC. <strong>No media content passes through, is stored on, or relayed by our servers.</strong></li>
-                <li><strong>Signaling Data:</strong> Temporary connection metadata (pairing codes, network information) is briefly routed through the PeerJS signaling server to establish P2P connections. <strong>This data is not persistently stored.</strong></li>
-                <li><strong>Crash &amp; Performance Data:</strong> We may collect anonymous crash logs and usage statistics solely for improving app stability. <strong>No personally identifiable information is included.</strong></li>
-            </ul>
-
-            <h2>2. Information We Do NOT Collect</h2>
-            <p>We explicitly <strong>do not collect</strong>:</p>
-            <ul>
-                <li>Personal identifiers (name, email, phone number, unless you voluntarily contact support)</li>
-                <li>Account credentials or passwords</li>
-                <li>Location data</li>
-                <li>Contacts, photos, or other on-device data</li>
-                <li>Screen activity logs or keystroke records</li>
-            </ul>
-
-            <h2>3. Permissions</h2>
-            <p>On iOS, the App requires the following system permissions, used exclusively for core casting functionality:</p>
-            <ul>
-                <li><strong>Camera:</strong> Only when you select "Camera" mode, to capture video.</li>
-                <li><strong>Microphone:</strong> Only when you enable microphone sharing, to transmit audio.</li>
-                <li><strong>Local Network:</strong> To establish LAN-based P2P connections for faster transfer speeds.</li>
-                <li><strong>Screen Recording (ReplayKit):</strong> Only when you select "Screen Share" mode, to capture screen content.</li>
-            </ul>
-            <p>All permissions require your explicit authorization and can be revoked at any time in system settings.</p>
-
-            <h2>4. Information Sharing</h2>
-            <p>Since we do not collect any personal information, there is no sharing, selling, or trading of user data with third parties. We do not provide any user data to advertisers or other commercial entities.</p>
-
-            <h2>5. Data Security</h2>
-            <p>We implement the following measures to protect your data:</p>
-            <ul>
-                <li>P2P transmission uses WebRTC's standard DTLS-SRTP encryption</li>
-                <li>Signaling communication via encrypted WebSocket (WSS) connections</li>
-                <li>Application code adheres to Apple App Store security review standards</li>
-            </ul>
-
-            <h2>6. Children's Privacy</h2>
-            <p>The App is not directed to children under 13. We do not knowingly collect personal information from children. If discovered, please contact us for removal.</p>
-
-            <h2>7. Changes to This Policy</h2>
-            <p>We may update this Privacy Policy from time to time. Updates will be posted on this page, and material changes will be notified via in-app notices or update notes. Please review periodically.</p>
-
-            <h2>8. Contact Us</h2>
-            <p>For questions, comments, or suggestions about this Privacy Policy, please contact:<br>
-            Email: <a href="mailto:mingh.liu@gmail.com">mingh.liu@gmail.com</a></p>
-        </div>
+        <h2>8. 联系我们</h2>
+        <p>如对本隐私政策有任何疑问、意见或建议，请通过以下方式联系我们：<br>
+        邮箱：<a href="mailto:mingh.liu@gmail.com">mingh.liu@gmail.com</a></p>
 
         <div class="footer">&copy; 2026 Eastlake Studio. All rights reserved.</div>
     </div>
-    <script>
-        function setLang(l) {
-            document.querySelectorAll('.zh').forEach(e => e.style.display = l === 'zh' ? '' : 'none');
-            document.querySelectorAll('.en').forEach(e => e.style.display = l === 'en' ? '' : 'none');
-            document.getElementById('btn-zh').className = l === 'zh' ? 'active' : '';
-            document.getElementById('btn-en').className = l === 'en' ? 'active' : '';
-            document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en';
-            try { localStorage.setItem('castnow_lang', l); } catch (_) {}
-        }
-        var saved = localStorage.getItem('castnow_lang');
-        var browser = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
-        setLang(saved || browser);
-    </script>
 </body>
 </html>
