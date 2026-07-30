@@ -20,9 +20,7 @@ dependencies:
   device_info_plus: ^12.3.0
   package_info_plus: ^9.0.0
   in_app_review: ^2.0.9
-  purchases_flutter: ^10.1.1
   provider: ^6.1.5+1
-  purchases_ui_flutter: ^10.1.1
 
 flutter:
   uses-material-design: true

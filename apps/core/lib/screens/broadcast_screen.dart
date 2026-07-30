@@ -12,7 +12,7 @@ import '../core/rtmp_settings_service.dart';
 import '../l10n/app_strings.dart';
 import '../services/webrtc_broadcast_service.dart';
 import '../services/media_capture_service.dart';
-import '../widgets/paywall_dialog.dart';
+import '../core/paywall_delegate.dart';
 import '../widgets/source_selector.dart';
 import '../widgets/broadcast_controls.dart';
 import '../widgets/code_display.dart';
@@ -164,7 +164,7 @@ class _BroadcastScreenState extends State<BroadcastScreen>
     // RTMP mode requires Pro
     if (_isRtmpMode) {
       if (!isPro) {
-        showDialog(context: context, builder: (_) => const PaywallDialog());
+        showPaywallIfAvailable(context);
         return;
       }
       if (_rtmpUrlController.text.trim().isEmpty) {
@@ -364,12 +364,8 @@ class _BroadcastScreenState extends State<BroadcastScreen>
                 foregroundColor: Colors.black),
             onPressed: () {
               Navigator.pop(ctx);
-              showDialog(
-                      context: context,
-                      builder: (_) => const PaywallDialog())
-                  .then((_) {
-                _cleanupAndPop();
-              });
+              showPaywallIfAvailable(context);
+              _cleanupAndPop();
             },
             child: Text(AppStrings.broadcastUpgrade,
                 style: const TextStyle(fontWeight: FontWeight.bold)),

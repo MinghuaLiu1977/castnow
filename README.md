@@ -2,7 +2,7 @@
 
 [![Project License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform - Web](https://img.shields.io/badge/platform-Web-orange.svg)](#appsweb)
-[![Platform - iOS](https://img.shields.io/badge/platform-iOS-blue.svg)](#appsmobile_pro)
+[![Platform - iOS](https://img.shields.io/badge/platform-iOS-blue.svg)](#appsmobile_ios)
 
 **CastNow** is a high-performance, native P2P screen sharing engine. It allows instant screen casting directly from your browser or mobile device to any receiver with zero installation, zero sign-up, and 4K support.
 
@@ -24,7 +24,7 @@ This is a monorepo containing both the web and mobile implementations:
 castnow/
 ├── apps/
 │   ├── web/        # Vue 3 + Vite + TailwindCSS web application
-│   └── mobile_pro/ # Flutter-based mobile application (iOS)
+│   └── mobile_ios/ # Flutter-based mobile application (iOS)
 ├── package.json    # Monorepo configuration and helper scripts
 └── README.md
 ```

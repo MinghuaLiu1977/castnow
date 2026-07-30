@@ -11,7 +11,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import '../core/subscription_service.dart';
-import '../widgets/paywall_dialog.dart';
+import '../core/paywall_delegate.dart';
 import '../widgets/glass_container.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -76,8 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
         GestureDetector(
           onTap: () {
             if (!isPro) {
-              showDialog(
-                  context: context, builder: (_) => const PaywallDialog());
+              showPaywallIfAvailable(context);
             }
           },
           child: Container(
@@ -241,9 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : GestureDetector(
                 onTap: () {
                   if (!isPro) {
-                    showDialog(
-                        context: context,
-                        builder: (_) => const PaywallDialog());
+                    showPaywallIfAvailable(context);
                   } else {
                     // macOS 不支持 presentCustomerCenter，改为打开 App Store 订阅管理
                     if (Platform.isIOS) {
