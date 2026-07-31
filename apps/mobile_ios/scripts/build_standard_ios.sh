@@ -16,6 +16,13 @@ PODS_DIR="$IOS_DIR/Pods/Target Support Files/Pods-BroadcastExtension"
 BCAST_PODS_XCCONFIG=$(ls "$PODS_DIR/Pods-BroadcastExtension."*".xcconfig" 2>/dev/null | head -1)
 
 cleanup() {
+  # Restore pubspec and main files (must happen first, even on build failure)
+  if [ -n "$_PUBSPEC_BAK" ] && [ -f "$_PUBSPEC_BAK" ]; then
+    cp "$_PUBSPEC_BAK" pubspec.yaml && rm -f "$_PUBSPEC_BAK"
+  fi
+  [ -f lib/main.dart.bak ] && mv lib/main.dart.bak lib/main.dart
+  [ -f lib/main_pro.dart.bak ] && mv lib/main_pro.dart.bak lib/main_pro.dart
+  cd "$PROJECT_DIR" && flutter pub get 2>/dev/null || true
   if [ -n "$RUNNER_PLIST_BAK" ] && [ -f "$RUNNER_PLIST_BAK" ]; then
     cp "$RUNNER_PLIST_BAK" "$IOS_DIR/Runner/Info.plist"
     rm -f "$RUNNER_PLIST_BAK"

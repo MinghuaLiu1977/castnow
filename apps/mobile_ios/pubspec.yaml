@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
   castnow_core:
     path: ../core
+  purchases_flutter: ^10.1.1
+  purchases_ui_flutter: ^10.1.1
 
 dev_dependencies:
   flutter_test:
