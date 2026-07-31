@@ -1,0 +1,54 @@
+#!/bin/bash
+set -e
+
+# Define paths
+PROJECT_DIR="/Users/minghualiu/personal/EastlakeStudio/castnow/apps/mobile_ios"
+ARCHIVE_PATH="$PROJECT_DIR/build/ios/archive/Runner.xcarchive"
+EXPORT_PATH="$PROJECT_DIR/build/ios/ipa"
+PLIST_PATH="$PROJECT_DIR/ios/ExportOptions.plist"
+
+echo "------------------------------------------------"
+echo "Phase 1: Building Flutter Resources..."
+echo "------------------------------------------------"
+cd "$PROJECT_DIR"
+flutter build ios --release --no-codesign
+
+echo "------------------------------------------------"
+echo "Phase 2: Building Xcode Archive (Manual Signing)..."
+echo "------------------------------------------------"
+# Clean up old archive
+rm -rf "$ARCHIVE_PATH"
+
+# Run xcodebuild archive directly to ensure entitlements are preserved
+xcodebuild archive \
+    -workspace ios/Runner.xcworkspace \
+    -scheme Runner \
+    -configuration Release \
+    -archivePath "$ARCHIVE_PATH" \
+    CODE_SIGNING_ALLOWED=NO
+
+echo "------------------------------------------------"
+echo "Phase 3: Exporting IPA..."
+echo "Archive: $ARCHIVE_PATH"
+echo "Export Options: $PLIST_PATH"
+echo "------------------------------------------------"
+
+# Ensure export directory exists
+mkdir -p "$EXPORT_PATH"
+
+# Run xcodebuild export
+xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportPath "$EXPORT_PATH" \
+    -exportOptionsPlist "$PLIST_PATH" \
+    -allowProvisioningUpdates
+
+echo "------------------------------------------------"
+echo "IPA Export Success!"
+echo "Destination: $EXPORT_PATH"
+echo "------------------------------------------------"
+
+# Rename the IPA to castnow_pro_mobile.ipa
+for f in "$EXPORT_PATH"/*.ipa; do if [ -f "$f" ]; then mv "$f" "$EXPORT_PATH/castnow_pro_mobile.ipa"; break; fi; done
+
+ls -lh "$EXPORT_PATH"
