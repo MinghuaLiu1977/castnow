@@ -63,7 +63,7 @@ post_install do |installer|
     content = File.read(config_path)
     unless content.include?('BROADCAST_EXTENSION_BUNDLE_ID')
       File.open(config_path, 'a') do |f|
-        f.puts "\nBROADCAST_EXTENSION_BUNDLE_ID = com.eastlakestudio.castnow.pro.BroadcastExtension"
+        f.puts "\nBROADCAST_EXTENSION_BUNDLE_ID = com.eastlakestudio.castnow.BroadcastExtension"
       end
     end
   end

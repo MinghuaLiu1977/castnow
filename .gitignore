@@ -8,3 +8,10 @@ apps/mobile_pro/build/
 apps/mobile/ios/build/
 .openspec/skills/
 .qoder/skills
+apps/mobile_ios/.dart_tool
+apps/mobile_ios/.idea
+apps/mobile_ios/build
+apps/mobile_ios/ios/.symlinks
+apps/mobile_ios/ios/flutter
+apps/mobile_ios/ios/Pods
+apps/mobile_ios/ios/Runner
