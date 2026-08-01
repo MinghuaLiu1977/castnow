@@ -9,6 +9,7 @@ import 'package:castnow_core/screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FlavorConfig.init(AppFlavor.standard);
   final subscriptionService = StandardSubscriptionService();
   subscriptionService.init();
 

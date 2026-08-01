@@ -44,6 +44,7 @@ class WebrtcBroadcastService {
     required bool isPro,
     required bool initialFreeTrialUsed,
   }) async {
+    debugPrint('🔗 [PEER] connect() called with code=$code, isPro=$isPro');
     _isStopping = false;
     isLoading = true;
     _isPro = isPro;
@@ -105,8 +106,10 @@ class WebrtcBroadcastService {
       );
 
       // 2. Setup event listeners
+      debugPrint('🔗 [PEER] Setting up listeners, waiting for open...');
       _peerSubscriptions.add(_peer!.on('open').listen(
         (id) {
+          debugPrint('✅ [PEER] Connected! peerId=$id');
           peerId = id;
           isLoading = false;
           onStateChanged?.call();

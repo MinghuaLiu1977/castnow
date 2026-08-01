@@ -12,6 +12,7 @@ import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FlavorConfig.init(AppFlavor.pro);
   final subscriptionService = RevenueCatSubscriptionService();
   subscriptionService.init();
 

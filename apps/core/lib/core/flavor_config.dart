@@ -3,16 +3,13 @@ import 'dart:io';
 enum AppFlavor { pro, standard }
 
 class FlavorConfig {
-  static final FlavorConfig _instance = FlavorConfig._internal();
+  static AppFlavor _flavor = AppFlavor.pro;
 
-  factory FlavorConfig() => _instance;
-
-  FlavorConfig._internal();
-
-  static AppFlavor get flavor {
-    const flavorStr = String.fromEnvironment('FLAVOR', defaultValue: 'pro');
-    return flavorStr == 'standard' ? AppFlavor.standard : AppFlavor.pro;
+  static void init(AppFlavor flavor) {
+    _flavor = flavor;
   }
+
+  static AppFlavor get flavor => _flavor;
 
   static bool get isPro => flavor == AppFlavor.pro;
   static bool get isStandard => flavor == AppFlavor.standard;
