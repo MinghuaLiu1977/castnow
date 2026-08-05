@@ -249,7 +249,7 @@ const swapStreams = () => layout.swapStreams();
     </div>
 
     <main class="flex-1 flex flex-col relative overflow-hidden">
-      <Transition name="fade" mode="out-in">
+      <Transition name="fade">
         <!-- Landing -->
         <LandingView v-if="appState === STATES.LANDING"
           @navigate="(s) => appState = s"
@@ -304,7 +304,7 @@ const swapStreams = () => layout.swapStreams();
           </div>
         </div>
 
-        <!-- Receiver Active (kept inline due to complex drag/PiP interactions) -->
+        <!-- Receiver Active (outside Transition for immediate video mounting) -->
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE"
           ref="receiverRoot"
           class="fixed inset-0 bg-black flex items-center justify-center overflow-hidden"

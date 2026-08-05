@@ -50,5 +50,5 @@ export function useI18n() {
     return value
   }
 
-  return { t, locale, loadMessages }
+  return { t, locale, loadMessages, messagesLoaded }
 }

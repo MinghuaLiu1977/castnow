@@ -49,10 +49,10 @@ export function useWebRTC(getIceServers) {
 
   const setupRemoteVideo = async (el, stream) => {
     if (!el || !stream) return;
-    if (el.srcObject === stream) return;
     el.srcObject = stream;
     el.setAttribute('playsinline', 'true');
     el.setAttribute('webkit-playsinline', 'true');
+    el.load();
     try {
       await el.play();
     } catch (err) {
