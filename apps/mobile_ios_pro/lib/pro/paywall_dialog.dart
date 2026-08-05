@@ -8,6 +8,7 @@ import 'package:castnow_core/core/flavor_config.dart';
 import 'package:castnow_core/l10n/app_strings.dart';
 import 'package:castnow_core/widgets/glass_container.dart';
 
+
 class PaywallDialog extends StatefulWidget {
   const PaywallDialog({super.key});
 
@@ -25,7 +26,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
   }
 
   Future<void> _trackImpression() async {
-    final subService = context.read<RevenueCatSubscriptionService>();
+    final subService = context.read<SubscriptionService>() as RevenueCatSubscriptionService;
     final offeringId = subService.annualPackage?.offeringIdentifier ?? 'default';
     
     try {
@@ -43,7 +44,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final subService = context.watch<RevenueCatSubscriptionService>();
+    final subService = context.watch<SubscriptionService>() as RevenueCatSubscriptionService;
     final isLoading = subService.isPurchasing;
     final isSubscribed = subService.isSubscribed;
 
@@ -56,13 +57,9 @@ class _PaywallDialogState extends State<PaywallDialog> {
     }
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFF1E293B),
       insetPadding: const EdgeInsets.all(24),
-      child: GlassContainer(
-        blurSigma: 8,
-        padding: const EdgeInsets.all(24),
-        borderRadius: 24,
-        child: SingleChildScrollView(
+      child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -89,6 +86,7 @@ class _PaywallDialogState extends State<PaywallDialog> {
               // Plan Duration details
               GlassContainer(
                 blurSigma: 4,
+                backgroundOpacity: 0.1,
                 padding: const EdgeInsets.all(16),
                 borderRadius: 16,
                 child: Row(
@@ -233,7 +231,6 @@ class _PaywallDialogState extends State<PaywallDialog> {
             ],
           ),
         ),
-      ),
     );
   }
 

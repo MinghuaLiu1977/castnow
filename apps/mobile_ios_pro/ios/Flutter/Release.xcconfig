@@ -2,4 +2,4 @@
 #include "Generated.xcconfig"
 APP_BUNDLE_ID = com.eastlakestudio.castnow.pro
 FLUTTER_BUILD_NAME = 3.1.5
-FLUTTER_BUILD_NUMBER = 30
+FLUTTER_BUILD_NUMBER = 36

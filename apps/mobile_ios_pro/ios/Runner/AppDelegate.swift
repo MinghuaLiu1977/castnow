@@ -20,10 +20,7 @@ import StoreKit
         BroadcastPickerManager.shared.channel = triggerChannel
         
         triggerChannel.setMethodCallHandler { (call, result) in
-            if call.method == "triggerPicker" {
-                BroadcastPickerManager.shared.trigger()
-                result(true)
-            } else if call.method == "hidePicker" {
+            if call.method == "hidePicker" {
                 BroadcastPickerManager.shared.hidePicker()
                 result(true)
             } else {
@@ -110,7 +107,7 @@ import StoreKit
   }
 }
 
-// Global manager to hold and trigger the picker
+// Global manager to hold the picker
 class BroadcastPickerManager {
     static let shared = BroadcastPickerManager()
     weak var currentPicker: RPSystemBroadcastPickerView?
@@ -120,29 +117,6 @@ class BroadcastPickerManager {
         print("[BroadcastPickerManager] \(message)")
         DispatchQueue.main.async {
             self.channel?.invokeMethod("nativeLog", arguments: message)
-        }
-    }
-    
-    func trigger() {
-        guard let picker = currentPicker else {
-            log("❌ Trigger failed: picker is nil")
-            return
-        }
-        
-        func findButton(in view: UIView) -> UIButton? {
-            if let button = view as? UIButton { return button }
-            for subview in view.subviews {
-                if let found = findButton(in: subview) { return found }
-            }
-            return nil
-        }
-
-        if let button = findButton(in: picker) {
-            log("📢 Clicking native broadcast button...")
-            button.sendActions(for: .touchUpInside)
-            log("✅ Trigger sent")
-        } else {
-            log("❌ UI Matcher failed")
         }
     }
     
