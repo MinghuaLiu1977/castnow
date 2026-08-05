@@ -63,9 +63,7 @@ const {
   dragType, isDragging, isMuted, isTouchDevice, isMobile,
 } = layout;
 
-const { t, locale, loadMessages } = useI18n();
-
-const tModule = { loadMessages };
+const { t, locale, loadMessages, messagesLoaded } = useI18n();
 
 const receiverRoot = ref(null);
 const remoteDeviceInfo = ref('');
@@ -183,7 +181,7 @@ const handleKeyDown = (e) => {
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
   await media.enumerateDevices();
-  await tModule.loadMessages();
+  await loadMessages();
 });
 
 onUnmounted(() => {
@@ -211,7 +209,7 @@ const swapStreams = () => layout.swapStreams();
 </script>
 
 <template>
-  <div class="min-h-[100dvh] flex flex-col bg-slate-950 text-slate-50 font-sans selection:bg-cyan-500/30">
+  <div v-if="messagesLoaded" class="min-h-[100dvh] flex flex-col bg-slate-950 text-slate-50 font-sans selection:bg-cyan-500/30">
     <header v-if="appState !== STATES.RECEIVER_ACTIVE"
       class="flex items-center justify-between px-6 py-4 border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
       <div class="flex items-center gap-3 cursor-pointer group" @click="resetApp">
