@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import {
   Monitor, Camera, Activity, Volume2, VolumeX, Repeat,
   CheckCircle2, Smartphone, Mic, MicOff,
@@ -25,6 +25,15 @@ const emit = defineEmits(['toggleMic', 'toggleCamera', 'resetApp']);
 const localScreenVideo = ref(null);
 const localCameraVideo = ref(null);
 const localVideoEl = ref(null);
+
+watch(localScreenVideo, (el) => { if (el && props.localScreenStream) el.srcObject = props.localScreenStream; });
+watch(() => props.localScreenStream, (stream) => { if (stream && localScreenVideo.value) localScreenVideo.value.srcObject = stream; });
+
+watch(localCameraVideo, (el) => { if (el && props.localCameraStream) el.srcObject = props.localCameraStream; });
+watch(() => props.localCameraStream, (stream) => { if (stream && localCameraVideo.value) localCameraVideo.value.srcObject = stream; });
+
+watch(localVideoEl, (el) => { if (el && props.localVideo) el.srcObject = props.localVideo; });
+watch(() => props.localVideo, (stream) => { if (stream && localVideoEl.value) localVideoEl.value.srcObject = stream; });
 </script>
 
 <template>

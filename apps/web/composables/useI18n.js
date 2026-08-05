@@ -1,6 +1,7 @@
 import { ref, reactive } from 'vue'
 
 const messages = reactive({
+  en: {},
   zh: {},
 })
 
@@ -9,7 +10,11 @@ const messagesLoaded = ref(false)
 async function loadMessages() {
   if (messagesLoaded.value) return
   try {
-    const zh = await fetch('/locales/zh.json').then(r => r.json())
+    const [en, zh] = await Promise.all([
+      fetch('/locales/en.json').then(r => r.json()),
+      fetch('/locales/zh.json').then(r => r.json()),
+    ])
+    Object.assign(messages.en, en)
     Object.assign(messages.zh, zh)
     messagesLoaded.value = true
   } catch (err) {
@@ -18,7 +23,15 @@ async function loadMessages() {
   }
 }
 
-const locale = ref('zh')
+function getDefaultLocale() {
+  const host = window.location.hostname
+  if (host === 'castnow.padap.cn') return 'zh'
+  const lang = (navigator.language || 'en').toLowerCase()
+  if (lang.startsWith('zh')) return 'zh'
+  return 'en'
+}
+
+const locale = ref(getDefaultLocale())
 
 export function useI18n() {
   const t = (key, params) => {
