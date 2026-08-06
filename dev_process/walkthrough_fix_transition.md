@@ -1,26 +1,19 @@
-# 摄像头与麦克风权限拒绝检测与自动禁用完成报告
+# 修复停止投屏 TypeError (stopAllStreams is not a function) 完成报告
 
 ## 修改概述
 
-本次修改实现了 Web 端在设备初始化、交互切换与媒体捕获时，对**摄像头权限**和**麦克风权限**被拒绝（Denied）状态的感知。当用户或浏览器拒绝了摄像头/麦克风权限时，系统将**同步自动取消选定**，并在 UI 上**置灰禁用**该选项，明确提示“摄像头权限已被拒绝”或“麦克风权限已被拒绝”。
+本次修改修复了用户在停止/结束投屏时出现的运行时崩溃报错：`TypeError: media.stopAllStreams is not a function`。
 
 ---
 
 ## 主要变更点
 
-### 1. 权限状态感知与同步取消选中 ([useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js))
-- 使用 `navigator.permissions.query({ name: 'camera' })` 与 `navigator.permissions.query({ name: 'microphone' })` 主动监听权限变化。
-- 在 `captureMediaStreams` 捕获流报错 `NotAllowedError` 时，同步标记 `isCameraDenied.value = true` / `isMicDenied.value = true`。
-- 使用带有 `{ flush: 'sync' }` 的 Vue Watcher 确保一旦权限被拒绝，同步从 `selectedSources` 数组中剔除 `'camera'` 或 `'mic'`。
-- 在 `toggleSource` 中防误触拦截对权限被拒绝硬件的开启尝试。
+### 1. 补全导出 `stopAllStreams` ([useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js))
+- **根因**：之前重构导出属性时在 `return { ... }` 中漏掉了 `stopAllStreams` 函数。
+- **修复**：在 `useMediaStream()` 的 `return` 对象中补齐导出 `stopAllStreams`。
 
-### 2. UI 界面置灰与红色权限拒绝标签 ([SourceSelectView.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/components/SourceSelectView.vue))
-- 摄像头选项：当无硬件或权限被拒绝时，设置 `:disabled="true"` 呈现半透明置灰。权限被拒绝时展示红色 Badge 标签 **“摄像头权限已被拒绝”** (英文: "Camera Access Denied")；无硬件时展示 **“未检测到摄像头”**。
-- 麦克风控制区：当无硬件或权限被拒绝时，开关按钮设置 `:disabled="true"` 呈现半透明置灰。权限被拒绝时展示红色 Badge 标签 **“麦克风权限已被拒绝”** (英文: "Microphone Access Denied")；无硬件时展示 **“未检测到麦克风”**。
-
-### 3. 多语言文案扩充 ([zh.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/zh.json) & [en.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/en.json))
-- 中文新增 `source.cameraDenied: "摄像头权限已被拒绝"`、`source.micDenied: "麦克风权限已被拒绝"`。
-- 英文新增 `source.cameraDenied: "Camera Access Denied"`、`source.micDenied: "Microphone Access Denied"`。
+### 2. 防御性可选链保护 ([App.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/App.vue))
+- **修复**：在 `resetApp` 函数中，将 `media.stopAllStreams()` 改为可选链调用 `media.stopAllStreams?.()`，并对 `webrtc` 的重置方法均加上可选链保护，确保极端异常情况下页面绝不崩溃。
 
 ---
 
@@ -39,5 +32,5 @@
 ```
 
 ### 2. 生产环境部署
-- **Cloudflare Pages (`https://castnow.padap.cn/`)**：已通过 Wrangler CLI 成功重新打包并部署上线！
-- **Vercel (`https://castnow.vercel.app/`)**：代码已 Commit 并 Push 至 `origin/main`（Commit: `6025900`），由 Git 自动构建上线。
+- **Cloudflare Pages (`https://castnow.padap.cn/`)**：通过 Wrangler CLI 打包并成功全量发布上线上线！
+- **Vercel (`https://castnow.vercel.app/`)**：代码已 Commit 并 Push 至 `origin/main`（Commit: `5aa304c`），Git 自动触发打包上线。
