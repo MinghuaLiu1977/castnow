@@ -35,7 +35,9 @@
     "cancel": "← 取消操作",
     "desktopOnly": "仅桌面端支持",
     "noCamera": "未检测到摄像头",
-    "noMic": "未检测到麦克风"
+    "noMic": "未检测到麦克风",
+    "cameraDenied": "摄像头权限已被拒绝",
+    "micDenied": "麦克风权限已被拒绝"
   },
   "sender": {
     "activeTunnel": "投屏中",

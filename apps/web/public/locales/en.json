@@ -35,7 +35,9 @@
     "cancel": "← Cancel Operation",
     "desktopOnly": "Desktop Only",
     "noCamera": "No Camera Found",
-    "noMic": "No Mic Found"
+    "noMic": "No Mic Found",
+    "cameraDenied": "Camera Access Denied",
+    "micDenied": "Microphone Access Denied"
   },
   "sender": {
     "activeTunnel": "Active Tunnel",

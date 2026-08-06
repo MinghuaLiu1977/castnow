@@ -47,7 +47,8 @@ const webrtc = useWebRTC(media.getIceServers);
 const {
   castingMode, facingMode, localStream, localVideo,
   localScreenStream, localCameraStream, localScreenVideo, localCameraVideo,
-  isMicMuted, selectedSources, isScreenShareSupported, hasCamera, hasMicrophone, videoDevices, hasMultipleCameras,
+  isMicMuted, selectedSources, isScreenShareSupported, hasCamera, hasMicrophone,
+  isCameraDenied, isMicDenied, videoDevices, hasMultipleCameras,
 } = media;
 
 const {
@@ -264,6 +265,8 @@ const swapStreams = () => layout.swapStreams();
           :isScreenShareSupported="isScreenShareSupported"
           :hasCamera="hasCamera"
           :hasMicrophone="hasMicrophone"
+          :isCameraDenied="isCameraDenied"
+          :isMicDenied="isMicDenied"
           @toggleSource="media.toggleSource"
           @startBroadcast="handleStartCasting"
           @navigate="(s) => appState = s" />

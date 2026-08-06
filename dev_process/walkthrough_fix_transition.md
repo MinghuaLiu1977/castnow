@@ -1,57 +1,44 @@
-# CastNow 单代码库双站点 (CN/EN) 部署支持与界面跳动修复报告
+# Web 端摄像头与麦克风设备检测与自动禁用完成报告
 
 ## 修改概述
 
-本次修改实现了用**同一套 Web 代码库完美支持两个部署域名**（`castnow.padap.cn` 中文站与 `castnow.vercel.app` 英文站），并完成了过渡动画跳动与投屏交互体验的全面优化。
+本次修改实现了 Web 端在设备初始化与“选择来源”界面对**摄像头 (Camera)** 和 **麦克风 (Microphone)** 硬件能力的感知。当设备缺少摄像头或麦克风时，系统将**自动取消选定**，并在 UI 上**置灰禁用**该选项，提示“未检测到摄像头/麦克风”。
 
 ---
 
 ## 主要变更点
 
-### 1. 单代码库双站点 (CN/EN) 部署自适应
-- **文件**：[useI18n.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useI18n.js) & [App.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/App.vue)
-- **改进**：
-  - 更新 `getDefaultLocale()`：当访问域名为 `castnow.vercel.app`（或任何 `*.vercel.app` 预览域名）时，强制设为英文 `en`；当访问域名为 `castnow.padap.cn` 时，强制设为中文 `zh`；本地开发按浏览器语言智能判定。
-  - 在页面初始化挂载时，根据所属域名的语言自动同步更新 `document.title` 与 HTML `lang` 属性。
+### 1. 硬件能力检测与自适应过滤 ([useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js))
+- 在 `enumerateDevices` 中搜寻 `videoinput` 与 `audioinput` 设备。
+- 增加响应式状态 `hasCamera`（是否有摄像头）与 `hasMicrophone`（是否有麦克风）。
+- 当搜寻发现缺失硬件时：
+  - 自动从默认选中的 `selectedSources` 数组中剔除对应项。
+  - 在 `toggleSource` 中拦截点击，防止用户在无硬件的情况下误选。
 
-### 2. 视图过渡模式修复 (`mode="out-in"`)
-- **文件**：[App.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/App.vue)
-- **改进**：为 `<main>` 容器下的主视图切换组件 `<Transition name="fade">` 添加了 `mode="out-in"` 属性。
-- **效果**：旧视图先平滑淡出，新视图再挂载淡入，彻底消除了离场视图与进场视图在 DOM 中同时占位导致的下移和跳跃现象。
+### 2. UI 界面置灰与提示标签 ([SourceSelectView.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/components/SourceSelectView.vue))
+- 摄像头选项：若 `!hasCamera`，设置 `:disabled="true"`，添加 `opacity-50 cursor-not-allowed` 置灰样式，并显示 Badge 标签 **“未检测到摄像头”** (英文: "No Camera Found")。
+- 麦克风控制区：若 `!hasMicrophone`，设置开关 `:disabled="true"`，添加置灰样式，并显示 Badge 标签 **“未检测到麦克风”** (英文: "No Mic Found")。
 
-### 3. 按钮文案区分与交互引导
-- **文件**：[zh.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/zh.json) & [en.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/en.json)
-- **改进**：
-  - 首页主行动按钮：修改为 **“发起投屏”** / **"Start Cast"**。
-  - 来源选择页确认按钮：修改为 **“确认并开始投屏”** / **"Confirm & Start"**。
-  - 新增取消屏幕共享授权时的 Toast 轻提示 **“已取消屏幕共享授权”**。
-
-### 4. 移动端/不支持设备能力智能适配
-- **文件**：[useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js) & [SourceSelectView.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/components/SourceSelectView.vue)
-- **改进**：在移动端等不支持屏幕共享的设备上，默认勾选 `['camera', 'mic']`，并在“选择来源”界面上将“屏幕共享”置灰标明 **“仅桌面端支持”** 徽章。
+### 3. 多语言文案扩充 ([zh.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/zh.json) & [en.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/en.json))
+- 中文增加 `source.noCamera: "未检测到摄像头"`、`source.noMic: "未检测到麦克风"`。
+- 英文增加 `source.noCamera: "No Camera Found"`、`source.noMic: "No Mic Found"`。
 
 ---
 
-## 验证结果
+## 验证与发布
 
-### 1. 自动化单元测试 (`vitest`)
+### 1. 自动化测试 (`vitest`)
 ```bash
- RUN  v3.2.4 /Users/minghualiu/personal/EastlakeStudio/castnow
+ RUN  v3.2.7 /Users/minghualiu/personal/EastlakeStudio/castnow
 
- ✓ apps/web/tracks.test.js (2 tests)
  ✓ apps/web/download.test.js (2 tests)
- ✓ apps/web/transitionAndSource.test.js (4 tests)
+ ✓ apps/web/tracks.test.js (2 tests)
+ ✓ apps/web/transitionAndSource.test.js (5 tests)
 
  Test Files  3 passed (3)
-      Tests  8 passed (8)
+      Tests  9 passed (9)
 ```
 
-### 2. 生产环境构建编译 (`vite build`)
-```bash
-vite v5.4.21 building for production...
-✓ 1462 modules transformed.
-dist/index.html                   3.82 kB │ gzip:  1.54 kB
-dist/assets/index-BXivtL9c.css   26.88 kB │ gzip:  5.26 kB
-dist/assets/index-Ce6qvC54.js   123.88 kB │ gzip: 42.16 kB
-✓ built in 1.10s
-```
+### 2. 生产环境部署
+- **Cloudflare Pages (`https://castnow.padap.cn/`)**：已通过 Wrangler CLI 打包并部署上线！
+- **Vercel (`https://castnow.vercel.app/`)**：代码已 Push 至 `origin/main`（Commit: `bf288da`），由 Git 自动构建部署。

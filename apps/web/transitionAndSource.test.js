@@ -28,10 +28,22 @@ describe('CastNow Web Transition and Source Selection Logic', () => {
     expect(typeof media.isScreenShareSupported.value).toBe('boolean');
   });
 
-  it('should handle camera and microphone availability checks correctly', () => {
+  it('should handle camera and microphone availability and denial checks correctly', () => {
     const media = useMediaStream();
     expect(typeof media.hasCamera.value).toBe('boolean');
     expect(typeof media.hasMicrophone.value).toBe('boolean');
+    expect(media.isCameraDenied.value).toBe(false);
+    expect(media.isMicDenied.value).toBe(false);
+
+    media.isCameraDenied.value = true;
+    expect(media.isCameraAvailable.value).toBe(false);
+    media.toggleSource('camera');
+    expect(media.selectedSources.value).not.toContain('camera');
+
+    media.isMicDenied.value = true;
+    expect(media.isMicAvailable.value).toBe(false);
+    media.toggleSource('mic');
+    expect(media.selectedSources.value).not.toContain('mic');
   });
 
   it('should handle toggleSource correctly when screen is unsupported', () => {

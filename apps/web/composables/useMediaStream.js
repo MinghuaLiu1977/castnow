@@ -19,6 +19,8 @@ export function useMediaStream() {
   const videoDevices = ref([]);
   const audioDevices = ref([]);
   const isDeviceEnumerated = ref(false);
+  const isCameraDenied = ref(false);
+  const isMicDenied = ref(false);
 
   const hasCamera = computed(() => {
     if (!isDeviceEnumerated.value) return true; // Before enum, assume true until checked
@@ -29,6 +31,23 @@ export function useMediaStream() {
     if (!isDeviceEnumerated.value) return true; // Before enum, assume true until checked
     return audioDevices.value.length > 0;
   });
+
+  const isCameraAvailable = computed(() => hasCamera.value && !isCameraDenied.value);
+  const isMicAvailable = computed(() => hasMicrophone.value && !isMicDenied.value);
+
+  watch(isCameraDenied, (denied) => {
+    if (denied) {
+      const idx = selectedSources.value.indexOf('camera');
+      if (idx > -1) selectedSources.value.splice(idx, 1);
+    }
+  }, { flush: 'sync' });
+
+  watch(isMicDenied, (denied) => {
+    if (denied) {
+      const idx = selectedSources.value.indexOf('mic');
+      if (idx > -1) selectedSources.value.splice(idx, 1);
+    }
+  }, { flush: 'sync' });
 
   const selectedSources = ref(
     isScreenShareSupported.value ? ['screen', 'camera', 'mic'] : ['camera', 'mic']
@@ -49,8 +68,8 @@ export function useMediaStream() {
 
   const toggleSource = (source) => {
     if (source === 'screen' && !isScreenShareSupported.value) return;
-    if (source === 'camera' && !hasCamera.value) return;
-    if (source === 'mic' && !hasMicrophone.value) return;
+    if (source === 'camera' && !isCameraAvailable.value) return;
+    if (source === 'mic' && !isMicAvailable.value) return;
 
     const index = selectedSources.value.indexOf(source);
     if (index > -1) {
@@ -94,18 +113,28 @@ export function useMediaStream() {
     }
 
     if (selectedSources.value.includes('camera')) {
-      const cs = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingMode.value,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
-      cs.getVideoTracks().forEach(t => {
-        localCameraStream.value = new MediaStream([t]);
-        combinedStream.addTrack(t);
-      });
+      try {
+        const cs = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facingMode.value,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+        cs.getVideoTracks().forEach(t => {
+          localCameraStream.value = new MediaStream([t]);
+          combinedStream.addTrack(t);
+        });
+        isCameraDenied.value = false;
+      } catch (err) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          isCameraDenied.value = true;
+          const idx = selectedSources.value.indexOf('camera');
+          if (idx > -1) selectedSources.value.splice(idx, 1);
+        }
+        throw err;
+      }
     }
 
     if (selectedSources.value.includes('mic')) {
@@ -121,8 +150,14 @@ export function useMediaStream() {
           t.enabled = !isMicMuted.value;
           combinedStream.addTrack(t);
         });
+        isMicDenied.value = false;
       } catch (e) {
         console.error('Failed to capture microphone', e);
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+          isMicDenied.value = true;
+          const idx = selectedSources.value.indexOf('mic');
+          if (idx > -1) selectedSources.value.splice(idx, 1);
+        }
       }
     }
 
@@ -169,19 +204,52 @@ export function useMediaStream() {
     }
   };
 
+  const checkPermissionQueries = async () => {
+    if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+      try {
+        const cam = await navigator.permissions.query({ name: 'camera' });
+        if (cam.state === 'denied') isCameraDenied.value = true;
+        cam.onchange = () => {
+          if (cam.state === 'denied') {
+            isCameraDenied.value = true;
+            const idx = selectedSources.value.indexOf('camera');
+            if (idx > -1) selectedSources.value.splice(idx, 1);
+          } else if (cam.state === 'granted') {
+            isCameraDenied.value = false;
+          }
+        };
+      } catch (_) {}
+
+      try {
+        const mic = await navigator.permissions.query({ name: 'microphone' });
+        if (mic.state === 'denied') isMicDenied.value = true;
+        mic.onchange = () => {
+          if (mic.state === 'denied') {
+            isMicDenied.value = true;
+            const idx = selectedSources.value.indexOf('mic');
+            if (idx > -1) selectedSources.value.splice(idx, 1);
+          } else if (mic.state === 'granted') {
+            isMicDenied.value = false;
+          }
+        };
+      } catch (_) {}
+    }
+  };
+
   const enumerateDevices = async () => {
     try {
+      await checkPermissionQueries();
       if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         videoDevices.value = devices.filter(d => d.kind === 'videoinput');
         audioDevices.value = devices.filter(d => d.kind === 'audioinput');
         isDeviceEnumerated.value = true;
 
-        if (videoDevices.value.length === 0) {
+        if (videoDevices.value.length === 0 || isCameraDenied.value) {
           const idx = selectedSources.value.indexOf('camera');
           if (idx > -1) selectedSources.value.splice(idx, 1);
         }
-        if (audioDevices.value.length === 0) {
+        if (audioDevices.value.length === 0 || isMicDenied.value) {
           const idx = selectedSources.value.indexOf('mic');
           if (idx > -1) selectedSources.value.splice(idx, 1);
         }
@@ -226,6 +294,10 @@ export function useMediaStream() {
     audioDevices,
     hasCamera,
     hasMicrophone,
+    isCameraDenied,
+    isMicDenied,
+    isCameraAvailable,
+    isMicAvailable,
     hasMultipleCameras,
     toggleSource,
     getIceServers,
@@ -233,7 +305,6 @@ export function useMediaStream() {
     toggleMic,
     toggleCamera,
     enumerateDevices,
-    stopAllStreams,
     resetMediaState,
   };
 }
