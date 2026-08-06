@@ -33,7 +33,9 @@
     "off": "关",
     "start": "确认并开始投屏",
     "cancel": "← 取消操作",
-    "desktopOnly": "仅桌面端支持"
+    "desktopOnly": "仅桌面端支持",
+    "noCamera": "未检测到摄像头",
+    "noMic": "未检测到麦克风"
   },
   "sender": {
     "activeTunnel": "投屏中",

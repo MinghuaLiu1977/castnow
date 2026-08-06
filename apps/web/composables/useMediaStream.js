@@ -16,10 +16,24 @@ export function useMediaStream() {
     return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   });
 
+  const videoDevices = ref([]);
+  const audioDevices = ref([]);
+  const isDeviceEnumerated = ref(false);
+
+  const hasCamera = computed(() => {
+    if (!isDeviceEnumerated.value) return true; // Before enum, assume true until checked
+    return videoDevices.value.length > 0;
+  });
+
+  const hasMicrophone = computed(() => {
+    if (!isDeviceEnumerated.value) return true; // Before enum, assume true until checked
+    return audioDevices.value.length > 0;
+  });
+
   const selectedSources = ref(
     isScreenShareSupported.value ? ['screen', 'camera', 'mic'] : ['camera', 'mic']
   );
-  const videoDevices = ref([]);
+
   const hasMultipleCameras = computed(() => videoDevices.value.length > 1);
 
   // Watch video element bindings
@@ -35,6 +49,8 @@ export function useMediaStream() {
 
   const toggleSource = (source) => {
     if (source === 'screen' && !isScreenShareSupported.value) return;
+    if (source === 'camera' && !hasCamera.value) return;
+    if (source === 'mic' && !hasMicrophone.value) return;
 
     const index = selectedSources.value.indexOf(source);
     if (index > -1) {
@@ -155,8 +171,21 @@ export function useMediaStream() {
 
   const enumerateDevices = async () => {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      videoDevices.value = devices.filter(d => d.kind === 'videoinput');
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices.value = devices.filter(d => d.kind === 'videoinput');
+        audioDevices.value = devices.filter(d => d.kind === 'audioinput');
+        isDeviceEnumerated.value = true;
+
+        if (videoDevices.value.length === 0) {
+          const idx = selectedSources.value.indexOf('camera');
+          if (idx > -1) selectedSources.value.splice(idx, 1);
+        }
+        if (audioDevices.value.length === 0) {
+          const idx = selectedSources.value.indexOf('mic');
+          if (idx > -1) selectedSources.value.splice(idx, 1);
+        }
+      }
     } catch (e) {
       console.error('Device detection failed', e);
     }
@@ -194,6 +223,9 @@ export function useMediaStream() {
     selectedSources,
     isScreenShareSupported,
     videoDevices,
+    audioDevices,
+    hasCamera,
+    hasMicrophone,
     hasMultipleCameras,
     toggleSource,
     getIceServers,

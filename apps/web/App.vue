@@ -47,7 +47,7 @@ const webrtc = useWebRTC(media.getIceServers);
 const {
   castingMode, facingMode, localStream, localVideo,
   localScreenStream, localCameraStream, localScreenVideo, localCameraVideo,
-  isMicMuted, selectedSources, isScreenShareSupported, videoDevices, hasMultipleCameras,
+  isMicMuted, selectedSources, isScreenShareSupported, hasCamera, hasMicrophone, videoDevices, hasMultipleCameras,
 } = media;
 
 const {
@@ -262,6 +262,8 @@ const swapStreams = () => layout.swapStreams();
         <SourceSelectView v-else-if="appState === STATES.SOURCE_SELECT"
           :selectedSources="selectedSources"
           :isScreenShareSupported="isScreenShareSupported"
+          :hasCamera="hasCamera"
+          :hasMicrophone="hasMicrophone"
           @toggleSource="media.toggleSource"
           @startBroadcast="handleStartCasting"
           @navigate="(s) => appState = s" />

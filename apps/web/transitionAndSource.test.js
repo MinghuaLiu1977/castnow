@@ -28,6 +28,12 @@ describe('CastNow Web Transition and Source Selection Logic', () => {
     expect(typeof media.isScreenShareSupported.value).toBe('boolean');
   });
 
+  it('should handle camera and microphone availability checks correctly', () => {
+    const media = useMediaStream();
+    expect(typeof media.hasCamera.value).toBe('boolean');
+    expect(typeof media.hasMicrophone.value).toBe('boolean');
+  });
+
   it('should handle toggleSource correctly when screen is unsupported', () => {
     const media = useMediaStream();
     if (!media.isScreenShareSupported.value) {

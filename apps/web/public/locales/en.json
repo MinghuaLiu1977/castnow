@@ -33,7 +33,9 @@
     "off": "OFF",
     "start": "Confirm & Start",
     "cancel": "← Cancel Operation",
-    "desktopOnly": "Desktop Only"
+    "desktopOnly": "Desktop Only",
+    "noCamera": "No Camera Found",
+    "noMic": "No Mic Found"
   },
   "sender": {
     "activeTunnel": "Active Tunnel",
