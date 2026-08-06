@@ -1,27 +1,26 @@
-# Web 端摄像头与麦克风设备检测与自动禁用完成报告
+# 摄像头与麦克风权限拒绝检测与自动禁用完成报告
 
 ## 修改概述
 
-本次修改实现了 Web 端在设备初始化与“选择来源”界面对**摄像头 (Camera)** 和 **麦克风 (Microphone)** 硬件能力的感知。当设备缺少摄像头或麦克风时，系统将**自动取消选定**，并在 UI 上**置灰禁用**该选项，提示“未检测到摄像头/麦克风”。
+本次修改实现了 Web 端在设备初始化、交互切换与媒体捕获时，对**摄像头权限**和**麦克风权限**被拒绝（Denied）状态的感知。当用户或浏览器拒绝了摄像头/麦克风权限时，系统将**同步自动取消选定**，并在 UI 上**置灰禁用**该选项，明确提示“摄像头权限已被拒绝”或“麦克风权限已被拒绝”。
 
 ---
 
 ## 主要变更点
 
-### 1. 硬件能力检测与自适应过滤 ([useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js))
-- 在 `enumerateDevices` 中搜寻 `videoinput` 与 `audioinput` 设备。
-- 增加响应式状态 `hasCamera`（是否有摄像头）与 `hasMicrophone`（是否有麦克风）。
-- 当搜寻发现缺失硬件时：
-  - 自动从默认选中的 `selectedSources` 数组中剔除对应项。
-  - 在 `toggleSource` 中拦截点击，防止用户在无硬件的情况下误选。
+### 1. 权限状态感知与同步取消选中 ([useMediaStream.js](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/composables/useMediaStream.js))
+- 使用 `navigator.permissions.query({ name: 'camera' })` 与 `navigator.permissions.query({ name: 'microphone' })` 主动监听权限变化。
+- 在 `captureMediaStreams` 捕获流报错 `NotAllowedError` 时，同步标记 `isCameraDenied.value = true` / `isMicDenied.value = true`。
+- 使用带有 `{ flush: 'sync' }` 的 Vue Watcher 确保一旦权限被拒绝，同步从 `selectedSources` 数组中剔除 `'camera'` 或 `'mic'`。
+- 在 `toggleSource` 中防误触拦截对权限被拒绝硬件的开启尝试。
 
-### 2. UI 界面置灰与提示标签 ([SourceSelectView.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/components/SourceSelectView.vue))
-- 摄像头选项：若 `!hasCamera`，设置 `:disabled="true"`，添加 `opacity-50 cursor-not-allowed` 置灰样式，并显示 Badge 标签 **“未检测到摄像头”** (英文: "No Camera Found")。
-- 麦克风控制区：若 `!hasMicrophone`，设置开关 `:disabled="true"`，添加置灰样式，并显示 Badge 标签 **“未检测到麦克风”** (英文: "No Mic Found")。
+### 2. UI 界面置灰与红色权限拒绝标签 ([SourceSelectView.vue](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/components/SourceSelectView.vue))
+- 摄像头选项：当无硬件或权限被拒绝时，设置 `:disabled="true"` 呈现半透明置灰。权限被拒绝时展示红色 Badge 标签 **“摄像头权限已被拒绝”** (英文: "Camera Access Denied")；无硬件时展示 **“未检测到摄像头”**。
+- 麦克风控制区：当无硬件或权限被拒绝时，开关按钮设置 `:disabled="true"` 呈现半透明置灰。权限被拒绝时展示红色 Badge 标签 **“麦克风权限已被拒绝”** (英文: "Microphone Access Denied")；无硬件时展示 **“未检测到麦克风”**。
 
 ### 3. 多语言文案扩充 ([zh.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/zh.json) & [en.json](file:///Users/minghualiu/personal/EastlakeStudio/castnow/apps/web/public/locales/en.json))
-- 中文增加 `source.noCamera: "未检测到摄像头"`、`source.noMic: "未检测到麦克风"`。
-- 英文增加 `source.noCamera: "No Camera Found"`、`source.noMic: "No Mic Found"`。
+- 中文新增 `source.cameraDenied: "摄像头权限已被拒绝"`、`source.micDenied: "麦克风权限已被拒绝"`。
+- 英文新增 `source.cameraDenied: "Camera Access Denied"`、`source.micDenied: "Microphone Access Denied"`。
 
 ---
 
@@ -40,5 +39,5 @@
 ```
 
 ### 2. 生产环境部署
-- **Cloudflare Pages (`https://castnow.padap.cn/`)**：已通过 Wrangler CLI 打包并部署上线！
-- **Vercel (`https://castnow.vercel.app/`)**：代码已 Push 至 `origin/main`（Commit: `bf288da`），由 Git 自动构建部署。
+- **Cloudflare Pages (`https://castnow.padap.cn/`)**：已通过 Wrangler CLI 成功重新打包并部署上线！
+- **Vercel (`https://castnow.vercel.app/`)**：代码已 Commit 并 Push 至 `origin/main`（Commit: `6025900`），由 Git 自动构建上线。

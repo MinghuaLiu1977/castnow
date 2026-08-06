@@ -23,9 +23,10 @@ describe('CastNow Web Transition and Source Selection Logic', () => {
     expect(enMessages.landing.broadcast).not.toBe(enMessages.source.start);
   });
 
-  it('should compute isScreenShareSupported correctly when getDisplayMedia is missing', () => {
+  it('should compute isScreenShareSupported and export stopAllStreams function correctly', () => {
     const media = useMediaStream();
     expect(typeof media.isScreenShareSupported.value).toBe('boolean');
+    expect(typeof media.stopAllStreams).toBe('function');
   });
 
   it('should handle camera and microphone availability and denial checks correctly', () => {

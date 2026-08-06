@@ -305,6 +305,7 @@ export function useMediaStream() {
     toggleMic,
     toggleCamera,
     enumerateDevices,
+    stopAllStreams,
     resetMediaState,
   };
 }

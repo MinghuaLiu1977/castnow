@@ -153,13 +153,13 @@ const handleJoin = async () => {
 
 // --- Shared ---
 const resetApp = (forceLanding = false) => {
-  media.stopAllStreams();
-  webrtc.cleanUpStreams();
-  webrtc.closeActiveCalls();
-  webrtc.destroyPeer();
-  webrtc.persistTrial();
-  media.resetMediaState();
-  webrtc.resetState();
+  media.stopAllStreams?.();
+  webrtc.cleanUpStreams?.();
+  webrtc.closeActiveCalls?.();
+  webrtc.destroyPeer?.();
+  webrtc.persistTrial?.();
+  media.resetMediaState?.();
+  webrtc.resetState?.();
 
   if (forceLanding || appState.value !== STATES.BROADCAST_ENDED) {
     appState.value = STATES.LANDING;
