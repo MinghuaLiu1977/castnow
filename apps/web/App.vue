@@ -47,7 +47,7 @@ const webrtc = useWebRTC(media.getIceServers);
 const {
   castingMode, facingMode, localStream, localVideo,
   localScreenStream, localCameraStream, localScreenVideo, localCameraVideo,
-  isMicMuted, selectedSources, videoDevices, hasMultipleCameras,
+  isMicMuted, selectedSources, isScreenShareSupported, videoDevices, hasMultipleCameras,
 } = media;
 
 const {
@@ -117,6 +117,7 @@ const handleStartCasting = async () => {
     console.error(err);
     if (err.name === 'NotAllowedError') {
       error.value = null;
+      showToast(t('errors.cancelledScreenShare'), 'info', 3000);
     } else if (err.message === 'screen_share_unsupported') {
       // Already handled
     } else {
@@ -182,6 +183,10 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
   await media.enumerateDevices();
   await loadMessages();
+  if (typeof document !== 'undefined') {
+    document.title = t('app.title');
+    document.documentElement.lang = locale.value;
+  }
 });
 
 onUnmounted(() => {
@@ -247,7 +252,7 @@ const swapStreams = () => layout.swapStreams();
     </div>
 
     <main class="flex-1 flex flex-col relative overflow-hidden">
-      <Transition name="fade">
+      <Transition name="fade" mode="out-in">
         <!-- Landing -->
         <LandingView v-if="appState === STATES.LANDING"
           @navigate="(s) => appState = s"
@@ -256,6 +261,7 @@ const swapStreams = () => layout.swapStreams();
         <!-- Source Selection -->
         <SourceSelectView v-else-if="appState === STATES.SOURCE_SELECT"
           :selectedSources="selectedSources"
+          :isScreenShareSupported="isScreenShareSupported"
           @toggleSource="media.toggleSource"
           @startBroadcast="handleStartCasting"
           @navigate="(s) => appState = s" />

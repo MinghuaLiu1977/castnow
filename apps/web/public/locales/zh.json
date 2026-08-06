@@ -11,7 +11,7 @@
     "instant": "即刻",
     "casting": "投屏",
     "heroDesc": "移动端原生性能。桌面端无需安装。零延迟 P2P 传输。",
-    "broadcast": "开始投屏",
+    "broadcast": "发起投屏",
     "receive": "接收投屏",
     "downloadOn": "从",
     "appStore": "App Store 下载",
@@ -31,8 +31,9 @@
     "micDesc": "同步设备音频",
     "on": "开",
     "off": "关",
-    "start": "开始投屏",
-    "cancel": "← 取消操作"
+    "start": "确认并开始投屏",
+    "cancel": "← 取消操作",
+    "desktopOnly": "仅桌面端支持"
   },
   "sender": {
     "activeTunnel": "投屏中",
@@ -101,6 +102,7 @@
     "codeCollision": "配对码冲突，请重试。",
     "networkError": "网络错误，请检查连接和防火墙。",
     "connectionFailed": "连接失败，请检查配对码。",
+    "cancelledScreenShare": "已取消屏幕共享授权",
     "micDenied": "麦克风权限被拒绝",
     "micOn": "麦克风已开启",
     "micOff": "麦克风已关闭"

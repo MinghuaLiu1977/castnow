@@ -23,12 +23,20 @@ async function loadMessages() {
   }
 }
 
-function getDefaultLocale() {
-  const host = window.location.hostname
-  if (host === 'castnow.padap.cn') return 'zh'
-  const lang = (navigator.language || 'en').toLowerCase()
-  if (lang.startsWith('zh')) return 'zh'
-  return 'en'
+export function getDefaultLocale(host, navLang) {
+  if (typeof window !== 'undefined' && !host) {
+    host = window.location.hostname;
+  }
+  if (typeof navigator !== 'undefined' && !navLang) {
+    navLang = navigator.language;
+  }
+  if (host) {
+    if (host === 'castnow.padap.cn') return 'zh';
+    if (host.endsWith('vercel.app') || host.includes('vercel.app')) return 'en';
+  }
+  const lang = (navLang || 'en').toLowerCase();
+  if (lang.startsWith('zh')) return 'zh';
+  return 'en';
 }
 
 const locale = ref(getDefaultLocale())

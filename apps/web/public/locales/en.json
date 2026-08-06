@@ -11,7 +11,7 @@
     "instant": "Instant",
     "casting": "Casting",
     "heroDesc": "Native performance on Mobile. No install needed for Desktop. Zero Latency P2P.",
-    "broadcast": "Broadcast",
+    "broadcast": "Start Cast",
     "receive": "Receive",
     "downloadOn": "Download on the",
     "appStore": "App Store",
@@ -31,8 +31,9 @@
     "micDesc": "Sync audio from your device",
     "on": "ON",
     "off": "OFF",
-    "start": "Start Broadcasting",
-    "cancel": "← Cancel Operation"
+    "start": "Confirm & Start",
+    "cancel": "← Cancel Operation",
+    "desktopOnly": "Desktop Only"
   },
   "sender": {
     "activeTunnel": "Active Tunnel",
@@ -101,6 +102,7 @@
     "codeCollision": "Code collision. Please try again.",
     "networkError": "Network error. Check connection/firewall.",
     "connectionFailed": "Connection failed. Check code.",
+    "cancelledScreenShare": "Screen sharing cancelled",
     "micDenied": "Microphone access denied",
     "micOn": "Microphone ON",
     "micOff": "Microphone OFF"

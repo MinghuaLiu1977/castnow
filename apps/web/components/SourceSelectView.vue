@@ -4,11 +4,16 @@
 
     <div class="flex flex-col gap-4 w-full max-w-sm mt-6">
       <button @click="$emit('toggleSource', 'screen')"
-        :class="['flex items-center gap-4 p-5 rounded-2xl border-2 transition-all',
+        :disabled="!isScreenShareSupported"
+        :class="['flex items-center gap-4 p-5 rounded-2xl border-2 transition-all relative',
+                 !isScreenShareSupported ? 'opacity-50 cursor-not-allowed border-slate-800 bg-slate-900/50' :
                  selectedSources.includes('screen') ? 'border-cyan-500 bg-cyan-500/10' : 'border-slate-800 bg-slate-900']">
-        <Monitor class="w-6 h-6" :class="selectedSources.includes('screen') ? 'text-cyan-400' : 'text-slate-600'" />
-        <div class="text-left">
-          <div class="font-black uppercase text-sm" :class="selectedSources.includes('screen') ? 'text-white' : 'text-slate-400'">{{ t('source.screen') }}</div>
+        <Monitor class="w-6 h-6" :class="selectedSources.includes('screen') && isScreenShareSupported ? 'text-cyan-400' : 'text-slate-600'" />
+        <div class="text-left flex-1">
+          <div class="flex items-center justify-between">
+            <div class="font-black uppercase text-sm" :class="selectedSources.includes('screen') && isScreenShareSupported ? 'text-white' : 'text-slate-400'">{{ t('source.screen') }}</div>
+            <span v-if="!isScreenShareSupported" class="text-[9px] font-bold px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md uppercase tracking-wider">{{ t('source.desktopOnly') }}</span>
+          </div>
           <div class="text-xs text-slate-600">{{ t('source.screenDesc') }}</div>
         </div>
       </button>
@@ -53,6 +58,9 @@ import { Monitor, Camera, Mic } from 'lucide-vue-next';
 import { useI18n } from '../composables/useI18n';
 
 const { t } = useI18n();
-defineProps({ selectedSources: Array });
+defineProps({
+  selectedSources: { type: Array, default: () => [] },
+  isScreenShareSupported: { type: Boolean, default: true },
+});
 defineEmits(['toggleSource', 'startBroadcast', 'navigate']);
 </script>

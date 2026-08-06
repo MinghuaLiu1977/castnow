@@ -11,7 +11,14 @@ export function useMediaStream() {
   const localCameraVideo = ref(null);
   const isMicMuted = ref(true);
 
-  const selectedSources = ref(['screen', 'camera', 'mic']);
+  const isScreenShareSupported = computed(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  });
+
+  const selectedSources = ref(
+    isScreenShareSupported.value ? ['screen', 'camera', 'mic'] : ['camera', 'mic']
+  );
   const videoDevices = ref([]);
   const hasMultipleCameras = computed(() => videoDevices.value.length > 1);
 
@@ -27,6 +34,8 @@ export function useMediaStream() {
   });
 
   const toggleSource = (source) => {
+    if (source === 'screen' && !isScreenShareSupported.value) return;
+
     const index = selectedSources.value.indexOf(source);
     if (index > -1) {
       if (source === 'screen' || source === 'camera') {
@@ -183,6 +192,7 @@ export function useMediaStream() {
     localCameraVideo,
     isMicMuted,
     selectedSources,
+    isScreenShareSupported,
     videoDevices,
     hasMultipleCameras,
     toggleSource,
