@@ -14,6 +14,8 @@
     <false/>
     <key>signingStyle</key>
     <string>manual</string>
+    <key>signingCertificate</key>
+    <string>EA391198C3EF90121ABB36EF18A4AC42119204CE</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>com.eastlakestudio.castnow</key>

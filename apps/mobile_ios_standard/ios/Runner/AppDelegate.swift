@@ -4,21 +4,24 @@ import ReplayKit
 import StoreKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    
-    // Custom registrations after GeneratedPluginRegistrant
-    if let registrar = self.registrar(forPlugin: "CastNowPickerPlugin") {
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CastNowPickerPlugin") {
         let factory = BroadcastPickerFactory()
         registrar.register(factory, withId: "castnow_picker_view")
-        
+
         let triggerChannel = FlutterMethodChannel(name: "castnow_picker_control", binaryMessenger: registrar.messenger())
         BroadcastPickerManager.shared.channel = triggerChannel
-        
+
         triggerChannel.setMethodCallHandler { (call, result) in
             if call.method == "hidePicker" {
                 BroadcastPickerManager.shared.hidePicker()
@@ -29,7 +32,7 @@ import StoreKit
         }
     }
 
-    if let registrar = self.registrar(forPlugin: "SubscriptionPlugin") {
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SubscriptionPlugin") {
         let subscriptionChannel = FlutterMethodChannel(name: "subscription_utils", binaryMessenger: registrar.messenger())
         subscriptionChannel.setMethodCallHandler { (call, result) in
             if call.method == "getOriginalAppVersion" {
@@ -40,7 +43,7 @@ import StoreKit
                             switch verificationResult {
                             case .verified(let appTransaction):
                                 DispatchQueue.main.async { result(appTransaction.originalAppVersion) }
-                            case .unverified(_, _):
+                            case .unverified(_):
                                 DispatchQueue.main.async { result(nil) }
                             }
                         } catch {
@@ -55,7 +58,8 @@ import StoreKit
             }
         }
     }
-    if let registrar = self.registrar(forPlugin: "RTMPSettingsPlugin") {
+
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "RTMPSettingsPlugin") {
         let rtmpChannel = FlutterMethodChannel(name: "castnow_rtmp_settings", binaryMessenger: registrar.messenger())
         rtmpChannel.setMethodCallHandler { (call, result) in
             if call.method == "saveSettings" {
@@ -66,13 +70,12 @@ import StoreKit
                 let mode = args["mode"] as? String ?? "p2p"
                 let url = args["url"] as? String ?? ""
                 let key = args["key"] as? String ?? ""
-                
-                let appGroupIdentifier = Bundle.main.object(forInfoDictionaryKey: "RTCAppGroupIdentifier") as? String ?? "group.com.eastlakestudio.castnow.pro"
+
+                let appGroupIdentifier = Bundle.main.object(forInfoDictionaryKey: "RTCAppGroupIdentifier") as? String ?? "group.castnow.app"
                 if let defaults = UserDefaults(suiteName: appGroupIdentifier) {
                     defaults.set(mode, forKey: "broadcast_mode")
                     defaults.set(url, forKey: "rtmp_url")
                     defaults.set(key, forKey: "rtmp_key")
-                    // No need to synchronize() on iOS 12+ but good practice
                     result(true)
                 } else {
                     result(FlutterError(code: "DEFAULTS_ERROR", message: "Could not access AppGroup UserDefaults", details: nil))
@@ -82,27 +85,29 @@ import StoreKit
             }
         }
     }
-    
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
+}
 
-  // --- Background Task Management ---
+class SceneDelegate: FlutterSceneDelegate {
   private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
 
-  override func applicationDidEnterBackground(_ application: UIApplication) {
+  override func sceneDidEnterBackground(_ scene: UIScene) {
+    super.sceneDidEnterBackground(scene)
+    let application = UIApplication.shared
     backgroundTaskIdentifier = application.beginBackgroundTask(withName: "CastNowPersistence") { [weak self] in
-        guard let self = self else { return }
-        application.endBackgroundTask(self.backgroundTaskIdentifier)
-        self.backgroundTaskIdentifier = .invalid
+      guard let self = self else { return }
+      application.endBackgroundTask(self.backgroundTaskIdentifier)
+      self.backgroundTaskIdentifier = .invalid
     }
-    print("🌙 [CASTNOW] App entered background, started task: \(backgroundTaskIdentifier)")
+    print("🌙 [CASTNOW] Scene entered background, started task: \(backgroundTaskIdentifier)")
   }
 
-  override func applicationWillEnterForeground(_ application: UIApplication) {
+  override func sceneWillEnterForeground(_ scene: UIScene) {
+    super.sceneWillEnterForeground(scene)
     if backgroundTaskIdentifier != .invalid {
-        print("☀️ [CASTNOW] App returning to foreground, ending task: \(backgroundTaskIdentifier)")
-        application.endBackgroundTask(backgroundTaskIdentifier)
-        backgroundTaskIdentifier = .invalid
+      print("☀️ [CASTNOW] Scene returning to foreground, ending task: \(backgroundTaskIdentifier)")
+      UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+      backgroundTaskIdentifier = .invalid
     }
   }
 }
@@ -112,14 +117,14 @@ class BroadcastPickerManager {
     static let shared = BroadcastPickerManager()
     weak var currentPicker: RPSystemBroadcastPickerView?
     var channel: FlutterMethodChannel?
-    
+
     func log(_ message: String) {
         print("[BroadcastPickerManager] \(message)")
         DispatchQueue.main.async {
             self.channel?.invokeMethod("nativeLog", arguments: message)
         }
     }
-    
+
     func hidePicker() {
         log("🙈 Attempting to hide picker popup...")
         DispatchQueue.main.async {
@@ -141,7 +146,7 @@ class BroadcastPickerManager {
                 }
             }
             if !foundPresentedVC {
-                self.log("⚠️ No presented ViewController found across any window to dismiss.")
+                self.log("️ No presented ViewController found across any window to dismiss.")
             } else {
                 self.log("✅ Picker dismissed successfully.")
             }
@@ -161,11 +166,11 @@ class BroadcastPickerView: NSObject, FlutterPlatformView {
 
     init(frame: CGRect) {
         let pickerView = RPSystemBroadcastPickerView(frame: frame)
-        let preferredExtensionId = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String ?? "com.eastlakestudio.castnow.pro.BroadcastExtension"
+        let preferredExtensionId = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String ?? "com.eastlakestudio.castnow.BroadcastExtension"
         pickerView.preferredExtension = preferredExtensionId
         pickerView.showsMicrophoneButton = true
         pickerView.backgroundColor = .clear
-        
+
         BroadcastPickerManager.shared.currentPicker = pickerView
         _container = PickerWrapperView(picker: pickerView)
         super.init()
@@ -178,11 +183,11 @@ class BroadcastPickerView: NSObject, FlutterPlatformView {
 
 class PickerWrapperView: UIView {
     private let picker: RPSystemBroadcastPickerView
-    
+
     init(picker: RPSystemBroadcastPickerView) {
         self.picker = picker
         super.init(frame: .zero)
-        
+
         addSubview(picker)
         picker.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -191,11 +196,11 @@ class PickerWrapperView: UIView {
             picker.leadingAnchor.constraint(equalTo: leadingAnchor),
             picker.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
-        
+
         self.backgroundColor = .clear
         self.isUserInteractionEnabled = true
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }

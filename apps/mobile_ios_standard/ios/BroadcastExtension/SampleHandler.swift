@@ -2,7 +2,6 @@ import ReplayKit
 import VideoToolbox
 import CoreImage
 import Foundation
-import HaishinKit
 import AVFoundation
 
 class SocketConnection {
@@ -20,7 +19,6 @@ class SocketConnection {
             return false
         }
         
-        // Correctly initialize sockaddr_un for Darwin
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         
@@ -28,7 +26,7 @@ class SocketConnection {
         if let pathStr = pathStr {
             let pathLen = strlen(pathStr)
             addr.sun_len = UInt8(MemoryLayout<UInt8>.size + MemoryLayout<sa_family_t>.size + Int(pathLen) + 1)
-            withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
+            _ = withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
                 strlcpy(UnsafeMutableRawPointer(ptr).assumingMemoryBound(to: CChar.self), pathStr, 104)
             }
         }
@@ -87,7 +85,7 @@ class SocketConnection {
 class SampleHandler: RPBroadcastSampleHandler {
     
     private var client: SocketConnection?
-    private let appGroupIdentifier = "group.com.eastlakestudio.castnow.pro"
+    private let appGroupIdentifier = "group.castnow.app"
     private var imageContext = CIContext(options: [
         CIContextOption.useSoftwareRenderer: false,
         CIContextOption.priorityRequestLow: true
@@ -96,11 +94,6 @@ class SampleHandler: RPBroadcastSampleHandler {
     private var lastFrameTime: Int64 = 0
     private let frameIntervalNs: Int64 = 1_000_000_000 / 22 
     private var connectionTimer: Timer?
-    
-    // RTMP Settings
-    private var isRtmpMode = false
-    private var rtmpConnection: RTMPConnection?
-    private var rtmpStream: RTMPStream?
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
         print("🚀 Broadcast Extension Started")
@@ -109,9 +102,6 @@ class SampleHandler: RPBroadcastSampleHandler {
         let appGroupIdentifier = bundle.object(forInfoDictionaryKey: "RTCAppGroupIdentifier") as? String ?? self.appGroupIdentifier
         let bundleID = bundle.bundleIdentifier ?? "Unknown"
         
-        print("🔍 Debug: Bundle ID: \(bundleID)")
-        print("🔍 Debug: App Group ID: \(appGroupIdentifier)")
-        
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
             print("❌ Error: Could not verify App Group container for identifier: \(appGroupIdentifier)")
             let errorMsg = "App Group Error: Client [\(bundleID)] is not entitled for \(appGroupIdentifier). Check project settings."
@@ -119,34 +109,11 @@ class SampleHandler: RPBroadcastSampleHandler {
             return
         }
         
-        if let defaults = UserDefaults(suiteName: appGroupIdentifier) {
-            let mode = defaults.string(forKey: "broadcast_mode") ?? "p2p"
-            isRtmpMode = (mode == "rtmp")
-            
-            if isRtmpMode {
-                let url = defaults.string(forKey: "rtmp_url") ?? ""
-                let key = defaults.string(forKey: "rtmp_key") ?? ""
-                print("🚀 Starting RTMP Mode to \(url)")
-                
-                FeatureUtil.setEnabled(for: .multiTrackAudioMixing, isEnabled: true)
-                let connection = RTMPConnection()
-                let stream = RTMPStream(connection: connection)
-                
-                self.rtmpConnection = connection
-                self.rtmpStream = stream
-                
-                connection.connect(url)
-                stream.publish(key)
-                return
-            }
-        }
-        
         let socketPath = container.appendingPathComponent("rtc_SSFD").path
         client = SocketConnection(filePath: socketPath)
         
-        // Retry connection as the host app might be starting the server
         var connected = false
-        for i in 1...20 { // 20 attempts * 0.3s = 6 seconds
+        for i in 1...20 {
             if let client = client, client.open() {
                 print("✅ Connected to flutter_webrtc socket on attempt \(i)")
                 connected = true
@@ -161,8 +128,8 @@ class SampleHandler: RPBroadcastSampleHandler {
             return
         }
         
-        // Start a heartbeat timer to detect if host app disconnects (e.g., user clicked explicit cancel)
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
             self.connectionTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
                 self?.checkHostConnection()
             }
@@ -172,14 +139,11 @@ class SampleHandler: RPBroadcastSampleHandler {
     private func checkHostConnection() {
         guard let socketHandle = client?.socketHandle, socketHandle >= 0 else { return }
         var buffer = [UInt8](repeating: 0, count: 1)
-        // MSG_PEEK | MSG_DONTWAIT allows us to check if the socket is closed without reading data
         let result = recv(socketHandle, &buffer, 1, MSG_PEEK | MSG_DONTWAIT)
         if result == 0 {
-            // EOF: Host closed the connection
             print("🛑 Host closed socket connection.")
             stopGracefully()
         } else if result < 0 && errno != EAGAIN && errno != EWOULDBLOCK {
-            // Socket error
             print("🛑 Socket error detected: \(errno)")
             stopGracefully()
         }
@@ -188,21 +152,12 @@ class SampleHandler: RPBroadcastSampleHandler {
     private func stopGracefully() {
         connectionTimer?.invalidate()
         connectionTimer = nil
-        // Using NSLocalizedFailureReasonErrorKey to customize the system alert message
         let error = NSError(domain: "CastNow", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: "Broadcast has been ended by the host application."])
         finishBroadcastWithError(error)
     }
     
     override func broadcastFinished() {
         print("🛑 Broadcast Finished")
-        if isRtmpMode {
-            rtmpStream?.close()
-            rtmpConnection?.close()
-            rtmpStream = nil
-            rtmpConnection = nil
-            return
-        }
-        
         connectionTimer?.invalidate()
         connectionTimer = nil
         client?.close()
@@ -210,28 +165,9 @@ class SampleHandler: RPBroadcastSampleHandler {
     }
     
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        if isRtmpMode {
-            if let stream = rtmpStream {
-                switch sampleBufferType {
-                case .video:
-                    stream.append(sampleBuffer, track: 0)
-                case .audioMic:
-                    stream.append(sampleBuffer, track: 0)
-                case .audioApp:
-                    stream.append(sampleBuffer, track: 1)
-                @unknown default:
-                    break
-                }
-            }
-            return
-        }
-        
-        // We focus on video for currently P2P transmission, but we don't block audio buffers
-        // to comply with background audio requirements.
         guard let client = client else { return }
         
         if sampleBufferType != .video {
-            // Future: Implement audio multiplexing here
             return
         }
         

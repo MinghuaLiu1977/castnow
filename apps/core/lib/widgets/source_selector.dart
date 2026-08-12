@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/constants.dart';
+import '../core/flavor_config.dart';
 import '../l10n/app_strings.dart';
 import 'glass_container.dart';
 
@@ -68,40 +69,41 @@ class SourceSelector extends StatelessWidget {
             onMicChanged(val);
           },
         ),
-        _buildSourceCard(
-          icon: Icons.rss_feed_rounded,
-          title: AppStrings.rtmpMode,
-          subtitle: AppStrings.rtmpModeDesc,
-          value: isRtmpMode,
-          onChanged: (val) {
-            HapticFeedback.selectionClick();
-            onRtmpChanged(val);
-          },
-        ),
-        // RTMP 字段区域：始终预留空间
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          height: isRtmpMode ? 140 : 0,
-          child: isRtmpMode
-              ? Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: rtmpUrlController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _rtmpInputDecoration(AppStrings.rtmpUrlLabel, 'rtmp://your-server/live'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: rtmpKeyController,
-                      obscureText: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _rtmpInputDecoration(AppStrings.streamKeyLabel, AppStrings.enterStreamKey),
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
-        ),
+        if (FlavorConfig.isPro) ...[
+          _buildSourceCard(
+            icon: Icons.rss_feed_rounded,
+            title: AppStrings.rtmpMode,
+            subtitle: AppStrings.rtmpModeDesc,
+            value: isRtmpMode,
+            onChanged: (val) {
+              HapticFeedback.selectionClick();
+              onRtmpChanged(val);
+            },
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: isRtmpMode ? 140 : 0,
+            child: isRtmpMode
+                ? Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: rtmpUrlController,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _rtmpInputDecoration(AppStrings.rtmpUrlLabel, 'rtmp://your-server/live'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rtmpKeyController,
+                        obscureText: true,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _rtmpInputDecoration(AppStrings.streamKeyLabel, AppStrings.enterStreamKey),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ],
     );
   }

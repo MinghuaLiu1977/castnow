@@ -78,27 +78,45 @@ class _HomeScreenState extends State<HomeScreen> {
               showPaywallIfAvailable(context);
             }
           },
-          child: Container(
-            width: isLandscape ? 60 : 80,
-            height: isLandscape ? 60 : 80,
-            decoration: BoxDecoration(
-              color: kPrimaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(isLandscape ? 18 : 24),
-            ),
-            child: Icon(Icons.bolt_rounded,
-                color: kPrimaryColor, size: isLandscape ? 36 : 48),
-          ),
+          child: FlavorConfig.isStandard
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(isLandscape ? 18 : 24),
+                  child: Image.asset(
+                    'assets/icon/icon_standard.png',
+                    width: isLandscape ? 60 : 80,
+                    height: isLandscape ? 60 : 80,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Container(
+                  width: isLandscape ? 60 : 80,
+                  height: isLandscape ? 60 : 80,
+                  decoration: BoxDecoration(
+                    color: kPrimaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(isLandscape ? 18 : 24),
+                  ),
+                  child: Icon(Icons.bolt_rounded,
+                      color: kPrimaryColor, size: isLandscape ? 36 : 48),
+                ),
         ),
         SizedBox(height: isLandscape ? 8 : 20),
-        RichText(
-          text: const TextSpan(
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
-            children: [
-              TextSpan(text: 'cast', style: TextStyle(color: Colors.white)),
-              TextSpan(text: 'now', style: TextStyle(color: kPrimaryColor)),
-            ],
-          ),
-        ),
+        FlavorConfig.isStandard
+            ? const Text(
+                '即刻投屏',
+                style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white),
+              )
+            : RichText(
+                text: const TextSpan(
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+                  children: [
+                    TextSpan(text: 'cast', style: TextStyle(color: Colors.white)),
+                    TextSpan(text: 'now', style: TextStyle(color: kPrimaryColor)),
+                  ],
+                ),
+              ),
         const SizedBox(height: 8),
         GlassContainer(
           blurSigma: 4,

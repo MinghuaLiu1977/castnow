@@ -20,7 +20,7 @@
         <Download class="w-6 h-6" />{{ t('landing.receive') }}
       </button>
       <div class="flex justify-center w-full">
-        <a href="https://apps.apple.com/us/app/castnow-pro/id6761016081" target="_blank"
+        <a :href="appStoreUrl" target="_blank"
           class="w-full max-w-[200px] h-11 bg-black border border-slate-800 rounded-xl hover:border-cyan-500 transition-all flex items-center justify-center px-4 gap-3 group active:scale-95">
           <Apple class="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
           <div class="flex flex-col items-start leading-none">
@@ -49,6 +49,6 @@
 import { Globe, Download, Apple } from 'lucide-vue-next';
 import { useI18n } from '../composables/useI18n';
 
-const { t } = useI18n();
+const { t, appStoreUrl } = useI18n();
 defineEmits(['navigate', 'showInfo']);
 </script>
