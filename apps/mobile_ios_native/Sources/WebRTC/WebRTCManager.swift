@@ -72,7 +72,10 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
-        peerConnection?.add(track, streamIds: ["screen"])
+        peerConnection?.add(track, streamIds: ["castnow_stream"])
+        if let audioTrack = localAudioTrack {
+            peerConnection?.add(audioTrack, streamIds: ["castnow_stream"])
+        }
     }
 
     func setScreenPreviewHandler(_ handler: @escaping (UIImage) -> Void) {
@@ -90,10 +93,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         do {
-            // WebRTC Swift bridge expects the typed AVAudioSession.Category and AVAudioSession.Mode
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord, with: .defaultToSpeaker)
-            try audioSession.setMode(AVAudioSession.Mode.videoChat)
-            try audioSession.setActive(true)
+            try audioSession.overrideOutputAudioPort(.speaker)
         } catch {
             print("Failed to configure RTCAudioSession: \(error)")
         }
@@ -106,7 +106,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         self.localAudioTrack = audioTrack
         
         if let pc = peerConnection {
-            pc.add(audioTrack, streamIds: ["audio_stream"])
+            pc.add(audioTrack, streamIds: ["castnow_stream"])
         }
         
         // Start muted by default unless user enables it

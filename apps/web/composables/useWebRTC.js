@@ -221,7 +221,38 @@ export function useWebRTC(getIceServers) {
 
     peer.on('open', (id) => {
       console.log('[WebRTC] Knocking to peer:', code);
-      const knockCall = peer.call(code, receiverMicStream.value || new MediaStream());
+      
+      const tracks = receiverMicStream.value ? receiverMicStream.value.getTracks() : [];
+      const streamToSend = new MediaStream(tracks);
+      
+      // Force video and audio transceiver generation in the Offer by adding dummy tracks if needed
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const canvasStream = canvas.captureStream(1);
+        const dummyVideoTrack = canvasStream.getVideoTracks()[0];
+        if (dummyVideoTrack && streamToSend.getVideoTracks().length === 0) {
+          streamToSend.addTrack(dummyVideoTrack);
+        }
+        
+        // Also force audio just in case receiverMicStream was empty (e.g. mic permission denied)
+        if (streamToSend.getAudioTracks().length === 0) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            const ctx = new AudioContext();
+            const dest = ctx.createMediaStreamDestination();
+            const dummyAudioTrack = dest.stream.getAudioTracks()[0];
+            if (dummyAudioTrack) {
+              streamToSend.addTrack(dummyAudioTrack);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not create dummy tracks:', e);
+      }
+
+      const knockCall = peer.call(code, streamToSend);
 
       const timeout = setTimeout(() => {
         if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
