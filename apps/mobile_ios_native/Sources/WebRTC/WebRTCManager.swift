@@ -32,7 +32,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     override init() {
         // Configure WebRTC Audio Session to default to speaker
         let config = RTCAudioSessionConfiguration.webRTC()
-        config.categoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
+        config.categoryOptions = [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP]
         RTCAudioSessionConfiguration.setWebRTC(config)
         
         let encoderFactory = RTCDefaultVideoEncoderFactory()

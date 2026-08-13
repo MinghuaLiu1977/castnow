@@ -26,6 +26,23 @@ final class CameraCapture: NSObject {
     }
 
     func start() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        if status == .notDetermined {
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted {
+                    self?.startInternal()
+                } else {
+                    print("Camera access denied")
+                }
+            }
+        } else if status == .authorized {
+            startInternal()
+        } else {
+            print("Camera access not authorized")
+        }
+    }
+
+    private func startInternal() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
