@@ -256,20 +256,20 @@ struct ReceiveView: View {
 
                 // 底部控制面板和顶部返回按钮
                 if showControls {
-                    // 顶部返回按钮
+                    // 顶部关闭（挂断）按钮
                     VStack {
                         HStack {
+                            Spacer()
                             Button(action: { vm.leave(); presentationMode.wrappedValue.dismiss() }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.title3.weight(.bold))
+                                Image(systemName: "xmark")
+                                    .font(.title2.weight(.bold))
                                     .foregroundColor(.white)
-                                    .padding(12)
+                                    .padding(14)
                                     .background(Circle().fill(Color.black.opacity(0.6)))
                             }
-                            Spacer()
                         }
-                        .padding(.top, 50)
-                        .padding(.leading, 20)
+                        .padding(.top, 16)
+                        .padding(.trailing, 24)
                         Spacer()
                     }
                     .transition(.opacity)
