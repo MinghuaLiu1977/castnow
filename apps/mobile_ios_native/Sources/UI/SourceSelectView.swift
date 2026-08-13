@@ -105,17 +105,28 @@ struct SourceSelectView: View {
         isLaunching = true
         Task {
             var granted = true
-            if shareCamera || shareMic {
+            var deniedParts: [String] = []
+
+            // Only request camera permission if user selected camera
+            if shareCamera {
                 let camOk = await AVCaptureDevice.requestAccess(for: .video)
-                let micOk = await AVCaptureDevice.requestAccess(for: .audio)
-                granted = (shareCamera ? camOk : true) && (shareMic ? micOk : true)
+                if !camOk { granted = false; deniedParts.append("摄像头") }
             }
+
+            // Only request mic permission if user selected mic
+            if shareMic {
+                let micOk = await AVCaptureDevice.requestAccess(for: .audio)
+                if !micOk { granted = false; deniedParts.append("麦克风") }
+            }
+
+            // Screen-only: no camera/mic permission needed (ReplayKit handles its own)
+
             await MainActor.run {
                 isLaunching = false
                 if granted {
                     navigateToBroadcast = true
                 } else {
-                    permissionError = "摄像头或麦克风权限被拒绝，请在系统设置中开启。"
+                    permissionError = "\(deniedParts.joined(separator: "和"))权限被拒绝，请在系统设置中开启。"
                     showError = true
                 }
             }

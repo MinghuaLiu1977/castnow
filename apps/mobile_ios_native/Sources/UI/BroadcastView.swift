@@ -109,12 +109,12 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
             case .offer(let offer):
                 // v9.1 knock-recall: receiver knocks, we DON'T answer.
-                // Close knock → wait 1s → recall with our own offer.
+                // Ignore knock, wait 1s, then recall with our own offer.
+                // DO NOT send LEAVE — that would close the receiver's peer connection.
                 guard self.destPeer == nil else { return }
                 self.destPeer = offer.sourcePeerId
-                print("叩 [PeerJS] Knock from \(offer.sourcePeerId), recalling in 1s")
-                self.statusMessage = "接收端敲盘中..."
-                self.peer.sendLeave(to: offer.sourcePeerId)
+                print("叩 [PeerJS] Knock from \(offer.sourcePeerId), will recall in 1s")
+                self.statusMessage = "接收端已连接，准备回拨..."
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                     self?.recall(to: offer.sourcePeerId)
                 }
@@ -127,8 +127,14 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 self.rtc.addIceCandidate(c)
 
             case .close:
-                self.isConnected = false
-                self.statusMessage = "接收端已离开"
+                // Only show "receiver left" if we were actually connected.
+                // Knock/close during handshake is normal, ignore it.
+                if self.isConnected {
+                    self.isConnected = false
+                    self.statusMessage = "接收端已离开"
+                } else {
+                    print("ℹ️ [PeerJS] Close during handshake, ignored")
+                }
             case .error(let msg):
                 self.statusMessage = "错误: \(msg)"
             }
