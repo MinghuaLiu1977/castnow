@@ -188,7 +188,10 @@ export function useWebRTC(getIceServers) {
     peerInstance.value = peer;
 
     peer.on('open', (id) => {
-      const knockCall = peer.call(code, receiverMicStream.value || new MediaStream());
+      // Add CASTNOW_ prefix to match iOS native sender's peer ID
+      const targetPeerId = `CASTNOW_${code}`;
+      console.log('[WebRTC] Knocking to:', targetPeerId);
+      const knockCall = peer.call(targetPeerId, receiverMicStream.value || new MediaStream());
 
       const timeout = setTimeout(() => {
         if (setAppState.value !== STATES.RECEIVER_ACTIVE) {

@@ -34,6 +34,8 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published var isMicMuted: Bool = true
     @Published var isPlaybackMuted: Bool = false
 
+    private var pendingCode: String = ""
+
     let shareScreen: Bool
     let shareCamera: Bool
     let shareMic: Bool
@@ -54,13 +56,15 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     }
 
     func start() {
-        let code = String(format: "%06d", Int.random(in: 100000...999999))
-        pairCode = code
-
-        // v9.1 handshake: register on PeerJS, wait for knock, then recall.
-        // DON'T create PC yet — PC is created during recall.
+        statusMessage = "正在连接信令服务器..."
         peer.onEvent = { [weak self] event in self?.handle(event: event) }
-        peer.connect(id: code)
+
+        let code = String(format: "%06d", Int.random(in: 100000...999999))
+        pendingCode = code
+        // Register with CASTNOW_ prefix to avoid ID collisions on public PeerJS server
+        let fullId = "CASTNOW_\(code)"
+        print("📞 [Broadcast] Registering as peerId=\(fullId)")
+        peer.connect(id: fullId)
     }
 
     func toggleMic() {
@@ -104,7 +108,10 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             guard let self = self else { return }
             switch event {
             case .opened(let id):
+                // PeerJS server confirmed registration — NOW show the code
+                self.pairCode = self.pendingCode
                 self.statusMessage = "信令已连接 (\(id))"
+                print("✅ [Broadcast] Code displayed: \(self.pairCode)")
                 if self.shareScreen { self.beginSystemBroadcast() }
 
             case .offer(let offer):

@@ -16,10 +16,13 @@ struct PeerOffer: Codable {
     var connectionId: String = ""
 }
 
-/// PeerJS-compatible signaling client.
-/// Matches the exact wire protocol used by peerjs npm library and peerdart.
+/// PeerJS-compatible signaling client with exhaustive logging.
 final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
+
+    // ── MUST be retained for WebSocket delegate callbacks ──
+    private var urlSession: URLSession!
     private var webSocket: URLSessionWebSocketTask?
+
     private let host = "0.peerjs.com"
     private let port = 443
     private let path = "/"
@@ -27,7 +30,6 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
     private let token: String
 
     private(set) var peerId: String?
-    /// Connection ID shared across OFFER/ANSWER/CANDIDATE for one media session.
     private var mediaConnectionId: String = ""
     private var heartbeatTimer: Timer?
 
@@ -45,17 +47,26 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         self.token = bytes.map { String(format: "%02x", $0) }.joined()
         super.init()
+        // Create a long-lived URLSession
+        self.urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
     }
 
     // MARK: - Connect
 
     func connect(id: String) {
         peerId = id
-        // Generate a media connection ID (matches PeerJS format: mc_<random>)
         var cid = [UInt8](repeating: 0, count: 8)
         _ = SecRandomCopyBytes(kSecRandomDefault, cid.count, &cid)
         mediaConnectionId = "mc_" + cid.map { String(format: "%02x", $0) }.joined()
 
+        print("╔══════════════════════════════════════════════════")
+        print("║ [PeerJS] connect() called")
+        print("║ [PeerJS] peerId = \(id)")
+        print("║ [PeerJS] token = \(token)")
+        print("║ [PeerJS] mediaConnectionId = \(mediaConnectionId)")
+        print("╚══════════════════════════════════════════════════")
+
+        // Step 1: HTTP GET to check ID availability
         var components = URLComponents(string: "https://\(host):\(port)\(path)")!
         components.queryItems = [
             URLQueryItem(name: "key", value: key),
@@ -63,27 +74,43 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
             URLQueryItem(name: "token", value: token)
         ]
         let httpUrl = components.url!
-        print("🔗 [PeerJS] HTTP GET: \(httpUrl.absoluteString)")
+        print("📡 [PeerJS] HTTP GET → \(httpUrl.absoluteString)")
 
         var request = URLRequest(url: httpUrl)
         request.httpMethod = "GET"
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let self = self else { return }
+            guard let self = self else {
+                print("❌ [PeerJS] HTTP callback: self is nil!")
+                return
+            }
+
             if let error = error {
-                print("❌ [PeerJS] HTTP error: \(error.localizedDescription)")
+                print("❌ [PeerJS] HTTP error: \(error)")
                 DispatchQueue.main.async { self.onEvent?(.error("HTTP: \(error.localizedDescription)")) }
                 return
             }
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                print("✅ [PeerJS] HTTP response: \(body)")
+
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 [PeerJS] HTTP status: \(httpResponse.statusCode)")
             }
+
+            if let data = data {
+                let body = String(data: data, encoding: .utf8) ?? "<binary>"
+                print("📡 [PeerJS] HTTP response body: \(body)")
+            } else {
+                print("⚠️ [PeerJS] HTTP response: no body")
+            }
+
             self.openWebSocket()
         }.resume()
     }
 
     private func openWebSocket() {
-        guard let peerId = peerId else { return }
+        guard let peerId = peerId else {
+            print("❌ [PeerJS] openWebSocket: peerId is nil!")
+            return
+        }
 
         var components = URLComponents(string: "wss://\(host):\(port)\(path)")!
         components.queryItems = [
@@ -92,11 +119,10 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
             URLQueryItem(name: "token", value: token)
         ]
         let wsUrl = components.url!
-        print("🔗 [PeerJS] WS connect: \(wsUrl.absoluteString)")
+        print("🔌 [PeerJS] WebSocket connecting → \(wsUrl.absoluteString)")
 
         let request = URLRequest(url: wsUrl)
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
-        let task = session.webSocketTask(with: request)
+        let task = urlSession.webSocketTask(with: request)
         self.webSocket = task
         task.resume()
         receive()
@@ -104,8 +130,9 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
     }
 
     func disconnect() {
-        print("🔌 [PeerJS] disconnect")
+        print("🔌 [PeerJS] disconnect()")
         heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
     }
@@ -113,16 +140,15 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
     private func startHeartbeat() {
         DispatchQueue.main.async { [weak self] in
             self?.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-                self?.send(json: ["type": "HEARTBEAT"])
+                self?.sendRaw(["type": "HEARTBEAT"])
             }
         }
     }
 
-    // MARK: - Send (PeerJS wire protocol)
+    // MARK: - Send
 
     func sendOffer(to dst: String, sdp: String) {
-        print("📤 [PeerJS] OFFER → \(dst) connId=\(mediaConnectionId)")
-        send(json: [
+        let msg: [String: Any] = [
             "type": "OFFER",
             "payload": [
                 "src": peerId ?? "",
@@ -130,15 +156,16 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
                 "serialization": "binary",
                 "sdp": ["type": "OFFER", "sdp": sdp],
                 "connectionId": mediaConnectionId,
-                "type": "media",               // CRITICAL: PeerJS checks this
+                "type": "media",
                 "metadata": ["device": "CastNow", "os": "iOS"]
             ] as [String: Any]
-        ])
+        ]
+        printLog("SEND OFFER", dst: dst, msg: msg, sdpPreview: String(sdp.prefix(80)))
+        sendRaw(msg)
     }
 
     func sendAnswer(to dst: String, sdp: String) {
-        print("📤 [PeerJS] ANSWER → \(dst) connId=\(mediaConnectionId)")
-        send(json: [
+        let msg: [String: Any] = [
             "type": "ANSWER",
             "payload": [
                 "src": peerId ?? "",
@@ -147,11 +174,13 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
                 "connectionId": mediaConnectionId,
                 "type": "media"
             ] as [String: Any]
-        ])
+        ]
+        printLog("SEND ANSWER", dst: dst, msg: msg, sdpPreview: String(sdp.prefix(80)))
+        sendRaw(msg)
     }
 
     func sendCandidate(to dst: String, candidate: String, sdpMLineIndex: Int32, sdpMid: String?) {
-        send(json: [
+        let msg: [String: Any] = [
             "type": "CANDIDATE",
             "payload": [
                 "src": peerId ?? "",
@@ -164,17 +193,44 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
                 "connectionId": mediaConnectionId,
                 "type": "media"
             ] as [String: Any]
-        ])
+        ]
+        printLog("SEND CANDIDATE", dst: dst, msg: msg, sdpPreview: candidate)
+        sendRaw(msg)
     }
 
     func sendLeave(to dst: String) {
-        send(json: ["type": "LEAVE", "payload": ["src": peerId ?? "", "dst": dst]])
+        let msg: [String: Any] = ["type": "LEAVE", "payload": ["src": peerId ?? "", "dst": dst]]
+        printLog("SEND LEAVE", dst: dst, msg: msg, sdpPreview: nil)
+        sendRaw(msg)
     }
 
-    private func send(json: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: json) else { return }
-        webSocket?.send(.data(data)) { error in
-            if let error = error { print("❌ [PeerJS] WS send error: \(error.localizedDescription)") }
+    private func sendRaw(_ json: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: json) else {
+            print("❌ [PeerJS] Failed to serialize JSON")
+            return
+        }
+        guard let ws = webSocket else {
+            print("❌ [PeerJS] WebSocket is nil, cannot send")
+            return
+        }
+        ws.send(.data(data)) { error in
+            if let error = error {
+                print("❌ [PeerJS] WS send error: \(error)")
+            }
+        }
+    }
+
+    private func printLog(_ direction: String, dst: String?, msg: [String: Any], sdpPreview: String?) {
+        print("📤 [PeerJS] \(direction) → \(dst ?? "?") | connId=\(mediaConnectionId)")
+        if let pretty = try? JSONSerialization.data(withJSONObject: msg, options: [.prettyPrinted]),
+           let str = String(data: pretty, encoding: .utf8) {
+            // Print full JSON but limit SDP to first 80 chars for readability
+            var trimmed = str
+            if let sdp = sdpPreview {
+                print("   sdp preview: \(sdp)...")
+            }
+            print("   full JSON (\(trimmed.count) bytes):")
+            print(trimmed)
         }
     }
 
@@ -188,7 +244,8 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
                 self.handle(message: message)
                 self.receive()
             case .failure(let error):
-                print("❌ [PeerJS] WS receive error: \(error.localizedDescription)")
+                print("❌ [PeerJS] WS receive error: \(error)")
+                print("❌ [PeerJS] WS receive error domain: \(error) code: \((error as NSError).code)")
                 DispatchQueue.main.async { self.onEvent?(.close) }
             }
         }
@@ -197,86 +254,129 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
     private func handle(message: URLSessionWebSocketTask.Message) {
         var rawText: String?
         switch message {
-        case .data(let data): rawText = String(data: data, encoding: .utf8)
-        case .string(let text): rawText = text
-        @unknown default: break
+        case .data(let data):
+            rawText = String(data: data, encoding: .utf8)
+            print("📥 [PeerJS] RECV (\(data.count) bytes data)")
+        case .string(let text):
+            rawText = text
+            print("📥 [PeerJS] RECV (\(text.count) chars string)")
+        @unknown default:
+            print("⚠️ [PeerJS] RECV unknown message type")
+            break
         }
-        guard let text = rawText else { return }
-        print("📥 [PeerJS] recv: \(text.prefix(300))")
+        guard let text = rawText else {
+            print("⚠️ [PeerJS] RECV: could not decode text")
+            return
+        }
+
+        // Print full message (truncate very long SDP)
+        var displayText = text
+        if text.count > 500 {
+            displayText = String(text.prefix(200)) + "\n... (\(text.count) chars total) ...\n" + String(text.suffix(100))
+        }
+        print("📥 [PeerJS] RECV raw: \(displayText)")
 
         guard let data = text.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else { return }
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("⚠️ [PeerJS] RECV: JSON parse failed")
+            return
+        }
+
+        guard let type = json["type"] as? String else {
+            print("⚠️ [PeerJS] RECV: no 'type' field. Keys: \(json.keys.sorted())")
+            return
+        }
 
         let payload = json["payload"] as? [String: Any] ?? [:]
+        print("📥 [PeerJS] RECV type=\(type) payloadKeys=\(payload.keys.sorted())")
 
         switch type {
         case "OPEN":
             let id = (payload["id"] as? String) ?? peerId ?? ""
             peerId = id
-            print("✅ [PeerJS] OPEN confirmed, id=\(id)")
+            print("✅ [PeerJS] OPEN confirmed! peerId=\(id)")
             DispatchQueue.main.async { self.onEvent?(.opened(id)) }
 
         case "OFFER":
-            let sdpStr = extractSdp(payload)
-            let src = payload["src"] as? String ?? ""
+            let src = payload["src"] as? String ?? "?"
             let connId = payload["connectionId"] as? String ?? ""
-            print("📥 [PeerJS] OFFER from \(src) connId=\(connId)")
-            // Adopt the connectionId from the incoming offer
+            let payloadType = payload["type"] as? String ?? "?"
+            let sdpStr = extractSdp(payload)
+            print("📥 [PeerJS] OFFER from=\(src) connId=\(connId) payloadType=\(payloadType)")
             if !connId.isEmpty { mediaConnectionId = connId }
             if let sdp = sdpStr {
-                var offer = PeerOffer(sdp: sdp, sourcePeerId: src, connectionId: connId)
+                let offer = PeerOffer(sdp: sdp, sourcePeerId: src, connectionId: connId)
                 DispatchQueue.main.async { self.onEvent?(.offer(offer)) }
+            } else {
+                print("⚠️ [PeerJS] OFFER: could not extract SDP!")
             }
 
         case "ANSWER":
+            let src = payload["src"] as? String ?? "?"
+            let connId = payload["connectionId"] as? String ?? ""
+            let payloadType = payload["type"] as? String ?? "?"
             let sdpStr = extractSdp(payload)
-            let src = payload["src"] as? String ?? ""
-            print("📥 [PeerJS] ANSWER from \(src)")
+            print("📥 [PeerJS] ANSWER from=\(src) connId=\(connId) payloadType=\(payloadType)")
             if let sdp = sdpStr {
                 DispatchQueue.main.async { self.onEvent?(.answer(PeerOffer(sdp: sdp, sourcePeerId: src))) }
+            } else {
+                print("⚠️ [PeerJS] ANSWER: could not extract SDP!")
             }
 
         case "CANDIDATE":
+            let src = payload["src"] as? String ?? "?"
             let (cand, mline, mid) = extractCandidate(payload)
+            print("📥 [PeerJS] CANDIDATE from=\(src) cand=\(cand?.prefix(50) ?? "nil") mline=\(mline) mid=\(mid ?? "nil")")
             if let cand = cand {
-                print("📥 [PeerJS] CANDIDATE")
                 DispatchQueue.main.async {
                     self.onEvent?(.candidate(RTCIceCandidate(sdp: cand, sdpMLineIndex: mline, sdpMid: mid)))
                 }
             }
 
         case "LEAVE", "EXPIRE":
-            print("📥 [PeerJS] \(type)")
+            let src = (payload["src"] as? String) ?? (payload["dst"] as? String) ?? "?"
+            print("📥 [PeerJS] \(type) from/to=\(src)")
             DispatchQueue.main.async { self.onEvent?(.close) }
 
         case "ERROR":
+            let errType = payload["type"] as? String ?? "?"
             let msg = payload["msg"] as? String ?? "Unknown error"
-            print("❌ [PeerJS] ERROR: \(msg)")
-            DispatchQueue.main.async { self.onEvent?(.error(msg)) }
+            print("❌ [PeerJS] SERVER ERROR type=\(errType) msg=\(msg)")
+            DispatchQueue.main.async { self.onEvent?(.error("\(errType): \(msg)")) }
 
         case "HEARTBEAT":
-            send(json: ["type": "HEARTBEAT"])
+            // Server heartbeat, respond to keep alive
+            sendRaw(["type": "HEARTBEAT"])
 
         case "ID-TAKEN":
-            print("❌ [PeerJS] ID taken!")
-            DispatchQueue.main.async { self.onEvent?(.error("ID taken")) }
+            print("❌ [PeerJS] ID-TAKEN: peerId \(peerId ?? "?") is already in use!")
+            DispatchQueue.main.async { self.onEvent?(.error("ID-TAKEN")) }
 
         case "INVALID-ID":
-            print("❌ [PeerJS] Invalid ID")
-            DispatchQueue.main.async { self.onEvent?(.error("Invalid ID")) }
+            print("❌ [PeerJS] INVALID-ID: peerId \(peerId ?? "?") is invalid!")
+            DispatchQueue.main.async { self.onEvent?(.error("INVALID-ID")) }
 
         default:
-            print("⚠️ [PeerJS] unhandled type: \(type) payload: \(payload)")
+            print("⚠️ [PeerJS] UNHANDLED type=\(type)")
+            print("⚠️ [PeerJS] full payload: \(payload)")
         }
     }
 
     // MARK: - SDP / Candidate extraction
 
     private func extractSdp(_ payload: [String: Any]) -> String? {
-        if let sdpObj = payload["sdp"] as? [String: Any],
-           let sdp = sdpObj["sdp"] as? String { return sdp }
-        return payload["sdp"] as? String
+        // PeerJS v1+ wraps SDP as {"type":"OFFER","sdp":"v=0..."}
+        if let sdpObj = payload["sdp"] as? [String: Any] {
+            print("   extractSdp: sdp is dict, keys=\(sdpObj.keys.sorted())")
+            return sdpObj["sdp"] as? String
+        }
+        // Some versions send SDP as plain string
+        if let sdpStr = payload["sdp"] as? String {
+            print("   extractSdp: sdp is string")
+            return sdpStr
+        }
+        print("   extractSdp: sdp NOT FOUND! payload keys=\(payload.keys.sorted())")
+        return nil
     }
 
     private func extractCandidate(_ payload: [String: Any]) -> (String?, Int32, String?) {
@@ -295,20 +395,27 @@ final class PeerJSClient: NSObject, URLSessionWebSocketDelegate {
     func urlSession(_ session: URLSession,
                     webSocketTask: URLSessionWebSocketTask,
                     didOpenWithProtocol proto: String?) {
-        print("🔗 [PeerJS] WebSocket connected")
+        print("✅ [PeerJS] WebSocket OPENED (protocol=\(proto ?? "none"))")
     }
 
     func urlSession(_ session: URLSession,
                     webSocketTask: URLSessionWebSocketTask,
                     didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
                     reason: Data?) {
-        print("🔌 [PeerJS] WebSocket closed: \(closeCode)")
+        let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        print("🔌 [PeerJS] WebSocket CLOSED code=\(closeCode.rawValue) reason=\(reasonStr)")
+        heartbeatTimer?.invalidate()
         DispatchQueue.main.async { self.onEvent?(.close) }
     }
 
     func urlSession(_ session: URLSession,
                     didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        completionHandler(.useCredential, URLCredential(trust: challenge.protectionSpace.serverTrust!))
+        print("🔐 [PeerJS] TLS challenge from \(challenge.protectionSpace.host)")
+        if let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
     }
 }

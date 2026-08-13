@@ -87,7 +87,7 @@ class WebrtcBroadcastService {
       if (_isDisposed || _isStopping) return;
 
       _peer = Peer(
-        id: code,
+        id: 'CASTNOW_$code',
         options: PeerOptions(
           host: '0.peerjs.com',
           port: 443,
