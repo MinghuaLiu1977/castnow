@@ -61,10 +61,8 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
         let code = String(format: "%06d", Int.random(in: 100000...999999))
         pendingCode = code
-        // Register with CASTNOW_ prefix to avoid ID collisions on public PeerJS server
-        let fullId = "CASTNOW_\(code)"
-        print("📞 [Broadcast] Registering as peerId=\(fullId)")
-        peer.connect(id: fullId)
+        print("📞 [Broadcast] Registering as peerId=\(code)")
+        peer.connect(id: code)
     }
 
     func toggleMic() {
@@ -115,16 +113,41 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 if self.shareScreen { self.beginSystemBroadcast() }
 
             case .offer(let offer):
-                // v9.1 knock-recall: receiver knocks, we DON'T answer.
-                // Ignore knock, wait 1s, then recall with our own offer.
-                // DO NOT send LEAVE — that would close the receiver's peer connection.
+                // Simple flow: Web sends OFFER → we ANSWER directly.
+                // No knock-recall needed (that was a peerdart workaround).
                 guard self.destPeer == nil else { return }
                 self.destPeer = offer.sourcePeerId
-                print("叩 [PeerJS] Knock from \(offer.sourcePeerId), will recall in 1s")
-                self.statusMessage = "接收端已连接，准备回拨..."
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                    self?.recall(to: offer.sourcePeerId)
+                print("📥 [Broadcast] OFFER from \(offer.sourcePeerId), answering directly")
+                self.statusMessage = "接收端已连接"
+
+                // Create PC, add tracks, then answer
+                self.rtc.createPeerConnection()
+                if self.shareScreen {
+                    let source = self.rtc.startScreenCapture()
+                    if let track = self.rtc.addVideoTrack() { self.rtc.attachBroadcastTrack(track) }
+                    self.rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
                 }
+                if self.shareCamera {
+                    let cam = CameraCapture(factory: self.rtc.factory)
+                    cam.configure()
+                    cam.start()
+                    self.camera = cam
+                    let track = self.rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
+                    self.rtc.attachBroadcastTrack(track)
+                }
+
+                self.rtc.candidatePeerId = offer.sourcePeerId
+                self.rtc.onRemoteOffer = { [weak self] sdp in
+                    print("📤 [Broadcast] Sending ANSWER")
+                    self?.peer.sendAnswer(to: offer.sourcePeerId, sdp: sdp)
+                }
+                self.rtc.onIceCandidate = { [weak self] candidate, dest in
+                    self?.peer.sendCandidate(to: dest,
+                                             candidate: candidate.sdp,
+                                             sdpMLineIndex: candidate.sdpMLineIndex,
+                                             sdpMid: candidate.sdpMid)
+                }
+                self.rtc.setRemoteDescription(offer.sdp)
 
             case .answer(let answer):
                 print("✅ [PeerJS] Answer from receiver")

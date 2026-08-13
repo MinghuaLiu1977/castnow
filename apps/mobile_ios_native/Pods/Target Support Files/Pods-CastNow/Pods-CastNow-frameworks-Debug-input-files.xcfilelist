@@ -1,2 +1,3 @@
 ${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks.sh
+${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework
 ${PODS_XCFRAMEWORKS_BUILD_DIR}/WebRTC-SDK/WebRTC.framework/WebRTC

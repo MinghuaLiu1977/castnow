@@ -3,6 +3,7 @@ platform :ios, '15.6'
 target 'CastNow' do
   use_frameworks!
   pod 'WebRTC-SDK'
+  pod 'Starscream', '~> 4.0'
 end
 
 post_install do |installer|
