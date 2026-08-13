@@ -62,7 +62,7 @@
 		20EFAD07E3EE8D183F37D180 /* PeerJSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerJSClient.swift; sourceTree = "<group>"; };
 		23CBCE37FB00560ED7D1CF3E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		2C098620F85CE91ADAD1A366 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		3AFC4686ADA9C9441F92856E /* CastNow.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CastNow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AFC4686ADA9C9441F92856E /* 即刻投屏.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "即刻投屏.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C76EDB2AEBCE82C1AF02611 /* Pods_CastNow.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CastNow.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E103CD64DEA33DCFFD0A08E /* BroadcastExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BroadcastExtension.entitlements; sourceTree = "<group>"; };
 		4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
@@ -174,7 +174,6 @@
 				C76417E985A2D4C81D3C2CE3 /* Pods-CastNow.debug.xcconfig */,
 				EAA636B39344BA2D20F08CCA /* Pods-CastNow.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -200,7 +199,7 @@
 			isa = PBXGroup;
 			children = (
 				88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */,
-				3AFC4686ADA9C9441F92856E /* CastNow.app */,
+				3AFC4686ADA9C9441F92856E /* 即刻投屏.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -250,7 +249,7 @@
 			);
 			name = CastNow;
 			productName = CastNow;
-			productReference = 3AFC4686ADA9C9441F92856E /* CastNow.app */;
+			productReference = 3AFC4686ADA9C9441F92856E /* 即刻投屏.app */;
 			productType = "com.apple.product-type.application";
 		};
 		428834B0818D8B7ECACCAEDD /* BroadcastExtension */ = {
@@ -328,9 +327,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -418,6 +421,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow;
 				PRODUCT_NAME = "即刻投屏";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -524,6 +531,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow;
 				PRODUCT_NAME = "即刻投屏";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
