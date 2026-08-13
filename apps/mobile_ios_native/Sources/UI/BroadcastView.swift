@@ -34,6 +34,8 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published var isMicMuted: Bool = true
     @Published var isPlaybackMuted: Bool = false
 
+    var onDisconnect: (() -> Void)?
+
     private var pendingCode: String = ""
 
     let shareScreen: Bool
@@ -81,13 +83,20 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         peer.connect(id: code)
 
         if shareCamera {
-            let cam = CameraCapture(factory: rtc.factory)
-            cam.configure()
-            cam.onStarted = { [weak self] in
-                self?.isCameraReady = true
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                let cam = CameraCapture(factory: self.rtc.factory)
+                cam.configure()
+                
+                DispatchQueue.main.async {
+                    cam.onStarted = { [weak self] in
+                        self?.isCameraReady = true
+                        self?.checkReady()
+                    }
+                    self.camera = cam
+                    cam.start()
+                }
             }
-            cam.start()
-            camera = cam
         } else {
             isCameraReady = true
         }
@@ -168,6 +177,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 if self.isConnected {
                     self.isConnected = false
                     self.statusMessage = "接收端已离开"
+                    self.onDisconnect?()
                 } else {
                     print("ℹ️ [PeerJS] Close during handshake, ignored")
                 }
@@ -357,7 +367,12 @@ struct BroadcastView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear { vm.start() }
+        .onAppear {
+            vm.onDisconnect = {
+                presentationMode.wrappedValue.dismiss()
+            }
+            vm.start()
+        }
         .onDisappear { vm.stop() }
     }
 

@@ -30,6 +30,11 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     private var pendingRemoteCandidates: [RTCIceCandidate] = []
 
     override init() {
+        // Configure WebRTC Audio Session to default to speaker
+        let config = RTCAudioSessionConfiguration.webRTC()
+        config.categoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
+        RTCAudioSessionConfiguration.setWebRTC(config)
+        
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
         factory = RTCPeerConnectionFactory(
@@ -88,16 +93,6 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     
     func setupLocalAudio() {
         guard localAudioTrack == nil else { return }
-        
-        // 1. Configure iOS Audio Session for WebRTC (Play and Record via Speaker)
-        let audioSession = RTCAudioSession.sharedInstance()
-        audioSession.lockForConfiguration()
-        do {
-            try audioSession.overrideOutputAudioPort(.speaker)
-        } catch {
-            print("Failed to configure RTCAudioSession: \(error)")
-        }
-        audioSession.unlockForConfiguration()
         
         let audioConstrains = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         let audioSource = factory.audioSource(with: audioConstrains)
