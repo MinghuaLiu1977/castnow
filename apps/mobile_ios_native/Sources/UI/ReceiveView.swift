@@ -237,74 +237,79 @@ struct ReceiveView: View {
                 // 画中画视图 (独立于背景ZStack，直接覆盖在最上层，避免被切掉)
                 if vm.videoTracks.count > 1 {
                     let pipTrackIndex = vm.isPiPViewSwapped ? 0 : 1
+                    DraggablePiPView(track: vm.videoTracks[pipTrackIndex]) {
+                        withAnimation {
+                            vm.swapPiPView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.bottom, 120) // 给底部的控制器留出空间
+                    .padding(.trailing, 20)
+                }
+
+                // 底部控制面板和顶部返回按钮
+                if showControls {
+                    // 顶部返回按钮
+                    VStack {
+                        HStack {
+                            Button(action: { vm.leave(); presentationMode.wrappedValue.dismiss() }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.title3.weight(.bold))
+                                    .foregroundColor(.white)
+                                    .padding(12)
+                                    .background(Circle().fill(Color.black.opacity(0.6)))
+                            }
+                            Spacer()
+                        }
+                        .padding(.top, 50)
+                        .padding(.leading, 20)
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                    .zIndex(2)
+
+                    // 底部控制面板 (仅保留麦克风和扬声器)
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
-                            DraggablePiPView(track: vm.videoTracks[pipTrackIndex]) {
-                                withAnimation {
-                                    vm.swapPiPView()
+                            HStack(spacing: 40) {
+                                // 扬声器控制
+                                Button(action: { 
+                                    vm.toggleSpeaker()
+                                    resetControlTimer() 
+                                }) {
+                                    Image(systemName: vm.isSpeakerEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                                        .font(.title2)
+                                        .frame(width: 56, height: 56)
+                                        .background(vm.isSpeakerEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
+                                        .clipShape(Circle())
+                                        .foregroundColor(.white)
+                                }
+                                
+                                // 麦克风控制
+                                Button(action: { 
+                                    vm.toggleMic()
+                                    resetControlTimer()
+                                }) {
+                                    Image(systemName: vm.isMicEnabled ? "mic.fill" : "mic.slash.fill")
+                                        .font(.title2)
+                                        .frame(width: 56, height: 56)
+                                        .background(vm.isMicEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
+                                        .clipShape(Circle())
+                                        .foregroundColor(.white)
                                 }
                             }
-                        }
-                    }
-                    .padding(.bottom, 60) // 给底部的控制器留出空间
-                    // 取消 ignoresSafeArea 确保它留在可视区域内
-                }
-
-                // 底部控制面板
-                if showControls {
-                        VStack {
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 32)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(Capsule())
                             Spacer()
-                            HStack {
-                                Spacer()
-                                HStack(spacing: 40) {
-                                    // 扬声器控制
-                                    Button(action: { 
-                                        vm.toggleSpeaker()
-                                        resetControlTimer() 
-                                    }) {
-                                        Image(systemName: vm.isSpeakerEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                                            .font(.title2)
-                                            .frame(width: 56, height: 56)
-                                            .background(vm.isSpeakerEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
-                                            .clipShape(Circle())
-                                            .foregroundColor(.white)
-                                    }
-                                    
-                                    // 麦克风控制
-                                    Button(action: { 
-                                        vm.toggleMic()
-                                        resetControlTimer()
-                                    }) {
-                                        Image(systemName: vm.isMicEnabled ? "mic.fill" : "mic.slash.fill")
-                                            .font(.title2)
-                                            .frame(width: 56, height: 56)
-                                            .background(vm.isMicEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
-                                            .clipShape(Circle())
-                                            .foregroundColor(.white)
-                                    }
-                                    
-                                    // 挂断按钮
-                                    Button(action: { vm.leave(); presentationMode.wrappedValue.dismiss() }) {
-                                        Image(systemName: "phone.down.fill")
-                                            .font(.title2)
-                                            .frame(width: 56, height: 56)
-                                            .background(Color.red)
-                                            .clipShape(Circle())
-                                            .foregroundColor(.white)
-                                    }
-                                }
-                                .padding(.vertical, 20)
-                                .padding(.horizontal, 30)
-                                .background(Color.black.opacity(0.6))
-                                .clipShape(Capsule())
-                                Spacer()
-                            }
-                            .padding(.bottom, 30)
                         }
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .zIndex(1)
+                        .padding(.bottom, 30)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
                 }
             } else {
                 ScrollView(showsIndicators: false) {
