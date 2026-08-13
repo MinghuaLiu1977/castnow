@@ -188,23 +188,55 @@ export function useWebRTC(getIceServers) {
     peerInstance.value = peer;
 
     peer.on('open', (id) => {
-      // Add CASTNOW_ prefix to match iOS native sender's peer ID
-      const targetPeerId = `CASTNOW_${code}`;
-      console.log('[WebRTC] Knocking to:', targetPeerId);
-      const knockCall = peer.call(targetPeerId, receiverMicStream.value || new MediaStream());
+      // Try CASTNOW_ prefix first (new app versions), then raw code (old versions)
+      const prefixedId = `CASTNOW_${code}`;
+      console.log('[WebRTC] Knock attempt 1 (prefixed):', prefixedId);
 
-      const timeout = setTimeout(() => {
+      let knockTimeout;
+      let triedFallback = false;
+
+      const tryKnock = (targetId) => {
+        const knockCall = peer.call(targetId, receiverMicStream.value || new MediaStream());
+
+        knockCall.on('error', (err) => {
+          console.log('[WebRTC] Knock failed for', targetId, err.type || err.message);
+          if (!triedFallback && targetId === prefixedId) {
+            triedFallback = true;
+            console.log('[WebRTC] Knock attempt 2 (raw code):', code);
+            tryKnock(code);
+          } else {
+            clearTimeout(knockTimeout);
+            error.value = 'Connection failed. Check code.';
+            isConnecting.value = false;
+          }
+        });
+
+        return knockCall;
+      };
+
+      tryKnock(prefixedId);
+
+      knockTimeout = setTimeout(() => {
         if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
-          isConnecting.value = false;
-          error.value = 'Connection failed. Check code.';
-        }
-      }, 10000);
+          // Prefixed didn't respond in 5s, try raw code
+          if (!triedFallback) {
+            triedFallback = true;
+            console.log('[WebRTC] Prefixed timeout, trying raw code:', code);
+            tryKnock(code);
 
-      knockCall.on('error', (err) => {
-        clearTimeout(timeout);
-        error.value = 'Connection failed. Check code.';
-        isConnecting.value = false;
-      });
+            // Final timeout
+            setTimeout(() => {
+              if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
+                isConnecting.value = false;
+                error.value = 'Connection failed. Check code.';
+              }
+            }, 5000);
+          } else {
+            isConnecting.value = false;
+            error.value = 'Connection failed. Check code.';
+          }
+        }
+      }, 5000);
     });
 
     peer.on('call', (call) => {
