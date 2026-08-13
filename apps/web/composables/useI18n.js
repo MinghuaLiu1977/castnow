@@ -41,16 +41,16 @@ export function getDefaultLocale(host, navLang) {
 
 const locale = ref(getDefaultLocale())
 
-function getAppStoreUrl() {
-  if (typeof window === 'undefined') return 'https://apps.apple.com/us/app/screen-share-castnow/id6761016081'
-  const host = window.location.hostname
-  if (host === 'castnow.padap.cn') {
-    return 'https://apps.apple.com/us/app/castnow-%E5%8D%B3%E5%88%BB%E6%8A%95%E5%B1%8F/id6795734574'
-  }
-  return 'https://apps.apple.com/us/app/screen-share-castnow/id6761016081'
-}
+const appStoreUrl = ref('https://apps.apple.com/us/app/screen-share-castnow/id6761016081')
+const appIcon = ref('/icon.svg')
 
-const appStoreUrl = getAppStoreUrl()
+if (typeof window !== 'undefined') {
+  const host = window.location.hostname
+  if (host.includes('castnow.padap.cn')) {
+    appStoreUrl.value = 'https://apps.apple.com/us/app/castnow-%E5%8D%B3%E5%88%BB%E6%8A%95%E5%B1%8F/id6795734574'
+    appIcon.value = '/icon_standard.png'
+  }
+}
 
 export function useI18n() {
   const t = (key, params) => {
@@ -69,5 +69,5 @@ export function useI18n() {
     return value
   }
 
-  return { t, locale, loadMessages, messagesLoaded, appStoreUrl }
+  return { t, locale, loadMessages, messagesLoaded, appStoreUrl, appIcon }
 }
