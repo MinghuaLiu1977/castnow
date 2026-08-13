@@ -64,7 +64,7 @@ const {
   dragType, isDragging, isMuted, isTouchDevice, isMobile,
 } = layout;
 
-const { t, locale, loadMessages, messagesLoaded, appIcon } = useI18n();
+const { t, locale, loadMessages, messagesLoaded, appIcon, isNativeIcon } = useI18n();
 
 const receiverRoot = ref(null);
 const remoteDeviceInfo = ref('');
@@ -221,7 +221,10 @@ const swapStreams = () => layout.swapStreams();
       class="flex items-center justify-between px-6 py-4 border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
       <div class="flex items-center gap-3 cursor-pointer group" @click="resetApp">
         <img :src="appIcon" alt="CastNow"
-          class="w-8 h-8 rounded-xl opacity-90 mix-blend-screen group-hover:scale-105 transition-transform duration-300" />
+          :class="[
+            'w-8 h-8 group-hover:scale-105 transition-transform duration-300',
+            isNativeIcon ? 'rounded-lg shadow-sm' : 'rounded-xl opacity-90 mix-blend-screen'
+          ]" />
         <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-xl font-black italic uppercase tracking-tight text-transparent pr-1">CastNow</span>
       </div>
     </header>

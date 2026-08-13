@@ -64,9 +64,9 @@ const emit = defineEmits([
       <span v-else>{{ t('receiver.connect') }}</span>
     </button>
 
-    <button v-if="isConnecting" @click="$emit('resetApp')"
-      class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-[10px] hover:text-white transition-colors flex items-center gap-2">
-      <X class="w-3 h-3" /> {{ t('receiver.cancel') }}
+    <button @click="$emit('resetApp')"
+      class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs hover:text-white transition-colors flex items-center gap-2 p-2">
+      <X class="w-4 h-4" /> {{ t('receiver.cancel') }}
     </button>
 
     <p v-if="error" class="mt-4 text-red-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">

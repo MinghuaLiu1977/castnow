@@ -39,7 +39,7 @@ func plog(_ msg: String) {
 final class PeerJSClient: NSObject, WebSocketDelegate {
 
     private var socket: Starscream.WebSocket?
-    private let host = "peer.padap.cn"
+    private let host = "0.peerjs.com"
     private let wsPath = "/peerjs"  // PeerJS JS client with path '/' connects to '/peerjs'
     private let key = "peerjs"
     private let token: String
