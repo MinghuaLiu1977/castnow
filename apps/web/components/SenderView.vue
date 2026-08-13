@@ -18,6 +18,7 @@ const props = defineProps({
   localCameraStream: { default: null },
   localVideo: { default: null },
   lastReceiverInfo: { type: String, default: '' },
+  error: { type: String, default: null },
 });
 
 const emit = defineEmits(['toggleMic', 'toggleCamera', 'resetApp']);
@@ -75,7 +76,12 @@ watch(() => props.localVideo, (stream) => { if (stream && localVideoEl.value) lo
       </div>
 
       <transition name="fade">
-        <div v-if="lastReceiverInfo" class="mt-8 pt-6 border-t border-slate-800/50 flex justify-center">
+        <div v-if="error" class="mt-8 pt-6 border-t border-slate-800/50 flex justify-center">
+          <div class="flex items-center gap-2 text-red-500 bg-red-400/5 px-6 py-2.5 rounded-2xl border border-red-500/20 shadow-sm shadow-red-500/5">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em]">{{ error }}</span>
+          </div>
+        </div>
+        <div v-else-if="lastReceiverInfo" class="mt-8 pt-6 border-t border-slate-800/50 flex justify-center">
           <div class="flex items-center gap-2 text-emerald-500 bg-emerald-400/5 px-6 py-2.5 rounded-2xl border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
             <Smartphone class="w-4 h-4" />
             <span class="text-[10px] font-black uppercase tracking-[0.2em]">{{ t('sender.receiverConnected', { info: lastReceiverInfo }) }}</span>

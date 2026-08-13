@@ -78,6 +78,7 @@ class VideoViewWrapper: UIView, RTCVideoRenderer {
             } else {
                 videoView?.isHidden = false
                 videoView?.frame = safeFrame
+                videoView?.videoContentMode = .scaleAspectFit
                 let active = (self.window != nil && currentTrack != nil)
                 videoView?.pauseMetalViews(!active)
             }

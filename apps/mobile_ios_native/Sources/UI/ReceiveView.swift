@@ -197,6 +197,13 @@ struct DraggablePiPView: View {
             .onTapGesture {
                 onTap()
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                // Reset offset on rotation so it doesn't get pushed off-screen
+                withAnimation(.spring()) {
+                    offset = .zero
+                    scale = 1.0
+                }
+            }
             .padding(24)
     }
 }
