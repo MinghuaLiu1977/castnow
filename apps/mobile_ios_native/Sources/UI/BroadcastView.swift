@@ -57,36 +57,14 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         let code = String(format: "%06d", Int.random(in: 100000...999999))
         pairCode = code
 
-        rtc.createPeerConnection()
-
-        if shareScreen {
-            let source = rtc.startScreenCapture()
-            if let track = rtc.addVideoTrack() { rtc.attachBroadcastTrack(track) }
-            rtc.setScreenPreviewHandler { [weak self] img in
-                self?.previewImage = img
-            }
-        }
-
-        if shareCamera {
-            let cam = CameraCapture(factory: rtc.factory)
-            cam.configure()
-            cam.start()
-            camera = cam
-            let track = rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
-            rtc.attachBroadcastTrack(track)
-        }
-
+        // v9.1 handshake: register on PeerJS, wait for knock, then recall.
+        // DON'T create PC yet — PC is created during recall.
         peer.onEvent = { [weak self] event in self?.handle(event: event) }
         peer.connect(id: code)
-
-        if shareScreen {
-            beginSystemBroadcast()
-        }
     }
 
     func toggleMic() {
         isMicMuted.toggle()
-        // TODO: enable/disable local audio track
     }
 
     func togglePlayback() {
@@ -127,20 +105,70 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             switch event {
             case .opened(let id):
                 self.statusMessage = "信令已连接 (\(id))"
+                if self.shareScreen { self.beginSystemBroadcast() }
+
             case .offer(let offer):
+                // v9.1 knock-recall: receiver knocks, we DON'T answer.
+                // Close knock → wait 1s → recall with our own offer.
+                guard self.destPeer == nil else { return }
                 self.destPeer = offer.sourcePeerId
-                self.rtc.candidatePeerId = offer.sourcePeerId
-                self.rtc.onRemoteOffer = { [weak self] sdp in self?.peer.sendAnswer(to: offer.sourcePeerId, sdp: sdp) }
-                self.rtc.setRemoteDescription(offer.sdp)
+                print("叩 [PeerJS] Knock from \(offer.sourcePeerId), recalling in 1s")
+                self.statusMessage = "接收端敲盘中..."
+                self.peer.sendLeave(to: offer.sourcePeerId)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    self?.recall(to: offer.sourcePeerId)
+                }
+
+            case .answer(let answer):
+                print("✅ [PeerJS] Answer from receiver")
+                self.rtc.setRemoteDescription(answer.sdp)
+
             case .candidate(let c):
                 self.rtc.addIceCandidate(c)
+
             case .close:
                 self.isConnected = false
                 self.statusMessage = "接收端已离开"
-            case .answer, .error:
-                break
+            case .error(let msg):
+                self.statusMessage = "错误: \(msg)"
             }
         }
+    }
+
+    private func recall(to receiverId: String) {
+        statusMessage = "回拨接收端..."
+        print("📞 [PeerJS] Recalling \(receiverId)")
+
+        // Fresh PC + tracks for recall
+        rtc.createPeerConnection()
+
+        if shareScreen {
+            let source = rtc.startScreenCapture()
+            if let track = rtc.addVideoTrack() { rtc.attachBroadcastTrack(track) }
+            rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
+        }
+        if shareCamera {
+            let cam = CameraCapture(factory: rtc.factory)
+            cam.configure()
+            cam.start()
+            camera = cam
+            let track = rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
+            rtc.attachBroadcastTrack(track)
+        }
+
+        // Create our own offer and send to receiver
+        rtc.candidatePeerId = receiverId
+        rtc.onLocalOffer = { [weak self] sdp, dest in
+            print("📤 [PeerJS] Recall OFFER → \(dest)")
+            self?.peer.sendOffer(to: dest, sdp: sdp)
+        }
+        rtc.onIceCandidate = { [weak self] candidate, dest in
+            self?.peer.sendCandidate(to: dest,
+                                     candidate: candidate.sdp,
+                                     sdpMLineIndex: candidate.sdpMLineIndex,
+                                     sdpMid: candidate.sdpMid)
+        }
+        rtc.createOffer(destPeer: receiverId)
     }
 
     func rtcConnectStateChanged(_ connected: Bool) {

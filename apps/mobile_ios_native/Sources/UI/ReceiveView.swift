@@ -50,23 +50,47 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             guard let self = self else { return }
             switch event {
             case .opened:
-                // Now call the broadcaster with an offer.
+                // Send knock offer to broadcaster (v9.1 handshake)
                 self.rtc.candidatePeerId = self.broadcasterId
-                self.rtc.createOffer(destPeer: self.broadcasterId ?? "")
                 self.rtc.onLocalOffer = { [weak self] sdp, dest in
+                    print("📤 [PeerJS] Knock OFFER → \(dest)")
                     self?.peer.sendOffer(to: dest, sdp: sdp)
                 }
-                self.isConnecting = false
-            case .answer(let offer):
+                self.rtc.onIceCandidate = { [weak self] candidate, dest in
+                    self?.peer.sendCandidate(to: dest,
+                                             candidate: candidate.sdp,
+                                             sdpMLineIndex: candidate.sdpMLineIndex,
+                                             sdpMid: candidate.sdpMid)
+                }
+                self.rtc.createOffer(destPeer: self.broadcasterId ?? "")
+
+            case .offer(let offer):
+                // Broadcaster recalled with their own offer (v9.1 recall).
+                // Answer it.
+                print("✅ [PeerJS] Recall OFFER from \(offer.sourcePeerId)")
+                self.rtc.candidatePeerId = offer.sourcePeerId
+                self.rtc.onRemoteOffer = { [weak self] sdp in
+                    guard let self = self, let dest = self.broadcasterId else { return }
+                    print("📤 [PeerJS] ANSWER → \(dest)")
+                    self.peer.sendAnswer(to: dest, sdp: sdp)
+                }
                 self.rtc.setRemoteDescription(offer.sdp)
+
+            case .answer:
+                // Our knock's answer (if any) - ignore, we handle recall above
+                break
+
             case .candidate(let cand):
                 self.rtc.addIceCandidate(cand)
+
             case .close:
                 self.isConnected = false
                 self.isConnecting = false
                 self.errorMessage = "连接已断开"
-            case .offer, .error:
-                break
+
+            case .error(let msg):
+                self.errorMessage = msg
+                self.isConnecting = false
             }
         }
     }
@@ -121,91 +145,100 @@ struct ReceiveView: View {
                     .padding(.leading, 16)
                 }
             } else {
-                VStack(spacing: 0) {
-                    // 顶部返回
-                    HStack {
-                        Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                            Image(systemName: "chevron.left")
-                                .font(.headline)
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(12)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.05)))
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-
-                    Spacer()
-
-                    // 图标 + 标题
-                    if let ui = UIImage(named: "AppIconImage") {
-                        Image(uiImage: ui)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    } else {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(kPrimary)
-                    }
-
-                    Text("输入配对码")
-                        .font(.title2.weight(.black))
-                        .foregroundColor(.white)
-                        .padding(.top, 20)
-
-                    // 6 位输入框
-                    HStack(spacing: 8) {
-                        ForEach(0..<6, id: \.self) { i in
-                            Text(i < vm.codeInput.count ? String(vm.codeInput[vm.codeInput.index(vm.codeInput.startIndex, offsetBy: i)]) : "")
-                                .font(.system(size: 30, weight: .black))
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 60)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(Color.white.opacity(i == vm.codeInput.count ? 0.6 : 0.15), lineWidth: 2)
-                                )
-                        }
-                    }
-
-                    // 隐藏输入
-                    TextField("", text: $vm.codeInput)
-                        .keyboardType(.numberPad)
-                        .opacity(0)
-                        .focused($codeFocused)
-                        .onChange(of: vm.codeInput) { newValue in
-                            if newValue.count > 6 { vm.codeInput = String(newValue.prefix(6)) }
-                            if newValue.count == 6 && !vm.isConnecting {
-                                vm.join()
-                            }
-                        }
-
-                    Button(action: { vm.join() }) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // 顶部返回
                         HStack {
-                            if vm.isConnecting {
-                                ProgressView().tint(.black)
-                            } else {
-                                Text("立即连接").fontWeight(.heavy)
+                            Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.headline)
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .padding(12)
+                                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.05)))
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+
+                        Spacer().frame(height: 60)
+
+                        // 图标 + 标题（上移预留键盘空间）
+                        if let ui = UIImage(named: "AppIconImage") {
+                            Image(uiImage: ui)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 64, height: 64)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        } else {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(kPrimary)
+                        }
+
+                        Text("输入配对码")
+                            .font(.title2.weight(.black))
+                            .foregroundColor(.white)
+                            .padding(.top, 16)
+
+                        // 6 位输入框
+                        HStack(spacing: 8) {
+                            ForEach(0..<6, id: \.self) { i in
+                                Text(i < vm.codeInput.count ? String(vm.codeInput[vm.codeInput.index(vm.codeInput.startIndex, offsetBy: i)]) : "")
+                                    .font(.system(size: 30, weight: .black))
+                                    .foregroundColor(.white)
+                                    .frame(width: 44, height: 60)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .strokeBorder(Color.white.opacity(i == vm.codeInput.count ? 0.6 : 0.15), lineWidth: 2)
+                                    )
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(RoundedRectangle(cornerRadius: 20).fill(vm.codeInput.count == 6 ? Color(red: 0.2, green: 0.8, blue: 1.0) : Color.white.opacity(0.1)))
-                        .foregroundColor(vm.codeInput.count == 6 ? .black : .white.opacity(0.4))
-                    }
-                    .disabled(vm.codeInput.count != 6 || vm.isConnecting)
+                        .padding(.top, 24)
 
-                    if let msg = vm.errorMessage {
-                        Text(msg).font(.footnote).foregroundColor(.red)
-                    }
+                        // 隐藏输入
+                        TextField("", text: $vm.codeInput)
+                            .keyboardType(.numberPad)
+                            .opacity(0)
+                            .focused($codeFocused)
+                            .onChange(of: vm.codeInput) { newValue in
+                                if newValue.count > 6 { vm.codeInput = String(newValue.prefix(6)) }
+                                if newValue.count == 6 && !vm.isConnecting {
+                                    vm.join()
+                                }
+                            }
 
-                    if vm.isConnecting {
-                        Text("正在连接...").font(.footnote).foregroundColor(.white.opacity(0.5))
+                        Button(action: { vm.join() }) {
+                            HStack {
+                                if vm.isConnecting {
+                                    ProgressView().tint(.black)
+                                } else {
+                                    Text("立即连接").fontWeight(.heavy)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(RoundedRectangle(cornerRadius: 20).fill(vm.codeInput.count == 6 ? Color(red: 0.2, green: 0.8, blue: 1.0) : Color.white.opacity(0.1)))
+                            .foregroundColor(vm.codeInput.count == 6 ? .black : .white.opacity(0.4))
+                        }
+                        .disabled(vm.codeInput.count != 6 || vm.isConnecting)
+                        .padding(.top, 32)
+
+                        if let msg = vm.errorMessage {
+                            Text(msg).font(.footnote).foregroundColor(.red)
+                                .padding(.top, 12)
+                        }
+
+                        if vm.isConnecting {
+                            Text("正在连接...").font(.footnote).foregroundColor(.white.opacity(0.5))
+                                .padding(.top, 12)
+                        }
+
+                        // 底部留白，确保键盘弹出时内容不被遮挡
+                        Spacer().frame(height: 120)
                     }
+                    .padding(.horizontal, 32)
                 }
-                .padding(.horizontal, 32)
             }
         }
         .navigationBarHidden(true)
