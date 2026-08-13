@@ -17,6 +17,6 @@ describe('Download Links in LandingView.vue', () => {
     const content = fs.readFileSync(filePath, 'utf-8');
     
     // 验证包含 App Store 链接
-    expect(content).toContain('href="https://apps.apple.com/us/app/castnow-pro/id6761016081"');
+    expect(content).toContain('href="https://apps.apple.com/us/app/screen-share-castnow/id6761016081"');
   });
 });
