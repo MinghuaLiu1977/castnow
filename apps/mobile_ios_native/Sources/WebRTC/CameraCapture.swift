@@ -11,6 +11,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private let videoOutput = AVCaptureVideoDataOutput()
     private let captureQueue = DispatchQueue(label: "castnow.camera.capture")
     private(set) var previewLayer: AVCaptureVideoPreviewLayer?
+    
+    var onStarted: (() -> Void)?
 
     init(factory: RTCPeerConnectionFactory) {
         videoSource = factory.videoSource()
@@ -47,6 +49,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         captureQueue.async { [weak self] in
             guard let self = self, !self.captureSession.isRunning else { return }
             self.captureSession.startRunning()
+            DispatchQueue.main.async {
+                self.onStarted?()
+            }
         }
     }
 

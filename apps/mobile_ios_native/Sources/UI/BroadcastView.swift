@@ -45,6 +45,22 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published private var camera: CameraCapture?
     private var destPeer: String?
 
+    private var isPeerReady: Bool = false { didSet { checkReady() } }
+    private var isCameraReady: Bool = false { didSet { checkReady() } }
+
+    private func checkReady() {
+        if isPeerReady && isCameraReady {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if self.pairCode.isEmpty {
+                    self.pairCode = self.pendingCode
+                    self.statusMessage = "等待接收端..."
+                    print("✅ [Broadcast] Code displayed: \(self.pairCode)")
+                }
+            }
+        }
+    }
+
     var cameraSession: AVCaptureSession? { camera?.captureSession }
 
     init(shareScreen: Bool, shareCamera: Bool, shareMic: Bool) {
@@ -56,13 +72,25 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     }
 
     func start() {
-        statusMessage = "正在连接信令服务器..."
+        statusMessage = "正在初始化设备..."
         peer.onEvent = { [weak self] event in self?.handle(event: event) }
 
         let code = String(format: "%06d", Int.random(in: 100000...999999))
         pendingCode = code
         print("📞 [Broadcast] Registering as peerId=\(code)")
         peer.connect(id: code)
+
+        if shareCamera {
+            let cam = CameraCapture(factory: rtc.factory)
+            cam.configure()
+            cam.onStarted = { [weak self] in
+                self?.isCameraReady = true
+            }
+            cam.start()
+            camera = cam
+        } else {
+            isCameraReady = true
+        }
     }
 
     func toggleMic() {
@@ -114,10 +142,9 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             guard let self = self else { return }
             switch event {
             case .opened(let id):
-                // PeerJS server confirmed registration — NOW show the code
-                self.pairCode = self.pendingCode
-                self.statusMessage = "信令已连接 (\(id))"
-                print("✅ [Broadcast] Code displayed: \(self.pairCode)")
+                // PeerJS server confirmed registration — NOW wait for camera
+                self.isPeerReady = true
+                print("✅ [Broadcast] Registered with PeerJS: \(id)")
                 if self.shareScreen { self.beginSystemBroadcast() }
 
             case .offer(let offer):
@@ -166,12 +193,10 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
         }
         if shareCamera {
-            let cam = CameraCapture(factory: rtc.factory)
-            cam.configure()
-            cam.start()
-            camera = cam
-            let track = rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
-            rtc.attachBroadcastTrack(track)
+            if let cam = camera {
+                let track = rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
+                rtc.attachBroadcastTrack(track)
+            }
         }
 
         // Create our own offer and send to receiver
