@@ -90,9 +90,9 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         do {
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord.rawValue)
-            try audioSession.setMode(AVAudioSession.Mode.videoChat.rawValue)
-            try audioSession.overrideOutputAudioPort(.speaker)
+            // WebRTC Swift bridge expects the typed AVAudioSession.Category and AVAudioSession.Mode
+            try audioSession.setCategory(AVAudioSession.Category.playAndRecord, with: .defaultToSpeaker)
+            try audioSession.setMode(AVAudioSession.Mode.videoChat)
             try audioSession.setActive(true)
         } catch {
             print("Failed to configure RTCAudioSession: \(error)")
