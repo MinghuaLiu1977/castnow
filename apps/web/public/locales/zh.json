@@ -83,7 +83,9 @@
     "swapStreams": "切换画面",
     "microphone": "麦克风",
     "camera": "摄像头",
-    "screen": "屏幕"
+    "screen": "屏幕",
+    "muted": "已静音",
+    "sound": "声音开"
   },
   "broadcastEnded": {
     "title": "投屏已结束",

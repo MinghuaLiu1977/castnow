@@ -83,7 +83,9 @@
     "swapStreams": "Swap Streams",
     "microphone": "Microphone",
     "camera": "Camera",
-    "screen": "Screen"
+    "screen": "Screen",
+    "muted": "Muted",
+    "sound": "Sound On"
   },
   "broadcastEnded": {
     "title": "Broadcast Ended",
