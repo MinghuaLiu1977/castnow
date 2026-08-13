@@ -13,7 +13,7 @@ import UIKit
 ///   <JPEG bytes>
 final class SocketVideoCapturer: NSObject {
     private var capturer: RTCVideoCapturer!
-    private var socket: SocketClient?
+    private var socket: SocketServer?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let source: RTCVideoSource
 
@@ -35,18 +35,14 @@ final class SocketVideoCapturer: NSObject {
             return
         }
         let sockPath = container.appendingPathComponent("rtc_SSFD").path
-        let client = SocketClient(path: sockPath)
-        client.onFrame = { [weak self] jpegData, width, height, orientation in
+        let server = SocketServer(path: sockPath)
+        server.onFrame = { [weak self] jpegData, width, height, orientation in
             self?.pushFrame(jpegData, width: width, height: height)
         }
-        self.socket = client
-        // Retry connecting while host app starts the server.
-        var connected = false
-        for _ in 0..<20 {
-            if client.connect() { connected = true; break }
-            Thread.sleep(forTimeInterval: 0.3)
-        }
-        print(connected ? "✅ [Capturer] Socket connected" : "❌ [Capturer] Socket connect failed")
+        self.socket = server
+        // Non-blocking: server listens on a background thread; extension connects in.
+        server.start()
+        print("✅ [Capturer] Socket server listening")
     }
 
     func stop() {
@@ -99,10 +95,13 @@ final class SocketVideoCapturer: NSObject {
 }
 
 /// Minimal UNIX domain socket client that reads `rtc_SSFD` framing.
-final class SocketClient {
+/// UNIX domain socket **server**. The BroadcastExtension (SampleHandler) connects
+/// as a client and streams JPEG frames; we accept and read them on a background thread.
+final class SocketServer {
     var onFrame: ((Data, Int, Int, Int) -> Void)?
     private let path: String
-    private var fd: Int32 = -1
+    private var serverFd: Int32 = -1
+    private var clientFd: Int32 = -1
     private var buffer = Data()
     private var thread: Thread?
 
@@ -110,44 +109,60 @@ final class SocketClient {
         self.path = path
     }
 
-    func connect() -> Bool {
-        let sock = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard sock >= 0 else { return false }
+    /// Non-blocking: binds + listens, then accepts/reads on a background thread.
+    func start() {
+        unlink(path)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return }
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         let bytes = Array(path.utf8)
-        let pathPtr = path.withCString { UnsafePointer($0) }
         withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
             let raw = UnsafeMutableRawPointer(sunPathPtr)
-            raw.copyMemory(from: pathPtr, byteCount: min(bytes.count, 104))
-        }
-        let addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
-        let result = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(sock, $0, addrLen)
+            bytes.withUnsafeBufferPointer { buf in
+                raw.copyMemory(from: buf.baseAddress!, byteCount: min(bytes.count, 104))
             }
         }
-        guard result == 0 else {
-            Darwin.close(sock)
-            return false
+        let addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+        let bindResult = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, addrLen)
+            }
         }
-        fd = sock
-        var one = 1
-        setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int>.size))
+        guard bindResult == 0, listen(fd, 1) == 0 else {
+            Darwin.close(fd)
+            return
+        }
+        serverFd = fd
         thread = Thread { [weak self] in
-            self?.readLoop()
+            self?.acceptLoop()
         }
         thread?.start()
-        return true
+    }
+
+    private func acceptLoop() {
+        while !Thread.current.isCancelled && serverFd >= 0 {
+            let client = accept(serverFd, nil, nil)
+            guard client >= 0 else { break }
+            clientFd = client
+            var one = 1
+            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int>.size))
+            readLoop(client)
+            Darwin.close(client)
+            clientFd = -1
+            buffer.removeAll()
+        }
     }
 
     func close() {
-        if fd >= 0 { Darwin.close(fd); fd = -1 }
+        if clientFd >= 0 { Darwin.close(clientFd); clientFd = -1 }
+        if serverFd >= 0 { Darwin.close(serverFd); serverFd = -1 }
         thread?.cancel()
         thread = nil
+        unlink(path)
     }
 
-    private func readLoop() {
+    private func readLoop(_ fd: Int32) {
         var chunk = [UInt8](repeating: 0, count: 8192)
         while !Thread.current.isCancelled && fd >= 0 {
             let n = read(fd, &chunk, chunk.count)

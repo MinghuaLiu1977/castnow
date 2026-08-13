@@ -196,13 +196,18 @@ struct BroadcastView: View {
                                 CameraPreview(session: session)
                                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             } else {
-                                VStack(spacing: 12) {
-                                    Image(systemName: vm.shareScreen ? "rectangle.on.rectangle" : "video.fill")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(kPrimary)
-                                    Text(vm.shareScreen ? "启动屏幕共享中..." : "摄像头画面")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white.opacity(0.6))
+                                VStack(spacing: 16) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: kPrimary))
+                                        .scaleEffect(1.4)
+                                    Text(vm.shareScreen ? "正在启动屏幕共享..." : "正在启动摄像头...")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.8))
+                                    if vm.shareScreen {
+                                        Text("请在系统弹窗中点击「开始直播」")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.white.opacity(0.5))
+                                    }
                                 }
                             }
                         }
@@ -241,21 +246,25 @@ struct BroadcastView: View {
                 // 操作栏 + 结束投屏
                 VStack(spacing: 16) {
                     HStack(spacing: 0) {
-                        controlButton(
-                            icon: vm.isMicMuted ? "mic.slash.fill" : "mic.fill",
-                            label: vm.isMicMuted ? "已静音" : "麦克风",
-                            tint: vm.isMicMuted ? .red : .white
-                        ) { vm.toggleMic() }
+                        if vm.shareMic {
+                            controlButton(
+                                icon: vm.isMicMuted ? "mic.slash.fill" : "mic.fill",
+                                label: vm.isMicMuted ? "已静音" : "麦克风",
+                                tint: vm.isMicMuted ? .red : .white
+                            ) { vm.toggleMic() }
+                        }
                         controlButton(
                             icon: vm.isPlaybackMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                             label: vm.isPlaybackMuted ? "声音关" : "声音",
                             tint: vm.isPlaybackMuted ? .white.opacity(0.4) : kPrimary
                         ) { vm.togglePlayback() }
-                        controlButton(
-                            icon: "camera.rotate",
-                            label: "翻转",
-                            tint: .white
-                        ) { vm.flipCamera() }
+                        if vm.shareCamera {
+                            controlButton(
+                                icon: "camera.rotate",
+                                label: "翻转",
+                                tint: .white
+                            ) { vm.flipCamera() }
+                        }
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 10)
