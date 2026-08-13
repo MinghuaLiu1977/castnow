@@ -1,12 +1,38 @@
 import SwiftUI
 import WebRTC
 import ReplayKit
+import AVFoundation
+
+/// Renders the AVCapture preview layer.
+struct CameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+    func makeUIView(context: Context) -> PreviewHostView {
+        let v = PreviewHostView()
+        return v
+    }
+    func updateUIView(_ uiView: PreviewHostView, context: Context) {
+        uiView.bind(session: session)
+    }
+    final class PreviewHostView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        private var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        func bind(session: AVCaptureSession) {
+            if previewLayer.session !== session {
+                previewLayer.session = session
+                previewLayer.videoGravity = .resizeAspectFill
+            }
+        }
+    }
+}
 
 class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published var pairCode: String = ""
     @Published var isConnected: Bool = false
     @Published var statusMessage: String = "连接中..."
     @Published var started: Bool = false
+    @Published var previewImage: UIImage?
+    @Published var isMicMuted: Bool = true
+    @Published var isPlaybackMuted: Bool = false
 
     let shareScreen: Bool
     let shareCamera: Bool
@@ -14,7 +40,10 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     private let rtc = WebRTCManager()
     private let peer = PeerJSClient()
+    private var camera: CameraCapture?
     private var destPeer: String?
+
+    var cameraSession: AVCaptureSession? { camera?.captureSession }
 
     init(shareScreen: Bool, shareCamera: Bool, shareMic: Bool) {
         self.shareScreen = shareScreen
@@ -29,18 +58,50 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         pairCode = code
 
         rtc.createPeerConnection()
+
         if shareScreen {
             let source = rtc.startScreenCapture()
             if let track = rtc.addVideoTrack() { rtc.attachBroadcastTrack(track) }
+            rtc.setScreenPreviewHandler { [weak self] img in
+                self?.previewImage = img
+            }
+        }
+
+        if shareCamera {
+            let cam = CameraCapture(factory: rtc.factory)
+            cam.configure()
+            cam.start()
+            camera = cam
+            let track = rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
+            rtc.attachBroadcastTrack(track)
         }
 
         peer.onEvent = { [weak self] event in self?.handle(event: event) }
         peer.connect(id: code)
+
+        if shareScreen {
+            beginSystemBroadcast()
+        }
+    }
+
+    func toggleMic() {
+        isMicMuted.toggle()
+        // TODO: enable/disable local audio track
+    }
+
+    func togglePlayback() {
+        isPlaybackMuted.toggle()
+    }
+
+    func flipCamera() {
+        // TODO: switch camera front/back
     }
 
     func stop() {
         if let d = destPeer { peer.sendLeave(to: d) }
         peer.disconnect()
+        camera?.stop()
+        camera = nil
         rtc.close()
     }
 
@@ -125,15 +186,28 @@ struct BroadcastView: View {
                     .fill(Color(red: 0.059, green: 0.090, blue: 0.165))
                     .frame(height: 220)
                     .overlay(
-                        VStack(spacing: 12) {
-                            Image(systemName: vm.shareScreen ? "rectangle.on.rectangle" : "video.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(kPrimary)
-                            Text(vm.shareScreen ? "屏幕镜像运行中" : "摄像头画面")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.6))
+                        Group {
+                            if let img = vm.previewImage {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            } else if vm.shareCamera, let session = vm.cameraSession {
+                                CameraPreview(session: session)
+                                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            } else {
+                                VStack(spacing: 12) {
+                                    Image(systemName: vm.shareScreen ? "rectangle.on.rectangle" : "video.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(kPrimary)
+                                    Text(vm.shareScreen ? "启动屏幕共享中..." : "摄像头画面")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.6))
+                                }
+                            }
                         }
                     )
+                    .clipped()
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
 
@@ -164,18 +238,30 @@ struct BroadcastView: View {
 
                 Spacer()
 
-                // 操作按钮
+                // 操作栏 + 结束投屏
                 VStack(spacing: 16) {
-                    if !vm.started {
-                        Button(action: { vm.beginSystemBroadcast() }) {
-                            Text("启动系统屏幕共享")
-                                .font(.system(size: 16, weight: .black))
-                                .foregroundColor(.black)
-                                .frame(maxWidth: 320)
-                                .padding(.vertical, 18)
-                                .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(kPrimary))
-                        }
+                    HStack(spacing: 0) {
+                        controlButton(
+                            icon: vm.isMicMuted ? "mic.slash.fill" : "mic.fill",
+                            label: vm.isMicMuted ? "已静音" : "麦克风",
+                            tint: vm.isMicMuted ? .red : .white
+                        ) { vm.toggleMic() }
+                        controlButton(
+                            icon: vm.isPlaybackMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                            label: vm.isPlaybackMuted ? "声音关" : "声音",
+                            tint: vm.isPlaybackMuted ? .white.opacity(0.4) : kPrimary
+                        ) { vm.togglePlayback() }
+                        controlButton(
+                            icon: "camera.rotate",
+                            label: "翻转",
+                            tint: .white
+                        ) { vm.flipCamera() }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 10)
+                    .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color.white.opacity(0.06)))
+                    .frame(maxWidth: 320)
+
                     Button(action: { vm.stop(); presentationMode.wrappedValue.dismiss() }) {
                         Text("结束投屏")
                             .font(.system(size: 15, weight: .bold))
@@ -185,12 +271,22 @@ struct BroadcastView: View {
                             .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.red.opacity(0.12)))
                     }
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, 24)
             }
         }
         .navigationBarHidden(true)
         .onAppear { vm.start() }
         .onDisappear { vm.stop() }
+    }
+
+    private func controlButton(icon: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 22)).foregroundColor(tint)
+                Text(label).font(.system(size: 10, weight: .bold)).foregroundColor(tint.opacity(0.9))
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 }
 

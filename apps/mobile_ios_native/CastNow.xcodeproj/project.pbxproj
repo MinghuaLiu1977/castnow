@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		15903DA6DFC7EC2CA2CCD18D /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B2A0446CAD23449333AB550 /* CoreImage.framework */; };
 		33B5E273C5833B0540D1B9A0 /* SourceSelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E132086E9FCC7C3E112866 /* SourceSelectView.swift */; };
+		344EF6875A19829F9A7C8FB3 /* Pods_CastNow.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 034A14AC9DFE7647FB4C2C51 /* Pods_CastNow.framework */; };
 		3B2259995D8AE41B24E7896D /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */; };
 		413070362BD98DC3BF99EDDA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */; };
 		4C3E8DF125F48AAA2D18778B /* ReceiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56238778C0AE552C1B58CD57 /* ReceiveView.swift */; };
@@ -16,12 +17,12 @@
 		6DDC6999DB56F97FF2364EC2 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93D4A424E0BF2C9841A7BBD8 /* Metal.framework */; };
 		6EEE23043848F0CE16A716C7 /* AppIconImage.png in Resources */ = {isa = PBXBuildFile; fileRef = 9073DA4B00F01C5B08BA67DA /* AppIconImage.png */; };
 		7447C805EB3524245DDD441D /* SocketVideoCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */; };
+		74E6DBA293AD039B5D53CFA5 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D274DB04F8096856D1E37DAC /* CameraCapture.swift */; };
 		795CA1F4B78D4044208D4500 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */; };
 		7E6FCAFF84FD745F1AB863DD /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9FC0F4B44D937258559BE3F /* StoreKit.framework */; };
 		8063567AB40F63AA65190FFE /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AEEC41B34C0510334CEA0C /* HomeView.swift */; };
 		8F512F0A82ECCF050DDD0F3B /* VideoStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F8A18BA75200CA4D47DCCD /* VideoStreamView.swift */; };
 		9EB5CF3B39178D941053B4EE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CBCE37FB00560ED7D1CF3E /* Theme.swift */; };
-		A83F0626428378797D4B6172 /* Pods_CastNow.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 693EB0BB14282642749E81B7 /* Pods_CastNow.framework */; };
 		B05C5F0CDE48081BD4790B62 /* BroadcastExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B93FC00D036B69E7AB4C5346 /* WebRTCManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA771ECC887896DA16F57B0F /* WebRTCManager.swift */; };
 		BD9008B1B3783892380DDFE1 /* BroadcastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD377B480973D85E7D7729D6 /* BroadcastView.swift */; };
@@ -57,6 +58,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		034A14AC9DFE7647FB4C2C51 /* Pods_CastNow.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CastNow.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		0E6D1A38DC25B2B7F449CF22 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		20EFAD07E3EE8D183F37D180 /* PeerJSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerJSClient.swift; sourceTree = "<group>"; };
 		23CBCE37FB00560ED7D1CF3E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -64,13 +66,13 @@
 		3AFC4686ADA9C9441F92856E /* CastNow.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CastNow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E103CD64DEA33DCFFD0A08E /* BroadcastExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BroadcastExtension.entitlements; sourceTree = "<group>"; };
 		4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
+		513D479E66B1F9E6EFD1EC9B /* Pods-CastNow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.debug.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.debug.xcconfig"; sourceTree = "<group>"; };
 		53E132086E9FCC7C3E112866 /* SourceSelectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceSelectView.swift; sourceTree = "<group>"; };
-		541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.debug.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.debug.xcconfig"; sourceTree = "<group>"; };
 		56238778C0AE552C1B58CD57 /* ReceiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiveView.swift; sourceTree = "<group>"; };
 		5B2A0446CAD23449333AB550 /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
 		5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
-		693EB0BB14282642749E81B7 /* Pods_CastNow.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CastNow.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastNowApp.swift; sourceTree = "<group>"; };
+		7F71408AA99652B41596EECE /* Pods-CastNow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.release.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.release.xcconfig"; sourceTree = "<group>"; };
 		88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9073DA4B00F01C5B08BA67DA /* AppIconImage.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIconImage.png; sourceTree = "<group>"; };
@@ -80,10 +82,10 @@
 		AD377B480973D85E7D7729D6 /* BroadcastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastView.swift; sourceTree = "<group>"; };
 		B9FC0F4B44D937258559BE3F /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketVideoCapturer.swift; sourceTree = "<group>"; };
+		D274DB04F8096856D1E37DAC /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
 		E2F8A18BA75200CA4D47DCCD /* VideoStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoStreamView.swift; sourceTree = "<group>"; };
 		E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
-		FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.release.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,7 +107,7 @@
 				6DDC6999DB56F97FF2364EC2 /* Metal.framework in Frameworks */,
 				EEF13CD2A09A01D0D5EF771E /* ReplayKit.framework in Frameworks */,
 				7E6FCAFF84FD745F1AB863DD /* StoreKit.framework in Frameworks */,
-				A83F0626428378797D4B6172 /* Pods_CastNow.framework in Frameworks */,
+				344EF6875A19829F9A7C8FB3 /* Pods_CastNow.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,10 +141,21 @@
 		2D139D400D2824B2E19EFD88 /* WebRTC */ = {
 			isa = PBXGroup;
 			children = (
+				D274DB04F8096856D1E37DAC /* CameraCapture.swift */,
 				BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */,
 				AA771ECC887896DA16F57B0F /* WebRTCManager.swift */,
 			);
 			path = WebRTC;
+			sourceTree = "<group>";
+		};
+		418E1DF9C0CF26729066985F /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				513D479E66B1F9E6EFD1EC9B /* Pods-CastNow.debug.xcconfig */,
+				7F71408AA99652B41596EECE /* Pods-CastNow.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		422C758B2AF17784FD01ECB8 /* App */ = {
@@ -161,7 +174,7 @@
 				098525798072221522D8C2B7 /* Sources */,
 				AF640FE58B230474AF7D769B /* Frameworks */,
 				A78FBCE7BC4D04E836BB8D78 /* Products */,
-				AB50421A60C3292AC243CA75 /* Pods */,
+				418E1DF9C0CF26729066985F /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -192,16 +205,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AB50421A60C3292AC243CA75 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */,
-				FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		AF640FE58B230474AF7D769B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -211,7 +214,7 @@
 				5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */,
 				B9FC0F4B44D937258559BE3F /* StoreKit.framework */,
 				4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */,
-				693EB0BB14282642749E81B7 /* Pods_CastNow.framework */,
+				034A14AC9DFE7647FB4C2C51 /* Pods_CastNow.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -233,12 +236,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7444CD2B24BEB9AD9E843290 /* Build configuration list for PBXNativeTarget "CastNow" */;
 			buildPhases = (
-				C4B5AA1DF77878201DDEAE7F /* [CP] Check Pods Manifest.lock */,
+				EF7081B35F7C313DF9F6C555 /* [CP] Check Pods Manifest.lock */,
 				95E659215388ED14DCB3B528 /* Sources */,
 				9722A237B409180B4A7C6B3B /* Resources */,
 				CF512154871FAC39B7EA0E63 /* Frameworks */,
 				D35F84EC241FDEBCF8AFD9CD /* Embed Foundation Extensions */,
-				D059E5AB1113C1B7393629BE /* [CP] Embed Pods Frameworks */,
+				2FF2F3A9FC67DA5C36AF3499 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -317,7 +320,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		C4B5AA1DF77878201DDEAE7F /* [CP] Check Pods Manifest.lock */ = {
+		2FF2F3A9FC67DA5C36AF3499 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		EF7081B35F7C313DF9F6C555 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -339,23 +359,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		D059E5AB1113C1B7393629BE /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -372,6 +375,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BD9008B1B3783892380DDFE1 /* BroadcastView.swift in Sources */,
+				74E6DBA293AD039B5D53CFA5 /* CameraCapture.swift in Sources */,
 				5887CE7E180C4833DB78143B /* CastNowApp.swift in Sources */,
 				8063567AB40F63AA65190FFE /* HomeView.swift in Sources */,
 				E7B8A88F8222CFEAE54E66B3 /* PeerJSClient.swift in Sources */,
@@ -397,7 +401,7 @@
 /* Begin XCBuildConfiguration section */
 		075DDA1932CD7428C66A3ECC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */;
+			baseConfigurationReference = 513D479E66B1F9E6EFD1EC9B /* Pods-CastNow.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/CastNow.entitlements;
@@ -503,7 +507,7 @@
 		};
 		5CA46A6786916F4360B84B96 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */;
+			baseConfigurationReference = 7F71408AA99652B41596EECE /* Pods-CastNow.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/CastNow.entitlements;

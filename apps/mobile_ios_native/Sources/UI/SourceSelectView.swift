@@ -1,10 +1,14 @@
 import SwiftUI
+import AVFoundation
 
 struct SourceSelectView: View {
     @State private var shareScreen = true
     @State private var shareCamera = false
     @State private var shareMic = true
     @State private var navigateToBroadcast = false
+    @State private var isLaunching = false
+    @State private var permissionError: String?
+    @State private var showError = false
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
@@ -26,10 +30,19 @@ struct SourceSelectView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(kPrimary)
-                    .padding(.top, 12)
+                if let ui = UIImage(named: "AppIconImage") {
+                    Image(uiImage: ui)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(.top, 12)
+                } else {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(kPrimary)
+                        .padding(.top, 12)
+                }
 
                 Text("选择来源")
                     .font(.system(size: 22, weight: .black))
@@ -56,27 +69,57 @@ struct SourceSelectView: View {
 
                 Spacer()
 
-                Button(action: { navigateToBroadcast = true }) {
+                Button(action: launch) {
                     HStack(spacing: 12) {
-                        Text("开始投屏")
-                            .font(.system(size: 16, weight: .black))
-                            .tracking(1.5)
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 20, weight: .bold))
+                        if isLaunching {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("启动投屏")
+                                .font(.system(size: 16, weight: .black))
+                                .tracking(1.5)
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 20, weight: .bold))
+                        }
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: 320)
                     .padding(.vertical, 22)
                     .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(kPrimary))
                 }
-                .disabled(!shareScreen && !shareCamera)
+                .disabled(!shareScreen && !shareCamera || isLaunching)
                 .opacity(shareScreen || shareCamera ? 1 : 0.4)
                 .padding(.bottom, 32)
+                .alert("无法启动", isPresented: $showError) {
+                    Button("确定", role: .cancel) {}
+                } message: {
+                    Text(permissionError ?? "")
+                }
             }
 
             NavigationLink(destination: BroadcastView(shareScreen: shareScreen, shareCamera: shareCamera, shareMic: shareMic), isActive: $navigateToBroadcast) { EmptyView() }
         }
         .navigationBarHidden(true)
+    }
+
+    private func launch() {
+        isLaunching = true
+        Task {
+            var granted = true
+            if shareCamera || shareMic {
+                let camOk = await AVCaptureDevice.requestAccess(for: .video)
+                let micOk = await AVCaptureDevice.requestAccess(for: .audio)
+                granted = (shareCamera ? camOk : true) && (shareMic ? micOk : true)
+            }
+            await MainActor.run {
+                isLaunching = false
+                if granted {
+                    navigateToBroadcast = true
+                } else {
+                    permissionError = "摄像头或麦克风权限被拒绝，请在系统设置中开启。"
+                    showError = true
+                }
+            }
+        }
     }
 
     private func sourceCard(icon: String, title: String, subtitle: String, isOn: Binding<Bool>, exclusive: Bool, extra: @escaping () -> Void) -> some View {

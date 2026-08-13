@@ -16,12 +16,13 @@ protocol WebRTCManagerDelegate: AnyObject {
 final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     weak var delegate: WebRTCManagerDelegate?
 
-    private let factory: RTCPeerConnectionFactory
+    let factory: RTCPeerConnectionFactory
     private var peerConnection: RTCPeerConnection?
 
     // Broadcaster side
     private var localVideoSource: RTCVideoSource?
-    var localVideoCapturer: SocketVideoCapturer?
+    private var socketCapturer: SocketVideoCapturer?
+    private var videoTrack: RTCVideoTrack?
 
     // Receiver side
     private(set) var remoteStream: RTCMediaStream?
@@ -53,13 +54,12 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     // MARK: - Broadcaster
 
-    private var videoTrack: RTCVideoTrack?
-
     func startScreenCapture() -> RTCVideoSource {
         let source = factory.videoSource()
         let capturer = SocketVideoCapturer(source: source)
+        capturer.start()
         localVideoSource = source
-        localVideoCapturer = capturer
+        socketCapturer = capturer
         return source
     }
 
@@ -70,8 +70,11 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
-        // PeerConnection must already exist when attaching.
         peerConnection?.add(track, streamIds: ["screen"])
+    }
+
+    func setScreenPreviewHandler(_ handler: @escaping (UIImage) -> Void) {
+        socketCapturer?.onPreviewFrame = handler
     }
 
     var onRemoteOffer: ((String) -> Void)?
@@ -167,8 +170,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func close() {
         peerConnection?.close()
         peerConnection = nil
-        localVideoCapturer?.stop()
-        localVideoCapturer = nil
+        socketCapturer?.stop()
+        socketCapturer = nil
         localVideoSource = nil
         remoteStream = nil
     }

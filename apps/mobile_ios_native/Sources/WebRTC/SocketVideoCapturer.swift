@@ -17,6 +17,10 @@ final class SocketVideoCapturer: NSObject {
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let source: RTCVideoSource
 
+    /// Called on the main thread with a preview image for each captured frame (throttled).
+    var onPreviewFrame: ((UIImage) -> Void)?
+    private var lastPreviewTime: TimeInterval = 0
+
     init(source: RTCVideoSource) {
         self.source = source
         super.init()
@@ -52,7 +56,19 @@ final class SocketVideoCapturer: NSObject {
     }
 
     private func pushFrame(_ jpeg: Data, width: Int, height: Int) {
-        guard let image = UIImage(data: jpeg)?.cgImage else { return }
+        guard let image = UIImage(data: jpeg) else { return }
+
+        // Emit throttled preview on main thread.
+        let now = Date().timeIntervalSince1970
+        if now - lastPreviewTime > 0.066 {
+            lastPreviewTime = now
+            let preview = image
+            DispatchQueue.main.async { [weak self] in
+                self?.onPreviewFrame?(preview)
+            }
+        }
+
+        guard let cgImage = image.cgImage else { return }
         var pb: CVPixelBuffer?
         CVPixelBufferCreate(kCFAllocatorDefault, width, height,
                             kCVPixelFormatType_32BGRA,
@@ -72,7 +88,7 @@ final class SocketVideoCapturer: NSObject {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
             return
         }
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         let videoFrame = RTCVideoFrame(buffer: RTCCVPixelBuffer(pixelBuffer: pixelBuffer),

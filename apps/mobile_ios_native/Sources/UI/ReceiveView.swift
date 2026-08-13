@@ -121,10 +121,40 @@ struct ReceiveView: View {
                     .padding(.leading, 16)
                 }
             } else {
-                VStack(spacing: 32) {
+                VStack(spacing: 0) {
+                    // 顶部返回
+                    HStack {
+                        Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                            Image(systemName: "chevron.left")
+                                .font(.headline)
+                                .foregroundColor(.white.opacity(0.7))
+                                .padding(12)
+                                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.05)))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    Spacer()
+
+                    // 图标 + 标题
+                    if let ui = UIImage(named: "AppIconImage") {
+                        Image(uiImage: ui)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    } else {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(kPrimary)
+                    }
+
                     Text("输入配对码")
                         .font(.title2.weight(.black))
                         .foregroundColor(.white)
+                        .padding(.top, 20)
 
                     // 6 位输入框
                     HStack(spacing: 8) {
