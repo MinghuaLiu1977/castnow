@@ -223,7 +223,7 @@ const swapStreams = () => layout.swapStreams();
         <img :src="appIcon" alt="CastNow"
           :class="[
             'w-8 h-8 group-hover:scale-105 transition-transform duration-300',
-            isNativeIcon ? 'rounded-lg shadow-sm' : 'rounded-xl opacity-90 mix-blend-screen'
+            isNativeIcon ? 'shadow-sm' : 'rounded-xl opacity-90 mix-blend-screen'
           ]" />
         <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-xl font-black italic uppercase tracking-tight text-transparent pr-1">CastNow</span>
       </div>
