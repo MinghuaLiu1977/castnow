@@ -149,6 +149,7 @@ const handleJoin = async () => {
     (s) => { appState.value = s; },
     STATES,
     showToast,
+    resetApp
   );
 };
 

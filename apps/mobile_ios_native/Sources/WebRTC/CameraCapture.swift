@@ -2,75 +2,67 @@ import AVFoundation
 import WebRTC
 import UIKit
 
-/// Captures camera frames via AVCaptureSession, feeds an RTCVideoSource,
-/// and exposes a preview layer for SwiftUI.
-final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    let captureSession = AVCaptureSession()
+/// Captures camera frames using WebRTC's native RTCCameraVideoCapturer,
+/// which correctly handles rotation, formats, and performance.
+final class CameraCapture: NSObject {
     let videoSource: RTCVideoSource
-    private let capturer: RTCVideoCapturer
-    private let videoOutput = AVCaptureVideoDataOutput()
-    private let captureQueue = DispatchQueue(label: "castnow.camera.capture")
-    private(set) var previewLayer: AVCaptureVideoPreviewLayer?
+    private let capturer: RTCCameraVideoCapturer
+    
+    // Expose the internal AVCaptureSession for SwiftUI local preview
+    var captureSession: AVCaptureSession {
+        return capturer.captureSession
+    }
     
     var onStarted: (() -> Void)?
 
     init(factory: RTCPeerConnectionFactory) {
         videoSource = factory.videoSource()
-        capturer = RTCVideoCapturer(delegate: videoSource)
+        capturer = RTCCameraVideoCapturer(delegate: videoSource)
         super.init()
     }
 
     func configure() {
-        captureSession.beginConfiguration()
-        captureSession.sessionPreset = .hd1280x720
-
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let input = try? AVCaptureDeviceInput(device: device),
-              captureSession.canAddInput(input) else {
-            captureSession.commitConfiguration()
-            return
-        }
-        captureSession.addInput(input)
-
-        videoOutput.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        ]
-        videoOutput.setSampleBufferDelegate(self, queue: captureQueue)
-        if captureSession.canAddOutput(videoOutput) {
-            captureSession.addOutput(videoOutput)
-        }
-        captureSession.commitConfiguration()
-
-        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        previewLayer?.videoGravity = .resizeAspectFill
+        // No manual configuration needed. RTCCameraVideoCapturer handles it.
     }
 
     func start() {
-        captureQueue.async { [weak self] in
-            guard let self = self, !self.captureSession.isRunning else { return }
-            self.captureSession.startRunning()
-            DispatchQueue.main.async {
-                self.onStarted?()
+        // Find the front camera
+        let devices = RTCCameraVideoCapturer.captureDevices()
+        guard let frontCamera = devices.first(where: { $0.position == .front }) ?? devices.first else {
+            return
+        }
+        
+        // Find a suitable format (e.g., around 720p)
+        let formats = RTCCameraVideoCapturer.supportedFormats(for: frontCamera)
+        let format = formats.sorted {
+            let dim1 = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+            let dim2 = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
+            return (dim1.width * dim1.height) > (dim2.width * dim2.height)
+        }.first(where: { 
+            let dim = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+            return dim.width <= 1280 && dim.height <= 720
+        }) ?? formats.first!
+        
+        // Find max frame rate for the format, cap at 30 fps for WebRTC stability
+        var maxFps: Int = 30
+        for fpsRange in format.videoSupportedFrameRateRanges {
+            maxFps = max(maxFps, Int(fpsRange.maxFrameRate))
+        }
+        maxFps = min(maxFps, 30)
+        
+        // RTCCameraVideoCapturer starts asynchronously natively, avoiding main thread blockage
+        capturer.startCapture(with: frontCamera, format: format, fps: maxFps) { [weak self] error in
+            if let error = error {
+                print("Camera capture failed to start: \(error)")
+            } else {
+                DispatchQueue.main.async {
+                    self?.onStarted?()
+                }
             }
         }
     }
 
     func stop() {
-        captureQueue.async { [weak self] in
-            guard let self = self, self.captureSession.isRunning else { return }
-            self.captureSession.stopRunning()
-        }
-    }
-
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let frame = RTCVideoFrame(
-            buffer: RTCCVPixelBuffer(pixelBuffer: pixelBuffer),
-            rotation: ._0,
-            timeStampNs: Int64(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds * 1_000_000_000)
-        )
-        videoSource.capturer(capturer, didCapture: frame)
+        capturer.stopCapture()
     }
 }

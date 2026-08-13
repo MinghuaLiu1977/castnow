@@ -204,7 +204,7 @@ export function useWebRTC(getIceServers) {
     peer.on('error', (err) => handlePeerError(err, showFirefoxGuideRef));
   };
 
-  const startReceiverPeer = (code, setAppState, STATES, showToast) => {
+  const startReceiverPeer = (code, setAppState, STATES, showToast, resetApp) => {
     const browser = getBrowser().replace(/\s+/g, '');
     const os = getOS().replace(/\s+/g, '');
     const randomPart = Math.random().toString(36).substring(7);

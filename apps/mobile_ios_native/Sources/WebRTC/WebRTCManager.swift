@@ -86,6 +86,19 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func setupLocalAudio() {
         guard localAudioTrack == nil else { return }
         
+        // 1. Configure iOS Audio Session for WebRTC (Play and Record via Speaker)
+        let audioSession = RTCAudioSession.sharedInstance()
+        audioSession.lockForConfiguration()
+        do {
+            try audioSession.setCategory(AVAudioSession.Category.playAndRecord.rawValue)
+            try audioSession.setMode(AVAudioSession.Mode.videoChat.rawValue)
+            try audioSession.overrideOutputAudioPort(.speaker)
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to configure RTCAudioSession: \(error)")
+        }
+        audioSession.unlockForConfiguration()
+        
         let audioConstrains = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         let audioSource = factory.audioSource(with: audioConstrains)
         let audioTrack = factory.audioTrack(with: audioSource, trackId: "audio_mic")
