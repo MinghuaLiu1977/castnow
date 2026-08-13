@@ -11,6 +11,7 @@ const { t } = useI18n();
 const props = defineProps({
   peerId: { type: String, default: '' },
   isMicMuted: { type: Boolean, default: true },
+  isPlaybackMuted: { type: Boolean, default: false },
   facingMode: { type: String, default: 'user' },
   selectedSources: { type: Array, default: () => [] },
   hasMultipleCameras: { type: Boolean, default: false },
@@ -21,7 +22,7 @@ const props = defineProps({
   error: { type: String, default: null },
 });
 
-const emit = defineEmits(['toggleMic', 'toggleCamera', 'resetApp']);
+const emit = defineEmits(['toggleMic', 'toggleCamera', 'togglePlayback', 'resetApp']);
 
 const localScreenVideo = ref(null);
 const localCameraVideo = ref(null);
@@ -48,10 +49,16 @@ watch(() => props.localVideo, (stream) => { if (stream && localVideoEl.value) lo
           <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">{{ t('sender.activeTunnel') }}</span>
         </div>
         <div class="flex items-center gap-2">
+          <button @click="$emit('togglePlayback')"
+            class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full hover:bg-cyan-500 hover:text-slate-950 transition-all"
+            :class="{ 'bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white': isPlaybackMuted }">
+            <component :is="isPlaybackMuted ? VolumeX : Volume2" class="w-3 h-3" />
+            <span class="text-[10px] font-black uppercase">{{ isPlaybackMuted ? t('controls.muted') : t('controls.sound') }}</span>
+          </button>
           <button @click="$emit('toggleMic')"
             class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full hover:bg-cyan-500 hover:text-slate-950 transition-all"
             :class="{ 'bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white': isMicMuted }">
-            <component :is="isMicMuted ? VolumeX : Volume2" class="w-3 h-3" />
+            <component :is="isMicMuted ? MicOff : Mic" class="w-3 h-3" />
             <span class="text-[10px] font-black uppercase">{{ isMicMuted ? t('sender.muted') : t('sender.micOn') }}</span>
           </button>
           <button v-if="selectedSources.includes('camera') && hasMultipleCameras" @click="$emit('toggleCamera')"

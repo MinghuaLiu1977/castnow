@@ -27,6 +27,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     // Receiver side
     private(set) var remoteStream: RTCMediaStream?
     private var localAudioTrack: RTCAudioTrack?
+    private var pendingRemoteCandidates: [RTCIceCandidate] = []
 
     override init() {
         let encoderFactory = RTCDefaultVideoEncoderFactory()
@@ -116,14 +117,24 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     // MARK: - Receiver: answer incoming offer
 
-    func setRemoteDescription(_ sdp: String) {
-        let desc = RTCSessionDescription(type: .offer, sdp: sdp)
+    func setRemoteDescription(_ sdp: String, type: RTCSdpType) {
+        let desc = RTCSessionDescription(type: type, sdp: sdp)
         peerConnection?.setRemoteDescription(desc) { [weak self] error in
             if let error = error {
                 self?.delegate?.rtcError("setRemoteDescription: \(error.localizedDescription)")
                 return
             }
-            self?.createAnswer()
+            if type == .offer {
+                self?.createAnswer()
+            }
+            
+            // Drain any pending ICE candidates received before the remote description was set
+            if let pending = self?.pendingRemoteCandidates {
+                self?.pendingRemoteCandidates.removeAll()
+                for candidate in pending {
+                    self?.addIceCandidate(candidate)
+                }
+            }
         }
     }
 
@@ -162,9 +173,13 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     }
 
     func addIceCandidate(_ candidate: RTCIceCandidate) {
-        peerConnection?.add(candidate) { [weak self] error in
-            if let error = error {
-                self?.delegate?.rtcError("addIceCandidate: \(error.localizedDescription)")
+        if peerConnection?.remoteDescription == nil {
+            pendingRemoteCandidates.append(candidate)
+        } else {
+            peerConnection?.add(candidate) { [weak self] error in
+                if let error = error {
+                    self?.delegate?.rtcError("addIceCandidate: \(error.localizedDescription)")
+                }
             }
         }
     }

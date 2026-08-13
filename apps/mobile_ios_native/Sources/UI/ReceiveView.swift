@@ -109,7 +109,7 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                     print("📤 [PeerJS] ANSWER → \(dest)")
                     self.peer.sendAnswer(to: dest, sdp: sdp)
                 }
-                self.rtc.setRemoteDescription(offer.sdp)
+                self.rtc.setRemoteDescription(offer.sdp, type: .offer)
 
             case .answer:
                 // Our knock's answer (if any) - ignore, we handle recall above

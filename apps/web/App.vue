@@ -276,6 +276,7 @@ const swapStreams = () => layout.swapStreams();
         <SenderView v-else-if="appState === STATES.SENDER"
           :peerId="peerId"
           :isMicMuted="isMicMuted"
+          :isPlaybackMuted="isMuted"
           :facingMode="facingMode"
           :selectedSources="selectedSources"
           :hasMultipleCameras="hasMultipleCameras"
@@ -284,6 +285,7 @@ const swapStreams = () => layout.swapStreams();
           :localVideo="localVideo"
           :lastReceiverInfo="lastReceiverInfo"
           @toggleMic="toggleMic"
+          @togglePlayback="toggleMute"
           @toggleCamera="toggleCamera"
           @resetApp="resetApp" />
 

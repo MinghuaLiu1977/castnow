@@ -19,7 +19,7 @@ struct CameraPreview: UIViewRepresentable {
         func bind(session: AVCaptureSession) {
             if previewLayer.session !== session {
                 previewLayer.session = session
-                previewLayer.videoGravity = .resizeAspectFill
+                previewLayer.videoGravity = .resizeAspect
             }
         }
     }
@@ -42,7 +42,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     private let rtc = WebRTCManager()
     private let peer = PeerJSClient()
-    private var camera: CameraCapture?
+    @Published private var camera: CameraCapture?
     private var destPeer: String?
 
     var cameraSession: AVCaptureSession? { camera?.captureSession }
@@ -67,10 +67,12 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     func toggleMic() {
         isMicMuted.toggle()
+        rtc.enableLocalMicrophone(!isMicMuted)
     }
 
     func togglePlayback() {
         isPlaybackMuted.toggle()
+        rtc.enableRemoteSpeaker(!isPlaybackMuted)
     }
 
     func flipCamera() {
@@ -85,6 +87,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         rtc.close()
     }
 
+
     func beginSystemBroadcast() {
         guard let ext = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String else { return }
         DispatchQueue.main.async {
@@ -95,6 +98,11 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             if let host = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow })?.rootViewController {
                 picker.center = host.view.center
                 host.view.addSubview(picker)
+                
+                if let button = picker.subviews.first(where: { $0 is UIButton }) as? UIButton {
+                    button.sendActions(for: .allTouchEvents)
+                }
+                
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { picker.removeFromSuperview() }
             }
         }
@@ -122,7 +130,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
             case .answer(let answer):
                 print("✅ [PeerJS] Answer from receiver")
-                self.rtc.setRemoteDescription(answer.sdp)
+                self.rtc.setRemoteDescription(answer.sdp, type: .answer)
 
             case .candidate(let c):
                 self.rtc.addIceCandidate(c)
@@ -148,6 +156,9 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
         // Fresh PC + tracks for recall
         rtc.createPeerConnection()
+        rtc.setupLocalAudio()
+        rtc.enableLocalMicrophone(!isMicMuted)
+        rtc.enableRemoteSpeaker(!isPlaybackMuted)
 
         if shareScreen {
             _ = rtc.startScreenCapture()
