@@ -107,6 +107,7 @@ const handleStartCasting = async () => {
       showToast,
       (s) => { appState.value = s; },
       STATES,
+      resetApp
     );
 
     // Bind screen share ended callback

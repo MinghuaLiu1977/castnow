@@ -130,7 +130,7 @@ export function useWebRTC(getIceServers) {
     });
   };
 
-  const startSenderPeer = (code, localStream, showFirefoxGuideRef, showToast, setAppState, STATES) => {
+  const startSenderPeer = (code, localStream, showFirefoxGuideRef, showToast, setAppState, STATES, resetApp) => {
     const peer = new window.Peer(code, {
       debug: 1,
       config: {
@@ -246,7 +246,7 @@ export function useWebRTC(getIceServers) {
       call.answer(receiverMicStream.value || undefined);
 
       call.on('close', () => {
-        // Will be handled by resetApp callback
+        if (resetApp) resetApp();
       });
 
       call.on('stream', (rs) => {
@@ -254,7 +254,7 @@ export function useWebRTC(getIceServers) {
           call.peerConnection.oniceconnectionstatechange = () => {
             const state = call.peerConnection.iceConnectionState;
             if (['disconnected', 'failed', 'closed'].includes(state)) {
-              // Will be handled by resetApp callback
+              if (resetApp) resetApp();
             }
           };
 
@@ -267,7 +267,7 @@ export function useWebRTC(getIceServers) {
           if (!rs) return;
           const liveTracks = rs.getTracks().filter(t => t.readyState === 'live');
           if (liveTracks.length === 0) {
-            // Will be handled by resetApp callback
+            if (resetApp) resetApp();
           }
         };
 
