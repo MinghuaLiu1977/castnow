@@ -150,7 +150,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         rtc.createPeerConnection()
 
         if shareScreen {
-            let source = rtc.startScreenCapture()
+            _ = rtc.startScreenCapture()
             if let track = rtc.addVideoTrack() { rtc.attachBroadcastTrack(track) }
             rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
         }

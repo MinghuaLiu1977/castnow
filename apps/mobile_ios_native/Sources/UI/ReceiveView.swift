@@ -305,7 +305,6 @@ struct ReceiveView: View {
                         }
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .zIndex(1)
-                    }
                 }
             } else {
                 ScrollView(showsIndicators: false) {
