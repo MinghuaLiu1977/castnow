@@ -1,0 +1,54 @@
+name: CastNow
+options:
+  bundleIdPrefix: com.eastlakestudio
+  deploymentTarget:
+    iOS: "15.6"
+  xcodeVersion: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: J4RT98GF7B
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.6"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+configs:
+  Debug: debug
+  Release: release
+targets:
+  CastNow:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eastlakestudio.castnow
+        PRODUCT_NAME: 即刻投屏
+        INFOPLIST_FILE: SupportFiles/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SupportFiles/CastNow.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        OTHER_LDFLAGS: ["$(inherited)", "-ObjC"]
+    dependencies:
+      - sdk: Metal.framework
+      - sdk: ReplayKit.framework
+      - sdk: StoreKit.framework
+      - target: BroadcastExtension
+        embed: true
+  BroadcastExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BroadcastExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eastlakestudio.castnow.BroadcastExtension
+        INFOPLIST_FILE: BroadcastExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BroadcastExtension/BroadcastExtension.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - sdk: ReplayKit.framework
+      - sdk: VideoToolbox.framework
+      - sdk: CoreImage.framework
+      - sdk: AVFoundation.framework

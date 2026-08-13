@@ -1,0 +1,636 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15903DA6DFC7EC2CA2CCD18D /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B2A0446CAD23449333AB550 /* CoreImage.framework */; };
+		33B5E273C5833B0540D1B9A0 /* SourceSelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E132086E9FCC7C3E112866 /* SourceSelectView.swift */; };
+		3B2259995D8AE41B24E7896D /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */; };
+		413070362BD98DC3BF99EDDA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */; };
+		4C3E8DF125F48AAA2D18778B /* ReceiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56238778C0AE552C1B58CD57 /* ReceiveView.swift */; };
+		5887CE7E180C4833DB78143B /* CastNowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */; };
+		6DDC6999DB56F97FF2364EC2 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93D4A424E0BF2C9841A7BBD8 /* Metal.framework */; };
+		6EEE23043848F0CE16A716C7 /* AppIconImage.png in Resources */ = {isa = PBXBuildFile; fileRef = 9073DA4B00F01C5B08BA67DA /* AppIconImage.png */; };
+		7447C805EB3524245DDD441D /* SocketVideoCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */; };
+		795CA1F4B78D4044208D4500 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */; };
+		7E6FCAFF84FD745F1AB863DD /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9FC0F4B44D937258559BE3F /* StoreKit.framework */; };
+		8063567AB40F63AA65190FFE /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AEEC41B34C0510334CEA0C /* HomeView.swift */; };
+		8F512F0A82ECCF050DDD0F3B /* VideoStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F8A18BA75200CA4D47DCCD /* VideoStreamView.swift */; };
+		9EB5CF3B39178D941053B4EE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CBCE37FB00560ED7D1CF3E /* Theme.swift */; };
+		A83F0626428378797D4B6172 /* Pods_CastNow.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 693EB0BB14282642749E81B7 /* Pods_CastNow.framework */; };
+		B05C5F0CDE48081BD4790B62 /* BroadcastExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B93FC00D036B69E7AB4C5346 /* WebRTCManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA771ECC887896DA16F57B0F /* WebRTCManager.swift */; };
+		BD9008B1B3783892380DDFE1 /* BroadcastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD377B480973D85E7D7729D6 /* BroadcastView.swift */; };
+		BEE29C098D1A7B21BDDD9340 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E6D1A38DC25B2B7F449CF22 /* AVFoundation.framework */; };
+		CA449AEC61462169CFA2FEDC /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */; };
+		E7B8A88F8222CFEAE54E66B3 /* PeerJSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EFAD07E3EE8D183F37D180 /* PeerJSClient.swift */; };
+		EEF13CD2A09A01D0D5EF771E /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */; };
+		F3DB13F3995CB2946ED80459 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8844FB73E12875DB182CB51D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F886C87500F1F4E9E6F07AFC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 428834B0818D8B7ECACCAEDD;
+			remoteInfo = BroadcastExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D35F84EC241FDEBCF8AFD9CD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B05C5F0CDE48081BD4790B62 /* BroadcastExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0E6D1A38DC25B2B7F449CF22 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		20EFAD07E3EE8D183F37D180 /* PeerJSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerJSClient.swift; sourceTree = "<group>"; };
+		23CBCE37FB00560ED7D1CF3E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		2C098620F85CE91ADAD1A366 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3AFC4686ADA9C9441F92856E /* CastNow.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CastNow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4E103CD64DEA33DCFFD0A08E /* BroadcastExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BroadcastExtension.entitlements; sourceTree = "<group>"; };
+		4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
+		53E132086E9FCC7C3E112866 /* SourceSelectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceSelectView.swift; sourceTree = "<group>"; };
+		541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.debug.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.debug.xcconfig"; sourceTree = "<group>"; };
+		56238778C0AE552C1B58CD57 /* ReceiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiveView.swift; sourceTree = "<group>"; };
+		5B2A0446CAD23449333AB550 /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
+		5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
+		693EB0BB14282642749E81B7 /* Pods_CastNow.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CastNow.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastNowApp.swift; sourceTree = "<group>"; };
+		88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9073DA4B00F01C5B08BA67DA /* AppIconImage.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIconImage.png; sourceTree = "<group>"; };
+		93D4A424E0BF2C9841A7BBD8 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		A7AEEC41B34C0510334CEA0C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA771ECC887896DA16F57B0F /* WebRTCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCManager.swift; sourceTree = "<group>"; };
+		AD377B480973D85E7D7729D6 /* BroadcastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastView.swift; sourceTree = "<group>"; };
+		B9FC0F4B44D937258559BE3F /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketVideoCapturer.swift; sourceTree = "<group>"; };
+		E2F8A18BA75200CA4D47DCCD /* VideoStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoStreamView.swift; sourceTree = "<group>"; };
+		E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
+		FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CastNow.release.xcconfig"; path = "Target Support Files/Pods-CastNow/Pods-CastNow.release.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		30DBD51CA046F6217DE8009B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B2259995D8AE41B24E7896D /* ReplayKit.framework in Frameworks */,
+				CA449AEC61462169CFA2FEDC /* VideoToolbox.framework in Frameworks */,
+				15903DA6DFC7EC2CA2CCD18D /* CoreImage.framework in Frameworks */,
+				BEE29C098D1A7B21BDDD9340 /* AVFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CF512154871FAC39B7EA0E63 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6DDC6999DB56F97FF2364EC2 /* Metal.framework in Frameworks */,
+				EEF13CD2A09A01D0D5EF771E /* ReplayKit.framework in Frameworks */,
+				7E6FCAFF84FD745F1AB863DD /* StoreKit.framework in Frameworks */,
+				A83F0626428378797D4B6172 /* Pods_CastNow.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		098525798072221522D8C2B7 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				422C758B2AF17784FD01ECB8 /* App */,
+				5C9BD13F0F61A817405754B3 /* Networking */,
+				2784E09D9E44B16A0D35D51E /* UI */,
+				2D139D400D2824B2E19EFD88 /* WebRTC */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		2784E09D9E44B16A0D35D51E /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				AD377B480973D85E7D7729D6 /* BroadcastView.swift */,
+				A7AEEC41B34C0510334CEA0C /* HomeView.swift */,
+				56238778C0AE552C1B58CD57 /* ReceiveView.swift */,
+				53E132086E9FCC7C3E112866 /* SourceSelectView.swift */,
+				23CBCE37FB00560ED7D1CF3E /* Theme.swift */,
+				E2F8A18BA75200CA4D47DCCD /* VideoStreamView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		2D139D400D2824B2E19EFD88 /* WebRTC */ = {
+			isa = PBXGroup;
+			children = (
+				BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */,
+				AA771ECC887896DA16F57B0F /* WebRTCManager.swift */,
+			);
+			path = WebRTC;
+			sourceTree = "<group>";
+		};
+		422C758B2AF17784FD01ECB8 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		4F68D9A7F4B470420F433455 = {
+			isa = PBXGroup;
+			children = (
+				A5F8423B86974121834522AC /* BroadcastExtension */,
+				B4FA0C0769991702256AAEF2 /* Resources */,
+				098525798072221522D8C2B7 /* Sources */,
+				AF640FE58B230474AF7D769B /* Frameworks */,
+				A78FBCE7BC4D04E836BB8D78 /* Products */,
+				AB50421A60C3292AC243CA75 /* Pods */,
+			);
+			sourceTree = "<group>";
+		};
+		5C9BD13F0F61A817405754B3 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				20EFAD07E3EE8D183F37D180 /* PeerJSClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		A5F8423B86974121834522AC /* BroadcastExtension */ = {
+			isa = PBXGroup;
+			children = (
+				4E103CD64DEA33DCFFD0A08E /* BroadcastExtension.entitlements */,
+				2C098620F85CE91ADAD1A366 /* Info.plist */,
+				ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */,
+			);
+			path = BroadcastExtension;
+			sourceTree = "<group>";
+		};
+		A78FBCE7BC4D04E836BB8D78 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */,
+				3AFC4686ADA9C9441F92856E /* CastNow.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AB50421A60C3292AC243CA75 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */,
+				FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		AF640FE58B230474AF7D769B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0E6D1A38DC25B2B7F449CF22 /* AVFoundation.framework */,
+				5B2A0446CAD23449333AB550 /* CoreImage.framework */,
+				93D4A424E0BF2C9841A7BBD8 /* Metal.framework */,
+				5FC3C7EB2E215E6DBBA675DE /* ReplayKit.framework */,
+				B9FC0F4B44D937258559BE3F /* StoreKit.framework */,
+				4F32C5AA356D41E1F0F659B1 /* VideoToolbox.framework */,
+				693EB0BB14282642749E81B7 /* Pods_CastNow.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B4FA0C0769991702256AAEF2 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				9073DA4B00F01C5B08BA67DA /* AppIconImage.png */,
+				893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */,
+				E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		10AE9F3FA871CB3CD32D1C49 /* CastNow */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7444CD2B24BEB9AD9E843290 /* Build configuration list for PBXNativeTarget "CastNow" */;
+			buildPhases = (
+				C4B5AA1DF77878201DDEAE7F /* [CP] Check Pods Manifest.lock */,
+				95E659215388ED14DCB3B528 /* Sources */,
+				9722A237B409180B4A7C6B3B /* Resources */,
+				CF512154871FAC39B7EA0E63 /* Frameworks */,
+				D35F84EC241FDEBCF8AFD9CD /* Embed Foundation Extensions */,
+				D059E5AB1113C1B7393629BE /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E18DFEA10B2A0D95B90D8D50 /* PBXTargetDependency */,
+			);
+			name = CastNow;
+			productName = CastNow;
+			productReference = 3AFC4686ADA9C9441F92856E /* CastNow.app */;
+			productType = "com.apple.product-type.application";
+		};
+		428834B0818D8B7ECACCAEDD /* BroadcastExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F831F7BB344880A23699351C /* Build configuration list for PBXNativeTarget "BroadcastExtension" */;
+			buildPhases = (
+				3411FF1440EAFFA3CF043562 /* Sources */,
+				30DBD51CA046F6217DE8009B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BroadcastExtension;
+			productName = BroadcastExtension;
+			productReference = 88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F886C87500F1F4E9E6F07AFC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1700;
+				TargetAttributes = {
+					10AE9F3FA871CB3CD32D1C49 = {
+						DevelopmentTeam = J4RT98GF7B;
+					};
+					428834B0818D8B7ECACCAEDD = {
+						DevelopmentTeam = J4RT98GF7B;
+					};
+				};
+			};
+			buildConfigurationList = 6CA62EBC260CB22849BE4EF3 /* Build configuration list for PBXProject "CastNow" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4F68D9A7F4B470420F433455;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A78FBCE7BC4D04E836BB8D78 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				428834B0818D8B7ECACCAEDD /* BroadcastExtension */,
+				10AE9F3FA871CB3CD32D1C49 /* CastNow */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9722A237B409180B4A7C6B3B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6EEE23043848F0CE16A716C7 /* AppIconImage.png in Resources */,
+				F3DB13F3995CB2946ED80459 /* Assets.xcassets in Resources */,
+				413070362BD98DC3BF99EDDA /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C4B5AA1DF77878201DDEAE7F /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-CastNow-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D059E5AB1113C1B7393629BE /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CastNow/Pods-CastNow-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3411FF1440EAFFA3CF043562 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				795CA1F4B78D4044208D4500 /* SampleHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95E659215388ED14DCB3B528 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD9008B1B3783892380DDFE1 /* BroadcastView.swift in Sources */,
+				5887CE7E180C4833DB78143B /* CastNowApp.swift in Sources */,
+				8063567AB40F63AA65190FFE /* HomeView.swift in Sources */,
+				E7B8A88F8222CFEAE54E66B3 /* PeerJSClient.swift in Sources */,
+				4C3E8DF125F48AAA2D18778B /* ReceiveView.swift in Sources */,
+				7447C805EB3524245DDD441D /* SocketVideoCapturer.swift in Sources */,
+				33B5E273C5833B0540D1B9A0 /* SourceSelectView.swift in Sources */,
+				9EB5CF3B39178D941053B4EE /* Theme.swift in Sources */,
+				8F512F0A82ECCF050DDD0F3B /* VideoStreamView.swift in Sources */,
+				B93FC00D036B69E7AB4C5346 /* WebRTCManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E18DFEA10B2A0D95B90D8D50 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 428834B0818D8B7ECACCAEDD /* BroadcastExtension */;
+			targetProxy = 8844FB73E12875DB182CB51D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		075DDA1932CD7428C66A3ECC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 541E6152A17A65C9E032133C /* Pods-CastNow.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/CastNow.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = SupportFiles/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow;
+				PRODUCT_NAME = "即刻投屏";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		400C27CB290F3C12B9CC48A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = J4RT98GF7B;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		4F64FB0082248A33FEF31699 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
+				INFOPLIST_FILE = BroadcastExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow.BroadcastExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5CA46A6786916F4360B84B96 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FA37389651391BC017758AC0 /* Pods-CastNow.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/CastNow.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = SupportFiles/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow;
+				PRODUCT_NAME = "即刻投屏";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7985BE0A026171D51880C772 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = J4RT98GF7B;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D29A4FA3B89D16792F9207D1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
+				INFOPLIST_FILE = BroadcastExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.eastlakestudio.castnow.BroadcastExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6CA62EBC260CB22849BE4EF3 /* Build configuration list for PBXProject "CastNow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				400C27CB290F3C12B9CC48A9 /* Debug */,
+				7985BE0A026171D51880C772 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7444CD2B24BEB9AD9E843290 /* Build configuration list for PBXNativeTarget "CastNow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				075DDA1932CD7428C66A3ECC /* Debug */,
+				5CA46A6786916F4360B84B96 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F831F7BB344880A23699351C /* Build configuration list for PBXNativeTarget "BroadcastExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D29A4FA3B89D16792F9207D1 /* Debug */,
+				4F64FB0082248A33FEF31699 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F886C87500F1F4E9E6F07AFC /* Project object */;
+}
