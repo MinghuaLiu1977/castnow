@@ -113,41 +113,12 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 if self.shareScreen { self.beginSystemBroadcast() }
 
             case .offer(let offer):
-                // Simple flow: Web sends OFFER → we ANSWER directly.
-                // No knock-recall needed (that was a peerdart workaround).
                 guard self.destPeer == nil else { return }
                 self.destPeer = offer.sourcePeerId
-                print("📥 [Broadcast] OFFER from \(offer.sourcePeerId), answering directly")
+                print("📥 [Broadcast] OFFER from \(offer.sourcePeerId), triggering recall")
                 self.statusMessage = "接收端已连接"
-
-                // Create PC, add tracks, then answer
-                self.rtc.createPeerConnection()
-                if self.shareScreen {
-                    let source = self.rtc.startScreenCapture()
-                    if let track = self.rtc.addVideoTrack() { self.rtc.attachBroadcastTrack(track) }
-                    self.rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
-                }
-                if self.shareCamera {
-                    let cam = CameraCapture(factory: self.rtc.factory)
-                    cam.configure()
-                    cam.start()
-                    self.camera = cam
-                    let track = self.rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera0")
-                    self.rtc.attachBroadcastTrack(track)
-                }
-
-                self.rtc.candidatePeerId = offer.sourcePeerId
-                self.rtc.onRemoteOffer = { [weak self] sdp in
-                    print("📤 [Broadcast] Sending ANSWER")
-                    self?.peer.sendAnswer(to: offer.sourcePeerId, sdp: sdp)
-                }
-                self.rtc.onIceCandidate = { [weak self] candidate, dest in
-                    self?.peer.sendCandidate(to: dest,
-                                             candidate: candidate.sdp,
-                                             sdpMLineIndex: candidate.sdpMLineIndex,
-                                             sdpMid: candidate.sdpMid)
-                }
-                self.rtc.setRemoteDescription(offer.sdp)
+                self.peer.resetConnectionId()
+                self.recall(to: offer.sourcePeerId)
 
             case .answer(let answer):
                 print("✅ [PeerJS] Answer from receiver")
@@ -213,7 +184,9 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             self?.statusMessage = connected ? "已连接" : "等待接收端..."
         }
     }
-    func rtcRemoteStreamReceived(_ stream: RTCMediaStream) {}
+    func rtcRemoteVideoTracksReceived(_ tracks: [RTCVideoTrack]) {
+        // Broadcast side does not display remote video
+    }
     func rtcError(_ message: String) {
         DispatchQueue.main.async { [weak self] in self?.statusMessage = "错误: \(message)" }
     }

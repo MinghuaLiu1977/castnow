@@ -166,6 +166,38 @@ export function useWebRTC(getIceServers) {
         if (!localStream.value) return;
         const forwardCall = peer.call(incomingCall.peer, localStream.value);
         setupCallHandlers(forwardCall);
+        
+        // CRITICAL FIX: Force downscale of the video stream on the sender side!
+        // Browsers often ignore max width/height in getDisplayMedia for Retina screens,
+        // resulting in massive 15K streams that crash the iOS Metal renderer.
+        if (forwardCall.peerConnection) {
+          const senders = forwardCall.peerConnection.getSenders();
+          senders.forEach(sender => {
+            if (sender.track && sender.track.kind === 'video') {
+              const params = sender.getParameters();
+              if (!params.encodings) {
+                params.encodings = [{}];
+              }
+              // Downscale by 2 or 4 depending on how large the track is, or just hardcode maxBitrate.
+              // To be safe for 15K streams, we'll downscale by 4. If it's a normal screen, downscale by 2.
+              const settings = sender.track.getSettings();
+              let scaleFactor = 1;
+              if (settings.width) {
+                  if (settings.width >= 7000) scaleFactor = 4;
+                  else if (settings.width >= 3000) scaleFactor = 2;
+              }
+              
+              console.log(`📡 [WebRTC Sender] Track size: ${settings.width}x${settings.height}, Downscaling by: ${scaleFactor}`);
+              
+              if (scaleFactor > 1) {
+                  params.encodings[0].scaleResolutionDownBy = scaleFactor;
+                  sender.setParameters(params)
+                      .then(() => console.log(`✅ [WebRTC Sender] Downscale applied successfully.`))
+                      .catch(e => console.error('❌ [WebRTC Sender] Failed to set encoding params', e));
+              }
+            }
+          });
+        }
       }, 1000);
     });
 
@@ -188,55 +220,22 @@ export function useWebRTC(getIceServers) {
     peerInstance.value = peer;
 
     peer.on('open', (id) => {
-      // Try CASTNOW_ prefix first (new app versions), then raw code (old versions)
-      const prefixedId = `CASTNOW_${code}`;
-      console.log('[WebRTC] Knock attempt 1 (prefixed):', prefixedId);
+      console.log('[WebRTC] Knocking to peer:', code);
+      const knockCall = peer.call(code, receiverMicStream.value || new MediaStream());
 
-      let knockTimeout;
-      let triedFallback = false;
-
-      const tryKnock = (targetId) => {
-        const knockCall = peer.call(targetId, receiverMicStream.value || new MediaStream());
-
-        knockCall.on('error', (err) => {
-          console.log('[WebRTC] Knock failed for', targetId, err.type || err.message);
-          if (!triedFallback && targetId === prefixedId) {
-            triedFallback = true;
-            console.log('[WebRTC] Knock attempt 2 (raw code):', code);
-            tryKnock(code);
-          } else {
-            clearTimeout(knockTimeout);
-            error.value = 'Connection failed. Check code.';
-            isConnecting.value = false;
-          }
-        });
-
-        return knockCall;
-      };
-
-      tryKnock(prefixedId);
-
-      knockTimeout = setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
-          // Prefixed didn't respond in 5s, try raw code
-          if (!triedFallback) {
-            triedFallback = true;
-            console.log('[WebRTC] Prefixed timeout, trying raw code:', code);
-            tryKnock(code);
-
-            // Final timeout
-            setTimeout(() => {
-              if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
-                isConnecting.value = false;
-                error.value = 'Connection failed. Check code.';
-              }
-            }, 5000);
-          } else {
-            isConnecting.value = false;
-            error.value = 'Connection failed. Check code.';
-          }
+          isConnecting.value = false;
+          error.value = '连接失败，请检查配对码。';
         }
-      }, 5000);
+      }, 10000);
+
+      knockCall.on('error', (err) => {
+        console.log('[WebRTC] Knock error:', err.type, err.message);
+        clearTimeout(timeout);
+        error.value = '连接失败，请检查配对码。';
+        isConnecting.value = false;
+      });
     });
 
     peer.on('call', (call) => {

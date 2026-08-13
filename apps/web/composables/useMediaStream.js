@@ -101,7 +101,12 @@ export function useMediaStream() {
         throw new Error('screen_share_unsupported');
       }
       const ss = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always' },
+        video: { 
+          cursor: 'always',
+          width: { ideal: 1920, max: 3840 },
+          height: { ideal: 1080, max: 2160 },
+          frameRate: { ideal: 30, max: 60 }
+        },
         audio: false,
       });
       ss.getVideoTracks().forEach(t => combinedStream.addTrack(t));

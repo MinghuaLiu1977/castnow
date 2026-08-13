@@ -8,7 +8,7 @@ enum WebrtcRole {
 
 protocol WebRTCManagerDelegate: AnyObject {
     func rtcConnectStateChanged(_ connected: Bool)
-    func rtcRemoteStreamReceived(_ stream: RTCMediaStream)
+    func rtcRemoteVideoTracksReceived(_ tracks: [RTCVideoTrack])
     func rtcError(_ message: String)
 }
 
@@ -135,11 +135,26 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     }
 
     // MARK: - RTCPeerConnectionDelegate
+    
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) {
+        if let stream = mediaStreams.first {
+            remoteStream = stream
+        }
+        
+        let allVideoTracks = peerConnection.transceivers
+            .compactMap { $0.receiver.track as? RTCVideoTrack }
+        
+        delegate?.rtcRemoteVideoTracksReceived(allVideoTracks)
+    }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didAdd stream: RTCMediaStream) {
         remoteStream = stream
-        delegate?.rtcRemoteStreamReceived(stream)
+        
+        let allVideoTracks = peerConnection.transceivers
+            .compactMap { $0.receiver.track as? RTCVideoTrack }
+            
+        delegate?.rtcRemoteVideoTracksReceived(allVideoTracks.isEmpty ? stream.videoTracks : allVideoTracks)
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,

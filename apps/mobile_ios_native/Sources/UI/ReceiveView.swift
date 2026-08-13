@@ -6,7 +6,7 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published var isConnecting: Bool = false
     @Published var isConnected: Bool = false
     @Published var errorMessage: String?
-    @Published var remoteTrack: RTCVideoTrack?
+    @Published var videoTracks: [RTCVideoTrack] = []
 
     private let rtc = WebRTCManager()
     private let peer = PeerJSClient()
@@ -42,7 +42,7 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         rtc.close()
         isConnected = false
         isConnecting = false
-        remoteTrack = nil
+        videoTracks.removeAll()
     }
 
     private func handle(event: PeerEvent) {
@@ -68,6 +68,11 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 // Broadcaster recalled with their own offer (v9.1 recall).
                 // Answer it.
                 print("✅ [PeerJS] Recall OFFER from \(offer.sourcePeerId)")
+                
+                // Reset the RTCPeerConnection to avoid 'have-local-offer' state conflict
+                self.rtc.close()
+                self.rtc.createPeerConnection()
+                
                 self.rtc.candidatePeerId = offer.sourcePeerId
                 self.rtc.onRemoteOffer = { [weak self] sdp in
                     guard let self = self, let dest = self.broadcasterId else { return }
@@ -102,11 +107,9 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         }
     }
 
-    func rtcRemoteStreamReceived(_ stream: RTCMediaStream) {
+    func rtcRemoteVideoTracksReceived(_ tracks: [RTCVideoTrack]) {
         DispatchQueue.main.async { [weak self] in
-            if let track = stream.videoTracks.first {
-                self?.remoteTrack = track
-            }
+            self?.videoTracks = tracks
         }
     }
 
@@ -131,8 +134,23 @@ struct ReceiveView: View {
                 // 观看画面
                 ZStack(alignment: .topLeading) {
                     Color.black.ignoresSafeArea()
-                    VideoStreamView(track: vm.remoteTrack)
-                        .ignoresSafeArea()
+                    
+                    if !vm.videoTracks.isEmpty {
+                        VideoStreamView(track: vm.videoTracks[0])
+                            .ignoresSafeArea()
+                    }
+                    
+                    if vm.videoTracks.count > 1 {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                VideoStreamView(track: vm.videoTracks[1])
+                                    .frame(width: 120, height: 160)
+                                    .padding(24)
+                            }
+                        }
+                    }
 
                     Button(action: { vm.leave(); presentationMode.wrappedValue.dismiss() }) {
                         Image(systemName: "xmark")

@@ -67,11 +67,15 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
 
     // MARK: - Connect
 
-    func connect(id: String) {
-        peerId = id
+    func resetConnectionId() {
         var cid = [UInt8](repeating: 0, count: 8)
         _ = SecRandomCopyBytes(kSecRandomDefault, cid.count, &cid)
         mediaConnectionId = "mc_" + cid.map { String(format: "%02x", $0) }.joined()
+    }
+
+    func connect(id: String) {
+        peerId = id
+        resetConnectionId()
 
         plog("╔══ [PeerJS] connect() (Starscream HTTP/1.1) ══════")
         plog("║ peerId = \(id)")
@@ -113,12 +117,13 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
     }
 
     private func startHeartbeat() {
+        // Send first heartbeat immediately, then every 5s
+        sendRaw(["type": "HEARTBEAT"])
+        socket?.write(ping: Data())
         DispatchQueue.main.async { [weak self] in
             self?.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
                 guard let self = self, self.wsConnected else { return }
-                // 1. PeerJS protocol heartbeat
                 self.sendRaw(["type": "HEARTBEAT"])
-                // 2. WebSocket ping frame (keeps proxy/CDN from idle-closing)
                 self.socket?.write(ping: Data())
                 plog("💓 [PeerJS] heartbeat sent")
             }
@@ -225,6 +230,7 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
             wsConnected = false
             plog("❌ [PeerJS] WebSocket ERROR: \(error?.localizedDescription ?? "nil")")
             plog("❌ [PeerJS] Error domain: \((error as? NSError)?.domain ?? "?") code: \((error as? NSError)?.code ?? -1)")
+            heartbeatTimer?.invalidate()
             DispatchQueue.main.async { self.onEvent?(.close) }
 
         case .viabilityChanged(let viable):
@@ -236,10 +242,14 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
         case .cancelled:
             wsConnected = false
             plog("🔌 [PeerJS] WebSocket CANCELLED")
+            heartbeatTimer?.invalidate()
+            DispatchQueue.main.async { self.onEvent?(.close) }
 
         case .peerClosed:
             wsConnected = false
             plog("🔌 [PeerJS] peerClosed")
+            heartbeatTimer?.invalidate()
+            DispatchQueue.main.async { self.onEvent?(.close) }
 
         @unknown default:
             plog("⚠️ [PeerJS] unknown event")
