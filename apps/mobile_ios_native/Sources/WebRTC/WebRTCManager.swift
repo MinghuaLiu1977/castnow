@@ -26,6 +26,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     // Receiver side
     private(set) var remoteStream: RTCMediaStream?
+    private var localAudioTrack: RTCAudioTrack?
 
     override init() {
         let encoderFactory = RTCDefaultVideoEncoderFactory()
@@ -78,6 +79,40 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     }
 
     var onRemoteOffer: ((String) -> Void)?
+
+    // MARK: - Audio Configuration
+    
+    func setupLocalAudio() {
+        guard localAudioTrack == nil else { return }
+        
+        let audioConstrains = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+        let audioSource = factory.audioSource(with: audioConstrains)
+        let audioTrack = factory.audioTrack(with: audioSource, trackId: "audio_mic")
+        
+        self.localAudioTrack = audioTrack
+        
+        if let pc = peerConnection {
+            pc.add(audioTrack, streamIds: ["audio_stream"])
+        }
+        
+        // Start muted by default unless user enables it
+        audioTrack.isEnabled = false
+    }
+    
+    func enableLocalMicrophone(_ enabled: Bool) {
+        localAudioTrack?.isEnabled = enabled
+    }
+    
+    func enableRemoteSpeaker(_ enabled: Bool) {
+        remoteStream?.audioTracks.forEach { $0.isEnabled = enabled }
+        
+        let transceivers = peerConnection?.transceivers ?? []
+        for transceiver in transceivers {
+            if let audioTrack = transceiver.receiver.track as? RTCAudioTrack {
+                audioTrack.isEnabled = enabled
+            }
+        }
+    }
 
     // MARK: - Receiver: answer incoming offer
 
@@ -188,6 +223,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         socketCapturer?.stop()
         socketCapturer = nil
         localVideoSource = nil
+        localAudioTrack = nil
         remoteStream = nil
     }
 }
