@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>CastNow Screen Share</string>
+	<string>即刻投屏</string>
 	<key>CFBundleName</key>
-	<string>CastNow Screen Share</string>
+	<string>即刻投屏</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

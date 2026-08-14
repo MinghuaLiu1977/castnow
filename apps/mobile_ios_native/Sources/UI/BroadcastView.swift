@@ -46,6 +46,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     private let peer = PeerJSClient()
     @Published private var camera: CameraCapture?
     private var destPeer: String?
+    private var pendingCamera: CameraCapture?
 
     private var isPeerReady: Bool = false { didSet { checkReady() } }
     private var isCameraReady: Bool = false { didSet { checkReady() } }
@@ -63,7 +64,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         }
     }
 
-    var cameraSession: AVCaptureSession? { camera?.captureSession }
+    @Published var localVideoTrack: RTCVideoTrack?
 
     init(shareScreen: Bool, shareCamera: Bool, shareMic: Bool) {
         self.shareScreen = shareScreen
@@ -89,14 +90,22 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 cam.configure()
                 
                 DispatchQueue.main.async {
-                    cam.onStarted = { [weak self] in
-                        self?.isCameraReady = true
-                        self?.checkReady()
+                    self.pendingCamera = cam
+                    cam.onStarted = { [weak self, weak cam] in
+                        guard let self = self, let cam = cam else { return }
+                        self.camera = cam
+                        self.localVideoTrack = self.rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera_local_preview")
+                        self.pendingCamera = nil
+                        self.isCameraReady = true
+                        self.checkReady()
                     }
-                    self.camera = cam
                     cam.start()
                 }
             }
+        } else if shareScreen {
+            _ = rtc.startScreenCapture()
+            rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
+            isCameraReady = true
         } else {
             isCameraReady = true
         }
@@ -120,29 +129,17 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         if let d = destPeer { peer.sendLeave(to: d) }
         peer.disconnect()
         camera?.stop()
+        pendingCamera?.stop()
         camera = nil
+        pendingCamera = nil
         rtc.close()
     }
 
 
+    @Published var triggerSystemBroadcast = false
+
     func beginSystemBroadcast() {
-        guard let ext = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String else { return }
-        DispatchQueue.main.async {
-            let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
-            picker.preferredExtension = ext
-            picker.showsMicrophoneButton = true
-            picker.alpha = 0.01
-            if let host = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow })?.rootViewController {
-                picker.center = host.view.center
-                host.view.addSubview(picker)
-                
-                if let button = picker.subviews.first(where: { $0 is UIButton }) as? UIButton {
-                    button.sendActions(for: .allTouchEvents)
-                }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { picker.removeFromSuperview() }
-            }
-        }
+        triggerSystemBroadcast = true
         started = true
     }
 
@@ -198,9 +195,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         rtc.enableRemoteSpeaker(!isPlaybackMuted)
 
         if shareScreen {
-            _ = rtc.startScreenCapture()
             if let track = rtc.addVideoTrack() { rtc.attachBroadcastTrack(track) }
-            rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
         }
         if shareCamera {
             if let cam = camera {
@@ -226,8 +221,14 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     func rtcConnectStateChanged(_ connected: Bool) {
         DispatchQueue.main.async { [weak self] in
-            self?.isConnected = connected
-            self?.statusMessage = connected ? "已连接" : "等待接收端..."
+            guard let self = self else { return }
+            let wasConnected = self.isConnected
+            self.isConnected = connected
+            self.statusMessage = connected ? "已连接" : "等待接收端..."
+            
+            if wasConnected && !connected {
+                self.onDisconnect?()
+            }
         }
     }
     func rtcRemoteVideoTracksReceived(_ tracks: [RTCVideoTrack]) {
@@ -249,6 +250,11 @@ struct BroadcastView: View {
     var body: some View {
         ZStack {
             kBackground.ignoresSafeArea()
+
+            if let ext = Bundle.main.object(forInfoDictionaryKey: "RTCScreenSharingExtension") as? String {
+                SystemBroadcastPickerView(extensionBundleId: ext, trigger: $vm.triggerSystemBroadcast)
+                    .frame(width: 0, height: 0)
+            }
 
             VStack(spacing: 0) {
                 // 状态条
@@ -275,8 +281,8 @@ struct BroadcastView: View {
                                     .resizable()
                                     .scaledToFit()
                                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                            } else if vm.shareCamera, let session = vm.cameraSession {
-                                CameraPreview(session: session)
+                            } else if vm.shareCamera, let track = vm.localVideoTrack {
+                                VideoStreamView(track: track)
                                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             } else {
                                 VStack(spacing: 16) {
@@ -388,3 +394,36 @@ struct BroadcastView: View {
 }
 
 #Preview { BroadcastView(shareScreen: true, shareCamera: false, shareMic: true) }
+
+import ReplayKit
+
+struct SystemBroadcastPickerView: UIViewRepresentable {
+    let extensionBundleId: String
+    @Binding var trigger: Bool
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        view.backgroundColor = .clear
+        view.isHidden = true // Hide from user but keep in view hierarchy
+
+        let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        picker.preferredExtension = extensionBundleId
+        picker.showsMicrophoneButton = true
+        view.addSubview(picker)
+        
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if trigger {
+            DispatchQueue.main.async {
+                if let picker = uiView.subviews.first(where: { $0 is RPSystemBroadcastPickerView }) as? RPSystemBroadcastPickerView {
+                    if let button = picker.subviews.first(where: { $0 is UIButton }) as? UIButton {
+                        button.sendActions(for: .allTouchEvents)
+                    }
+                }
+                trigger = false
+            }
+        }
+    }
+}
