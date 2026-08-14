@@ -14,7 +14,7 @@
 		4C3E8DF125F48AAA2D18778B /* ReceiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56238778C0AE552C1B58CD57 /* ReceiveView.swift */; };
 		5887CE7E180C4833DB78143B /* CastNowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */; };
 		6DDC6999DB56F97FF2364EC2 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93D4A424E0BF2C9841A7BBD8 /* Metal.framework */; };
-		6EEE23043848F0CE16A716C7 /* AppIconImage.png in Resources */ = {isa = PBXBuildFile; fileRef = 9073DA4B00F01C5B08BA67DA /* AppIconImage.png */; };
+		6EEE23043848F0CE16A716C7 /* CastNowSplashIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 9073DA4B00F01C5B08BA67DA /* CastNowSplashIcon.png */; };
 		7447C805EB3524245DDD441D /* SocketVideoCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCAE77CC94D637F00E1883B7 /* SocketVideoCapturer.swift */; };
 		74E6DBA293AD039B5D53CFA5 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D274DB04F8096856D1E37DAC /* CameraCapture.swift */; };
 		795CA1F4B78D4044208D4500 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6CBEA48249348D3FCD1B1F /* SampleHandler.swift */; };
@@ -73,7 +73,7 @@
 		7AC1F83820E4B9D202C0E534 /* CastNowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastNowApp.swift; sourceTree = "<group>"; };
 		88117F471BA87E0E6C47BAC0 /* BroadcastExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		9073DA4B00F01C5B08BA67DA /* AppIconImage.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIconImage.png; sourceTree = "<group>"; };
+		9073DA4B00F01C5B08BA67DA /* CastNowSplashIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CastNowSplashIcon.png; sourceTree = "<group>"; };
 		93D4A424E0BF2C9841A7BBD8 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		A7AEEC41B34C0510334CEA0C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA771ECC887896DA16F57B0F /* WebRTCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCManager.swift; sourceTree = "<group>"; };
@@ -221,7 +221,7 @@
 		B4FA0C0769991702256AAEF2 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				9073DA4B00F01C5B08BA67DA /* AppIconImage.png */,
+				9073DA4B00F01C5B08BA67DA /* CastNowSplashIcon.png */,
 				893FBEAB5D35E6F798AC0B14 /* Assets.xcassets */,
 				E3CC25C2DF55E6F943A1EFEE /* LaunchScreen.storyboard */,
 			);
@@ -310,7 +310,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6EEE23043848F0CE16A716C7 /* AppIconImage.png in Resources */,
+				6EEE23043848F0CE16A716C7 /* CastNowSplashIcon.png in Resources */,
 				F3DB13F3995CB2946ED80459 /* Assets.xcassets in Resources */,
 				413070362BD98DC3BF99EDDA /* LaunchScreen.storyboard in Resources */,
 			);

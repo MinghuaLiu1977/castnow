@@ -14,3 +14,9 @@
 - [x] 5. 修复 Xcode 关于 `RPSystemBroadcastPickerView` 破坏 SwiftUI 视图层级的警告
   - [x] 移除了直接向 `UIHostingController.view` 强制 `addSubview` 的做法。
   - [x] 使用 `UIViewRepresentable` 将系统录屏组件包装成 SwiftUI 原生支持的 `SystemBroadcastPickerView`，通过 `@Published` 状态触发隐式点击。
+- [x] 6. 区分标准版与 Pro 版的图标及录屏名称
+  - [x] 使用 Swift 脚本原生重绘了完美的、无任何背景杂色的高质量“C 字母变形信号波”矢量图标。
+  - [x] 为 `mobile_ios_native` (标准版) 生成并替换了上述完美版的高清 AppIcon 图标资源及启动闪屏页静态图。
+  - [x] 保留了 `mobile_ios_pro` (Pro 版) 原本的闪电图标，但将其录屏插件名称修改为了英文名 `CastNow`。
+- [x] 7. 优化麦克风与声音播放的 UX 体验（方案A）
+  - [x] 移除了系统录屏弹窗上的“麦克风”按钮（`showsMicrophoneButton = false`），防止用户误触无效的系统层级录音。

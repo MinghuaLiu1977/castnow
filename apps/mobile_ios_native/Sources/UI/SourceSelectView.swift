@@ -30,7 +30,7 @@ struct SourceSelectView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                if let ui = UIImage(named: "AppIconImage") {
+                if let ui = UIImage(named: "CastNowSplashIcon") {
                     Image(uiImage: ui)
                         .resizable()
                         .scaledToFill()

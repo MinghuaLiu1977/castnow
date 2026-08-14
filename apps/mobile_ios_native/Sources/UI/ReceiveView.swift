@@ -338,11 +338,11 @@ struct ReceiveView: View {
                         Spacer().frame(height: 60)
 
                         // 图标 + 标题（上移预留键盘空间）
-                        if let ui = UIImage(named: "AppIconImage") {
+                        if let ui = UIImage(named: "CastNowSplashIcon") {
                             Image(uiImage: ui)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 64, height: 64)
+                                .frame(width: 60, height: 60)
                                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         } else {
                             Image(systemName: "arrow.down.circle.fill")

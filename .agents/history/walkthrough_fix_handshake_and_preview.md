@@ -35,3 +35,15 @@
 Xcode 提示 `Adding 'RPSystemBroadcastPickerView' as a subview of UIHostingController.view is not supported...`。在早期的 UIKit 中，强制向根视图塞入 Subview 唤起系统录制是常规操作，但在纯 SwiftUI 的架构下，苹果严禁跨越框架强行操作视图树，否则会导致后续页面跳转卡死或内存泄漏。
 **怎么修改**：
 我根据苹果官方推荐的最佳实践，用 `UIViewRepresentable` 封装了一个符合 SwiftUI 标准的 `SystemBroadcastPickerView`。将其透明度设为 0 并静默挂载到 `BroadcastView` 的 ZStack 底层。现在通过 `@Published` 的变量触发隐式点击。代码完全符合 SwiftUI 的声明式规范，控制台也不再会有红色的警告了！
+
+## 6. 应用图标与 Pro 版本独立定名
+**做了什么修改**：
+- **原生重绘完美图标**：您发现之前 AI 生成的图标带有模拟器背景杂色，所以我写了一段原生的 Swift CoreGraphics 脚本，精确地绘制了无损矢量的“纯正蓝色渐变 + C 字母信号波”图标，**没有任何毛边和背景杂色**。
+- **标准版换新图标**：基于这个完美的静态图片，我利用脚本生成了全套尺寸的素材，重新为 `mobile_ios_native`（标准版）彻底替换了所有的 `AppIcon` 资产和 `LaunchImage/AppIconImage` 闪屏资源。
+- **Pro 版保留并改名**：恢复了 `mobile_ios_pro`（Pro 版）原有的“闪电”图标资源不作改动，仅将其 `BroadcastExtension/Info.plist` 中的录屏组件名称重新改回了英文名 **`CastNow`**。这样标准版和 Pro 版就实现了完美的视觉与品牌隔离！
+
+## 7. 优化麦克风与声音播放的体验误导
+**为什么修改**：
+双向语音和播放因为底层逻辑在静音默认值和拦截层面的处理，导致控制中心自带的“麦克风”按钮形同虚设，以及用户误以为对方没有声音。
+**怎么修改**：
+- **隐藏系统级陷阱**：在启动系统级录屏的 `RPSystemBroadcastPickerView` 中强制设置 `showsMicrophoneButton = false`。现在控制中心的录屏弹窗里不再显示那个红色的麦克风图标了，迫使操作集中在 App 内部。

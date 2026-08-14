@@ -11,7 +11,7 @@ struct HomeView: View {
 
                     // ── 品牌区（垂直居中）──
                     VStack(spacing: 0) {
-                        if let ui = UIImage(named: "AppIconImage") {
+                        if let ui = UIImage(named: "CastNowSplashIcon") {
                             Image(uiImage: ui)
                                 .resizable()
                                 .scaledToFill()

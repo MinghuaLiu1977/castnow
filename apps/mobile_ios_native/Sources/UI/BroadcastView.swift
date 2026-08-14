@@ -408,7 +408,7 @@ struct SystemBroadcastPickerView: UIViewRepresentable {
 
         let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
         picker.preferredExtension = extensionBundleId
-        picker.showsMicrophoneButton = true
+        picker.showsMicrophoneButton = false
         view.addSubview(picker)
         
         return view
