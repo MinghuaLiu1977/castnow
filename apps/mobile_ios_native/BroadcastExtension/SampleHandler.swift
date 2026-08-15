@@ -96,6 +96,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     private let frameIntervalNs: Int64 = 1_000_000_000 / 15
     private var isSending: Bool = false
     private var connectionTimer: Timer?
+    private var broadcastEnded = false
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
         print("🚀 Broadcast Extension Started")
@@ -143,11 +144,39 @@ class SampleHandler: RPBroadcastSampleHandler {
         var buffer = [UInt8](repeating: 0, count: 1)
         let result = recv(socketHandle, &buffer, 1, MSG_PEEK | MSG_DONTWAIT)
         if result == 0 {
-            print("🛑 Host closed socket connection.")
-            stopGracefully()
+            print("🛑 Host closed socket connection. Attempting reconnect...")
+            attemptReconnect()
         } else if result < 0 && errno != EAGAIN && errno != EWOULDBLOCK {
-            print("🛑 Socket error detected: \(errno)")
-            stopGracefully()
+            print("🛑 Socket error detected: \(errno). Attempting reconnect...")
+            attemptReconnect()
+        }
+    }
+
+    /// 主 App socket 断开后重试连接（主 App 可能被短暂挂起后恢复）
+    private func attemptReconnect() {
+        connectionTimer?.invalidate()
+        connectionTimer = nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            self.client?.close()
+            for _ in 1...10 {
+                Thread.sleep(forTimeInterval: 0.5)
+                if self.broadcastEnded { return }
+                if let c = self.client, c.open() {
+                    print("✅ Reconnected to host socket")
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self, !self.broadcastEnded else { return }
+                        self.connectionTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                            self?.checkHostConnection()
+                        }
+                    }
+                    return
+                }
+            }
+            if !self.broadcastEnded {
+                print("❌ Reconnect failed, stopping broadcast")
+                self.stopGracefully()
+            }
         }
     }
     
@@ -160,6 +189,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     
     override func broadcastFinished() {
         print("🛑 Broadcast Finished")
+        broadcastEnded = true
         connectionTimer?.invalidate()
         connectionTimer = nil
         client?.close()
