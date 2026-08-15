@@ -97,6 +97,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     private var isSending: Bool = false
     private var connectionTimer: Timer?
     private var broadcastEnded = false
+    private var isReconnecting = false
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
         print("🚀 Broadcast Extension Started")
@@ -203,7 +204,8 @@ class SampleHandler: RPBroadcastSampleHandler {
     }
     
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        guard client != nil else { return }
+        // 重连中（client 无效 socket）：跳过编码，省 CPU。重连成功后自动恢复。
+        guard client?.socketHandle ?? -1 >= 0, !isReconnecting else { return }
         
         if sampleBufferType != .video {
             return
