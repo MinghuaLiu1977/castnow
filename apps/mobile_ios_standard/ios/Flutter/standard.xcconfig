@@ -1,3 +1,0 @@
-APP_BUNDLE_ID = com.eastlakestudio.castnow
-INFOPLIST_KEY_CFBundleDisplayName = CastNow
-BROADCAST_EXTENSION_BUNDLE_ID = com.eastlakestudio.castnow.BroadcastExtension
