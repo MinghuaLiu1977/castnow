@@ -99,6 +99,8 @@ final class SocketVideoCapturer: NSObject {
     }
 
     private func pushFrame(_ jpeg: Data, width: Int, height: Int) {
+        // autoreleasepool：每帧 JPEG 解码产生大量临时对象，及时释放降低 jetsam 风险
+        autoreleasepool {
         guard let image = UIImage(data: jpeg) else { return }
 
         // 分辨率日志：每 3 秒打印一次采集输入与送编码前的目标尺寸
@@ -110,12 +112,31 @@ final class SocketVideoCapturer: NSObject {
             print("📐 [Capturer] socket frame \(width)x\(height), decoded \(imgW)x\(imgH), jpeg \(jpeg.count) bytes")
         }
 
-        // Emit throttled preview on main thread.
-        if now - lastPreviewTime > 0.066 {
+        // 预览瘦身：5fps + 缩到 320px 宽，避免主线程持有/解码全尺寸帧（内存+CPU）
+        if now - lastPreviewTime > 0.2 {
             lastPreviewTime = now
-            let preview = image
-            DispatchQueue.main.async { [weak self] in
-                self?.onPreviewFrame?(preview)
+            let maxSide: CGFloat = 320
+            let scale = min(1, maxSide / max(image.size.width, image.size.height))
+            if scale < 1, let cg = image.cgImage {
+                let newSize = CGSize(width: floor(image.size.width * scale),
+                                     height: floor(image.size.height * scale))
+                let thumbCtx = CGContext(data: nil, width: Int(newSize.width), height: Int(newSize.height),
+                                         bitsPerComponent: 8, bytesPerRow: 0,
+                                         space: CGColorSpaceCreateDeviceRGB(),
+                                         bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+                thumbCtx?.interpolationQuality = .medium
+                thumbCtx?.draw(cg, in: CGRect(origin: .zero, size: newSize))
+                if let thumbCg = thumbCtx?.makeImage() {
+                    let preview = UIImage(cgImage: thumbCg)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onPreviewFrame?(preview)
+                    }
+                }
+            } else {
+                let preview = image
+                DispatchQueue.main.async { [weak self] in
+                    self?.onPreviewFrame?(preview)
+                }
             }
         }
 
@@ -160,6 +181,7 @@ final class SocketVideoCapturer: NSObject {
                                        rotation: ._0,
                                        timeStampNs: Int64(Date().timeIntervalSince1970 * 1_000_000_000))
         source.capturer(capturer, didCapture: videoFrame)
+        }
     }
 }
 

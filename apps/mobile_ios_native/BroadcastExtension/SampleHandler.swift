@@ -152,6 +152,12 @@ class SampleHandler: RPBroadcastSampleHandler {
         }
     }
 
+    /// 发送失败进入重连（写失败 ≈ 主 App 挂起后 socket 缓冲满或进程被杀）
+    private func enterReconnectMode() {
+        isSending = false
+        attemptReconnect()
+    }
+
     /// 主 App socket 断开后重试连接（主 App 可能被短暂挂起后恢复）
     private func attemptReconnect() {
         connectionTimer?.invalidate()
@@ -257,8 +263,10 @@ class SampleHandler: RPBroadcastSampleHandler {
                 let chunkLen = min(chunkSize, frameData.count - offset)
                 let chunk = frameData.subdata(in: offset..<offset+chunkLen)
                 if !client.send(data: chunk) {
-                    print("❌ Failed to send frame chunk. Host app likely disconnected.")
-                    self.stopGracefully()
+                    // 写失败 ≈ 主 App 被杀/重启。不要立刻结束直播：走重连流程，
+                    // 期间持续丢帧。只有重连彻底失败才结束（用户会看到系统 banner）。
+                    print("❌ Failed to send frame chunk. Host unreachable → reconnect mode.")
+                    self.enterReconnectMode()
                     return
                 }
                 offset += chunkLen
