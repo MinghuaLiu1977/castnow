@@ -120,8 +120,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func startScreenCapture() -> RTCVideoSource {
         keeper.start()
         let source = factory.videoSource()
-        // 竖屏 886x1918 适配 1280x1920@15：保持原生分辨率，由编码器按码率压缩
-        source.adaptOutputFormat(toWidth: 1280, height: 1920, fps: 15)
+        // 回退到已验证出图的组合（1280x1920@15 实测编码器停发，Web 端 recv=0 黑屏）
+        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 22)
         let capturer = SocketVideoCapturer(source: source)
         capturer.start()
         localVideoSource = source
@@ -137,20 +137,9 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
         peerConnection?.add(track, streamIds: ["castnow_stream"])
-        // 码率调优（H264 硬编优先已撤销：协商到 H264 后 VideoToolbox 对我们的
-        // BGRA 池帧不出图，Web 端黑屏。回到默认 codec 协商）：
-        // - 1~4Mbps：minBitrate 防带宽估计把视频饿死（音频正常视频冻结的原因之一）
-        // - maintainResolution：带宽不足时降帧率而非分辨率
-        if let sender = peerConnection?.senders.first(where: { $0.track?.trackId == track.trackId }) {
-            let params = sender.parameters
-            if let encoding = params.encodings.first {
-                encoding.minBitrateBps = 1_000_000
-                encoding.maxBitrateBps = 4_000_000
-            }
-            params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
-            sender.parameters = params
-            print("🎥 [WebRTC] Video sender: 1~4Mbps, maintainResolution")
-        }
+        // 注意：不要在协商前写 sender.parameters（encodings/degradationPreference）。
+        // 实测 minBitrateBps + maintainResolution 会导致编码器停发（Web 端 recv=0 黑屏），
+        // 推测 maintainResolution 在 CPU 过载时帧率降到 0。分辨率调优另寻方案。
     }
 
     func setScreenPreviewHandler(_ handler: @escaping (UIImage) -> Void) {
