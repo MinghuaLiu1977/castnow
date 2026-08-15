@@ -282,20 +282,23 @@ final class SocketServer {
 
     private func parseBuffer() {
         while true {
-            // 从头找 HTTP 状态行；若开头就是垃圾（半包/错位），丢弃到下一个头部的候选点
-            guard buffer.first == UInt8(ascii: "H") else {
-                // 找不到 "HTTP/1.1 200 OK" 开头就丢 1 字节继续（避免错位解析越界崩溃）
+            // 缓冲必须以 HTTP 头开头；垃圾数据重新同步到下一个 "HTTP/1.1"
+            if buffer.first != UInt8(ascii: "H") {
                 if let r = buffer.range(of: Data("HTTP/1.1".utf8)) {
                     buffer.removeSubrange(..<r.lowerBound)
-                } else {
-                    // 只保留可能的头部前缀，防 362KB JPEG 全扫描
-                    buffer.removeAll(keepingCapacity: true)
+                    continue
                 }
-                continue
+                // 无完整头部候选：保留末尾 8 字节（可能是被截断的 "HTTP/1.1" 前缀），等待更多数据
+                if buffer.count > 8 {
+                    buffer.removeSubrange(..<(buffer.count - 8))
+                }
+                return
             }
             guard let range = buffer.range(of: Data("\r\n\r\n".utf8)) else { return }
-            let headerData = buffer[..<range.lowerBound]
-            guard let header = String(data: headerData, encoding: .utf8) else {
+            let headerData = buffer.subdata(in: 0..<range.lowerBound)
+            guard let header = String(data: headerData, encoding: .utf8),
+                  header.hasPrefix("HTTP/1.1 200") else {
+                // 伪头部（JPEG 数据里恰好 "H" 开头 + \r\n\r\n）：跳过这个假头继续同步
                 buffer.removeSubrange(..<range.upperBound)
                 continue
             }
@@ -311,8 +314,8 @@ final class SocketServer {
                     orientation = Int(line.dropFirst("Buffer-Orientation:".count).trimmingCharacters(in: .whitespaces)) ?? 0
                 }
             }
-            // 校验：合法帧长度 1KB~8MB；长度不足继续等数据
-            guard length > 1_000, length < 8_000_000, width > 0, height > 0 else {
+            // 校验：合法帧长度 256B~8MB；非法则丢弃这个假头重新同步
+            guard length > 256, length < 8_000_000, width > 0, height > 0 else {
                 buffer.removeSubrange(..<range.upperBound)
                 continue
             }
