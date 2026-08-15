@@ -108,6 +108,16 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         } else if shareScreen {
             _ = rtc.startScreenCapture()
             rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
+            // 锁屏/控制中心停止/Extension 崩溃 → socket 断开 → 完整清理 P2P + 信令
+            rtc.setBroadcastEndedHandler { [weak self] in
+                DispatchQueue.main.async {
+                    guard let self = self, !self.isStopping else { return }
+                    print("🛑 [Broadcast] Broadcast ended by system → full teardown")
+                    self.statusMessage = "直播已结束"
+                    self.stop()
+                    self.onDisconnect?()
+                }
+            }
             isCameraReady = true
         } else {
             isCameraReady = true
@@ -394,20 +404,10 @@ struct BroadcastView: View {
                 presentationMode.wrappedValue.dismiss()
             }
             vm.start()
-            // 锁屏/进后台 → 停止投屏、断开 P2P 并退出
-            NotificationCenter.default.addObserver(
-                forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main
-            ) { _ in
-                guard !vm.isStopping else { return }
-                print("🔒 [Broadcast] Scene didEnterBackground → stop broadcast & disconnect P2P")
-                vm.stop()
-                presentationMode.wrappedValue.dismiss()
-            }
+            // 投屏期间退到后台不停止：ReplayKit 采集在后台持续运行，
+            // WebRTC 由 audio background mode 保活。仅在用户主动点结束时断开。
         }
-        .onDisappear {
-            NotificationCenter.default.removeObserver(self, name: UIScene.didEnterBackgroundNotification, object: nil)
-            vm.stop()
-        }
+        .onDisappear { vm.stop() }
     }
 
     private func controlButton(icon: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {

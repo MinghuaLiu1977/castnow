@@ -32,9 +32,9 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     override init() {
         // 必须先设 category 为 playAndRecord，defaultToSpeaker 才合法（否则 SessionCore.mm 报错刷屏）
         let config = RTCAudioSessionConfiguration.webRTC()
-        config.category = .playAndRecord
+        config.category = AVAudioSession.Category.playAndRecord.rawValue
         config.categoryOptions = [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP]
-        config.mode = .voiceChat
+        config.mode = AVAudioSession.Mode.voiceChat.rawValue
         RTCAudioSessionConfiguration.setWebRTC(config)
 
         let encoderFactory = RTCDefaultVideoEncoderFactory()
@@ -65,8 +65,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     func startScreenCapture() -> RTCVideoSource {
         let source = factory.videoSource()
-        // 明确告知编码器目标分辨率/帧率，防止默认低分辨率（模糊根因）
-        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 22)
+        // 720p@15fps，与 Extension 采集帧率一致，避免适配器降分辨率
+        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 15)
         let capturer = SocketVideoCapturer(source: source)
         capturer.start()
         localVideoSource = source
@@ -82,12 +82,22 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
         peerConnection?.add(track, streamIds: ["castnow_stream"])
-        // Audio track is added separately via setupLocalAudio()
-        // Do NOT add it here again to avoid duplicate transceivers
+        // 通过 RtpSender parameters 强制 2.5Mbps 最大码率（比 SDP munging 可靠）
+        if let sender = peerConnection?.senders.first(where: { $0.track?.trackId == track.trackId }),
+           let encoding = sender.parameters.encodings.first {
+            encoding.maxBitrateBps = 2_500_000
+            sender.parameters = sender.parameters
+            print("🎥 [WebRTC] Video sender maxBitrateBps set to 2.5Mbps")
+        }
     }
 
     func setScreenPreviewHandler(_ handler: @escaping (UIImage) -> Void) {
         socketCapturer?.onPreviewFrame = handler
+    }
+
+    /// Broadcast ended by the system (lock screen / control center stop / extension crash).
+    func setBroadcastEndedHandler(_ handler: @escaping () -> Void) {
+        socketCapturer?.onBroadcastEnded = handler
     }
 
     var onRemoteOffer: ((String) -> Void)?
@@ -169,6 +179,36 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         }
     }
 
+    /// SDP munging: 提升视频码率，防止编码器降级到低分辨率
+    private func boostVideoBitrate(_ sdp: String) -> String {
+        var lines = sdp.components(separatedBy: "\r\n")
+        var result: [String] = []
+        var inVideoSection = false
+
+        for line in lines {
+            if line.hasPrefix("m=video") {
+                inVideoSection = true
+                result.append(line)
+                // b= 行紧跟 m= 行（SDP 规范），限制视频带宽 2.5Mbps
+                result.append("b=AS:2500")
+                continue
+            } else if line.hasPrefix("m=") {
+                inVideoSection = false
+            }
+
+            if inVideoSection && line.hasPrefix("a=fmtp:") {
+                if line.contains("x-google-max-bitrate") {
+                    result.append(line)
+                } else {
+                    result.append(line + ";x-google-max-bitrate=2500;x-google-start-bitrate=1500")
+                }
+            } else {
+                result.append(line)
+            }
+        }
+        return result.joined(separator: "\r\n")
+    }
+
     private func createAnswer() {
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         peerConnection?.answer(for: constraints) { [weak self] sdp, error in
@@ -176,10 +216,11 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
                 self?.delegate?.rtcError("answer failed: \(error?.localizedDescription ?? "")")
                 return
             }
-            self.peerConnection?.setLocalDescription(sdp) { err in
+            let boosted = RTCSessionDescription(type: sdp.type, sdp: self.boostVideoBitrate(sdp.sdp))
+            self.peerConnection?.setLocalDescription(boosted) { err in
                 if let err = err { self.delegate?.rtcError("setLocal(desc): \(err.localizedDescription)") }
             }
-            self.onRemoteOffer?(sdp.sdp)
+            self.onRemoteOffer?(boosted.sdp)
         }
     }
 
@@ -195,10 +236,11 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
                 self?.delegate?.rtcError("offer failed")
                 return
             }
-            self.peerConnection?.setLocalDescription(sdp) { err in
+            let boosted = RTCSessionDescription(type: sdp.type, sdp: self.boostVideoBitrate(sdp.sdp))
+            self.peerConnection?.setLocalDescription(boosted) { err in
                 if let err = err { self.delegate?.rtcError("setLocal(desc): \(err.localizedDescription)") }
             }
-            self.onLocalOffer?(sdp.sdp, destPeer)
+            self.onLocalOffer?(boosted.sdp, destPeer)
         }
     }
 

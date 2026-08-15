@@ -20,6 +20,11 @@ final class SocketVideoCapturer: NSObject {
     /// Called on the main thread with a preview image for each captured frame (throttled).
     var onPreviewFrame: ((UIImage) -> Void)?
     private var lastPreviewTime: TimeInterval = 0
+    private var lastResLogTime: TimeInterval = 0
+
+    /// Called when the BroadcastExtension disconnects (broadcast finished by
+    /// system — lock screen, control-center stop, or extension crash).
+    var onBroadcastEnded: (() -> Void)?
 
     init(source: RTCVideoSource) {
         self.source = source
@@ -39,6 +44,10 @@ final class SocketVideoCapturer: NSObject {
         server.onFrame = { [weak self] jpegData, width, height, orientation in
             self?.pushFrame(jpegData, width: width, height: height)
         }
+        server.onClientDisconnected = { [weak self] in
+            print("🛑 [Capturer] Extension socket closed → broadcast ended")
+            self?.onBroadcastEnded?()
+        }
         self.socket = server
         // Non-blocking: server listens on a background thread; extension connects in.
         server.start()
@@ -54,8 +63,16 @@ final class SocketVideoCapturer: NSObject {
     private func pushFrame(_ jpeg: Data, width: Int, height: Int) {
         guard let image = UIImage(data: jpeg) else { return }
 
-        // Emit throttled preview on main thread.
+        // 分辨率日志：每 3 秒打印一次采集输入与送编码前的目标尺寸
         let now = Date().timeIntervalSince1970
+        if now - lastResLogTime > 3.0 {
+            lastResLogTime = now
+            let imgW = image.cgImage?.width ?? -1
+            let imgH = image.cgImage?.height ?? -1
+            print("📐 [Capturer] socket frame \(width)x\(height), decoded \(imgW)x\(imgH), jpeg \(jpeg.count) bytes")
+        }
+
+        // Emit throttled preview on main thread.
         if now - lastPreviewTime > 0.066 {
             lastPreviewTime = now
             let preview = image
@@ -66,13 +83,20 @@ final class SocketVideoCapturer: NSObject {
 
         guard let cgImage = image.cgImage else { return }
 
-        // 保持原始分辨率，只在超大宽度时轻微限制（防编码器过载）
+        // 宽高上限 2560：iPhone 16 竖屏约 1206x2622，仅超高维度等比缩到 2560
         var targetWidth = width
         var targetHeight = height
-        if width > 1600 {
-            let ratio = CGFloat(1600) / CGFloat(width)
-            targetWidth = 1600
-            targetHeight = Int(CGFloat(height) * ratio)
+        let maxWidth = 2560
+        let maxHeight = 2560
+        if targetWidth > maxWidth {
+            let ratio = CGFloat(maxWidth) / CGFloat(targetWidth)
+            targetWidth = maxWidth
+            targetHeight = Int(CGFloat(targetHeight) * ratio)
+        }
+        if targetHeight > maxHeight {
+            let ratio = CGFloat(maxHeight) / CGFloat(targetHeight)
+            targetHeight = maxHeight
+            targetWidth = Int(CGFloat(targetWidth) * ratio)
         }
 
         var pb: CVPixelBuffer?
@@ -109,11 +133,14 @@ final class SocketVideoCapturer: NSObject {
 /// as a client and streams JPEG frames; we accept and read them on a background thread.
 final class SocketServer {
     var onFrame: ((Data, Int, Int, Int) -> Void)?
+    /// Fires when a connected extension client goes away (broadcast finished).
+    var onClientDisconnected: (() -> Void)?
     private let path: String
     private var serverFd: Int32 = -1
     private var clientFd: Int32 = -1
     private var buffer = Data()
     private var thread: Thread?
+    private var deliberateClose = false
 
     init(path: String) {
         self.path = path
@@ -161,10 +188,16 @@ final class SocketServer {
             Darwin.close(client)
             clientFd = -1
             buffer.removeAll()
+            // Extension disconnected: broadcast ended (lock screen / system stop).
+            // Only meaningful while the server is still meant to be alive.
+            if serverFd >= 0 && !deliberateClose && !Thread.current.isCancelled {
+                onClientDisconnected?()
+            }
         }
     }
 
     func close() {
+        deliberateClose = true
         if clientFd >= 0 { Darwin.close(clientFd); clientFd = -1 }
         if serverFd >= 0 { Darwin.close(serverFd); serverFd = -1 }
         thread?.cancel()

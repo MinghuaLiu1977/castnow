@@ -167,7 +167,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     }
     
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        guard let client = client else { return }
+        guard client != nil else { return }
         
         if sampleBufferType != .video {
             return
