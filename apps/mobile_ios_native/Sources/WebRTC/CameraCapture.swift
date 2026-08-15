@@ -7,12 +7,13 @@ import UIKit
 final class CameraCapture: NSObject {
     let videoSource: RTCVideoSource
     private let capturer: RTCCameraVideoCapturer
-    
+    private(set) var position: AVCaptureDevice.Position = .front
+
     // Expose the internal AVCaptureSession for SwiftUI local preview
     var captureSession: AVCaptureSession {
         return capturer.captureSession
     }
-    
+
     var onStarted: (() -> Void)?
 
     init(factory: RTCPeerConnectionFactory) {
@@ -23,6 +24,13 @@ final class CameraCapture: NSObject {
 
     func configure() {
         // No manual configuration needed. RTCCameraVideoCapturer handles it.
+    }
+
+    /// 前后摄像头切换
+    func flip() {
+        position = position == .front ? .back : .front
+        stop()
+        startInternal()
     }
 
     func start() {
@@ -43,17 +51,18 @@ final class CameraCapture: NSObject {
     }
 
     private func startInternal() {
+        let target = position
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
-            // Find the front camera
+
+            // 按当前朝向选摄像头（默认前置）
             let devices = RTCCameraVideoCapturer.captureDevices()
-            guard let frontCamera = devices.first(where: { $0.position == .front }) ?? devices.first else {
+            guard let camera = devices.first(where: { $0.position == target }) ?? devices.first else {
                 return
             }
             
             // Find a suitable format (e.g., around 720p)
-            let formats = RTCCameraVideoCapturer.supportedFormats(for: frontCamera)
+            let formats = RTCCameraVideoCapturer.supportedFormats(for: camera)
             let format = formats.sorted {
                 let dim1 = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
                 let dim2 = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
@@ -71,7 +80,7 @@ final class CameraCapture: NSObject {
             maxFps = min(maxFps, 30)
             
             // RTCCameraVideoCapturer starts asynchronously natively, avoiding main thread blockage
-            self.capturer.startCapture(with: frontCamera, format: format, fps: maxFps) { [weak self] error in
+            self.capturer.startCapture(with: camera, format: format, fps: maxFps) { [weak self] error in
                 if let error = error {
                     print("Camera capture failed to start: \(error)")
                 } else {

@@ -8,6 +8,7 @@ struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     func makeUIView(context: Context) -> PreviewHostView {
         let v = PreviewHostView()
+        v.bind(session: session)
         return v
     }
     func updateUIView(_ uiView: PreviewHostView, context: Context) {
@@ -47,7 +48,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     private let rtc = WebRTCManager()
     private let peer = PeerJSClient()
-    @Published private var camera: CameraCapture?
+    @Published private(set) var camera: CameraCapture?
     private var destPeer: String?
     private var pendingCamera: CameraCapture?
 
@@ -136,7 +137,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     }
 
     func flipCamera() {
-        // TODO: switch camera front/back
+        camera?.flip()
     }
 
     func stop() {
@@ -308,8 +309,8 @@ struct BroadcastView: View {
                                     .resizable()
                                     .scaledToFit()
                                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                            } else if vm.shareCamera, let track = vm.localVideoTrack {
-                                VideoStreamView(track: track)
+                            } else if vm.shareCamera, let cam = vm.camera {
+                                CameraPreview(session: cam.captureSession)
                                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             } else {
                                 VStack(spacing: 16) {
