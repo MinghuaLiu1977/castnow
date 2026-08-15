@@ -44,6 +44,13 @@ final class BackgroundAudioKeeper {
                 self?.restartPlayback()
             }
         }
+        // 音频子系统崩溃/重置后自动恢复
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            print("🔊 [Keeper] Media services reset → restart")
+            self?.player = nil
+            self?.restartPlayback()
+        }
         restartPlayback()
     }
 
@@ -101,7 +108,9 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         // 必须先设 category 为 playAndRecord，defaultToSpeaker 才合法（否则 SessionCore.mm 报错刷屏）
         let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
-        config.categoryOptions = [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP]
+        // mixWithOthers：与其他 App 音频混音而非抢占——被抢占会中断保活播放，
+        // App 随即被挂起/杀死（投屏中断的根因）。voiceChat 软件回声消除不受影响。
+        config.categoryOptions = [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .mixWithOthers]
         config.mode = AVAudioSession.Mode.voiceChat.rawValue
         RTCAudioSessionConfiguration.setWebRTC(config)
 
@@ -157,9 +166,16 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
         peerConnection?.add(track, streamIds: ["castnow_stream"])
-        // 注意：不要在协商前写 sender.parameters（encodings/degradationPreference）。
-        // 实测 minBitrateBps + maintainResolution 会导致编码器停发（Web 端 recv=0 黑屏），
-        // 推测 maintainResolution 在 CPU 过载时帧率降到 0。分辨率调优另寻方案。
+        // 屏幕投屏强制 VP8（软编码）：H264 硬编在 App 退后台后失去 GPU 访问，
+        // 视频 RTP 停发（音频正常视频冻结的根因）。VP8 纯 CPU，后台可持续编码。
+        if let transceiver = peerConnection?.transceivers.first(where: { $0.sender.track?.trackId == track.trackId }) {
+            let vp8 = factory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindVideo)
+                .codecs.filter { $0.name.lowercased() == "vp8" }
+            if !vp8.isEmpty {
+                try? transceiver.setCodecPreferences(vp8, error: ())
+                print("🎥 [WebRTC] Forced VP8 for screen track (background-safe)")
+            }
+        }
     }
 
     func setScreenPreviewHandler(_ handler: @escaping (UIImage) -> Void) {

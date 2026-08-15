@@ -159,7 +159,7 @@ class SampleHandler: RPBroadcastSampleHandler {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             self.client?.close()
-            for _ in 1...10 {
+            for _ in 1...60 {
                 Thread.sleep(forTimeInterval: 0.5)
                 if self.broadcastEnded { return }
                 if let c = self.client, c.open() {
