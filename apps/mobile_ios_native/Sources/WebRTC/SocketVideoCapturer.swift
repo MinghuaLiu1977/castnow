@@ -65,8 +65,13 @@ final class SocketVideoCapturer: NSObject {
         }
 
         guard let cgImage = image.cgImage else { return }
+        // Downscale large retina screens by 50% to prevent WebRTC congestion/freezes
+        let scale: CGFloat = width >= 1000 ? 0.5 : 1.0
+        let targetWidth = Int(CGFloat(width) * scale)
+        let targetHeight = Int(CGFloat(height) * scale)
+
         var pb: CVPixelBuffer?
-        CVPixelBufferCreate(kCFAllocatorDefault, width, height,
+        CVPixelBufferCreate(kCFAllocatorDefault, targetWidth, targetHeight,
                             kCVPixelFormatType_32BGRA,
                             [kCVPixelBufferCGImageCompatibilityKey: true,
                              kCVPixelBufferCGBitmapContextCompatibilityKey: true] as CFDictionary,
@@ -75,7 +80,7 @@ final class SocketVideoCapturer: NSObject {
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
         guard let ctx = CGContext(
             data: CVPixelBufferGetBaseAddress(pixelBuffer),
-            width: width, height: height,
+            width: targetWidth, height: targetHeight,
             bitsPerComponent: 8,
             bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
             space: CGColorSpaceCreateDeviceRGB(),
@@ -84,7 +89,7 @@ final class SocketVideoCapturer: NSObject {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
             return
         }
-        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         let videoFrame = RTCVideoFrame(buffer: RTCCVPixelBuffer(pixelBuffer: pixelBuffer),

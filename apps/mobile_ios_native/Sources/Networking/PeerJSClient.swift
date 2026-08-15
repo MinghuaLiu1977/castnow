@@ -251,6 +251,9 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
             heartbeatTimer?.invalidate()
             DispatchQueue.main.async { self.onEvent?(.close) }
 
+        case .ping, .pong:
+            break
+
         default:
             plog("⚠️ [PeerJS] unknown or unhandled event")
         }
