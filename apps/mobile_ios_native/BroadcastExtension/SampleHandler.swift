@@ -210,23 +210,29 @@ class SampleHandler: RPBroadcastSampleHandler {
             return
         }
         isSending = true
-        defer { isSending = false }
 
         var frameData = Data()
         frameData.append(headerData)
         frameData.append(jpegData)
-        
-        let chunkSize = 16 * 1024
-        var offset = 0
-        while offset < frameData.count {
-            let chunkLen = min(chunkSize, frameData.count - offset)
-            let chunk = frameData.subdata(in: offset..<offset+chunkLen)
-            if !client.send(data: chunk) {
-                print("❌ Failed to send frame chunk. Host app likely disconnected.")
-                stopGracefully()
-                return
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            defer { self.isSending = false }
+            
+            guard let client = self.client else { return }
+            
+            let chunkSize = 16 * 1024
+            var offset = 0
+            while offset < frameData.count {
+                let chunkLen = min(chunkSize, frameData.count - offset)
+                let chunk = frameData.subdata(in: offset..<offset+chunkLen)
+                if !client.send(data: chunk) {
+                    print("❌ Failed to send frame chunk. Host app likely disconnected.")
+                    self.stopGracefully()
+                    return
+                }
+                offset += chunkLen
             }
-            offset += chunkLen
         }
     }
 }
