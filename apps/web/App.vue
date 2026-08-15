@@ -155,13 +155,15 @@ const handleJoin = async () => {
 
 // --- Shared ---
 const resetApp = (forceLanding = false) => {
-  media.stopAllStreams?.();
-  webrtc.cleanUpStreams?.();
-  webrtc.closeActiveCalls?.();
-  webrtc.destroyPeer?.();
-  webrtc.persistTrial?.();
-  media.resetMediaState?.();
-  webrtc.resetState?.();
+  // 每步隔离：任何一步抛异常不能中断清理（否则组件树残留导致白屏）
+  const safe = (fn) => { try { fn(); } catch (e) { console.warn('[resetApp]', e); } };
+  safe(() => media.stopAllStreams?.());
+  safe(() => webrtc.cleanUpStreams?.());
+  safe(() => webrtc.closeActiveCalls?.());
+  safe(() => webrtc.destroyPeer?.());
+  safe(() => webrtc.persistTrial?.());
+  safe(() => media.resetMediaState?.());
+  safe(() => webrtc.resetState?.());
 
   if (forceLanding || appState.value !== STATES.BROADCAST_ENDED) {
     appState.value = STATES.LANDING;

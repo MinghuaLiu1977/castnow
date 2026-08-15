@@ -262,7 +262,7 @@ export function useWebRTC(getIceServers) {
       const knockCall = peer.call(code, streamToSend);
 
       const timeout = setTimeout(() => {
-        if (setAppState.value !== STATES.RECEIVER_ACTIVE) {
+        if (!document.querySelector('[data-receiver-root]')) {
           isConnecting.value = false;
           error.value = '连接失败，请检查配对码。';
         }
@@ -304,8 +304,17 @@ export function useWebRTC(getIceServers) {
           call.peerConnection.oniceconnectionstatechange = () => {
             const state = call.peerConnection.iceConnectionState;
             console.log('🔗 [WebRTC] ICE state:', state);
-            if (['disconnected', 'failed', 'closed'].includes(state)) {
+            if (state === 'failed' || state === 'closed') {
               if (resetApp) resetApp();
+            } else if (state === 'disconnected') {
+              // disconnected 可自愈：给 5 秒恢复期，期间不清 UI
+              setTimeout(() => {
+                if (call.peerConnection &&
+                    call.peerConnection.iceConnectionState === 'disconnected') {
+                  console.warn('🔗 [WebRTC] ICE stuck disconnected 5s → reset');
+                  if (resetApp) resetApp();
+                }
+              }, 5000);
             }
           };
 
@@ -329,6 +338,26 @@ export function useWebRTC(getIceServers) {
         updateSplitStreams(call);
         setTimeout(() => updateSplitStreams(call), 1000);
         setTimeout(() => updateSplitStreams(call), 2500);
+
+        // 视频诊断：每 3 秒打印接收状态（定位黑屏：无数据 vs 解码失败）
+        if (!window.__castnowDiag) {
+          window.__castnowDiag = setInterval(async () => {
+            const el = document.querySelector('video');
+            const track = screenStream.value?.getVideoTracks()[0];
+            let bytes = 0, fps = 0, codec = '';
+            try {
+              const stats = await call.peerConnection?.getStats();
+              stats?.forEach(s => {
+                if (s.type === 'inbound-rtp' && s.kind === 'video') {
+                  bytes = s.bytesReceived; fps = s.framesPerSecond || 0;
+                  const codecId = s.codecId;
+                  if (codecId && stats.get(codecId)) codec = stats.get(codecId).mimeType;
+                }
+              });
+            } catch (e) { /* ignore */ }
+            console.log(`📊 [diag] video ${el?.videoWidth ?? '-'}x${el?.videoHeight ?? '-'} ready=${el?.readyState ?? '-'} muted=${track?.muted ?? '-'} recv=${(bytes/1024).toFixed(0)}KB fps=${fps} codec=${codec}`);
+          }, 3000);
+        }
       });
     });
 
@@ -396,6 +425,10 @@ export function useWebRTC(getIceServers) {
   };
 
   const cleanUpStreams = () => {
+    if (window.__castnowDiag) {
+      clearInterval(window.__castnowDiag);
+      window.__castnowDiag = null;
+    }
     const streams = [
       remoteStream.value,
       screenStream.value,

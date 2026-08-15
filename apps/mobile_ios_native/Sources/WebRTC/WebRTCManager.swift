@@ -6,6 +6,53 @@ enum WebrtcRole {
     case receiver
 }
 
+/// 后台保活：循环播放静音，维持 audio session 活跃。
+/// 麦克风静音时 WebRTC 不会激活 session，App 后台数秒内被挂起导致直播中断。
+final class BackgroundAudioKeeper {
+    private var player: AVAudioPlayer?
+
+    /// 生成 1 秒静音 WAV（PCM16 mono）
+    private static func silentWav(sampleRate: Int = 24000) -> Data {
+        let frames = sampleRate
+        var data = Data(capacity: 44 + frames * 2)
+        func append<T>(_ value: T) { withUnsafeBytes(of: value) { data.append(contentsOf: $0) } }
+        append(UInt32(0x46464952))                       // "RIFF"
+        append(UInt32(36 + frames * 2))
+        append(UInt32(0x45564157))                       // "WAVE"
+        append(UInt32(0x20746d66))                       // "fmt "
+        append(UInt32(16))
+        append(UInt16(1))                                // PCM
+        append(UInt16(1))                                // mono
+        append(UInt32(sampleRate))
+        append(UInt32(sampleRate * 2))                   // byte rate
+        append(UInt16(2))                                // block align
+        append(UInt16(16))                               // bits
+        append(UInt32(0x61746164))                       // "data"
+        append(UInt32(frames * 2))
+        data.append(Data(count: frames * 2))
+        return data
+    }
+
+    func start() {
+        guard player == nil else { return }
+        do {
+            let p = try AVAudioPlayer(data: Self.silentWav())
+            p.numberOfLoops = -1
+            p.volume = 0
+            p.play()
+            player = p
+            print("🔊 [Keeper] Silent background audio started")
+        } catch {
+            print("⚠️ [Keeper] Silent audio failed: \(error)")
+        }
+    }
+
+    func stop() {
+        player?.stop()
+        player = nil
+    }
+}
+
 protocol WebRTCManagerDelegate: AnyObject {
     func rtcConnectStateChanged(_ connected: Bool)
     func rtcRemoteVideoTracksReceived(_ tracks: [RTCVideoTrack])
@@ -18,6 +65,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     let factory: RTCPeerConnectionFactory
     private var peerConnection: RTCPeerConnection?
+    private let keeper = BackgroundAudioKeeper()
 
     // Broadcaster side
     private var localVideoSource: RTCVideoSource?
@@ -47,6 +95,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     }
 
     func createPeerConnection() {
+        keeper.start()
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
         config.iceServers = PeerJSClient.defaultIceServers
@@ -63,10 +112,16 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     // MARK: - Broadcaster
 
+    /// 广播开始即启动后台保活（音频 session 活跃才不被挂起）
+    func startBackgroundKeeper() {
+        keeper.start()
+    }
+
     func startScreenCapture() -> RTCVideoSource {
+        keeper.start()
         let source = factory.videoSource()
-        // 720p@15fps，与 Extension 采集帧率一致，避免适配器降分辨率
-        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 15)
+        // 竖屏 886x1918 适配 1280x1920@15：保持原生分辨率，由编码器按码率压缩
+        source.adaptOutputFormat(toWidth: 1280, height: 1920, fps: 15)
         let capturer = SocketVideoCapturer(source: source)
         capturer.start()
         localVideoSource = source
@@ -82,12 +137,19 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func attachBroadcastTrack(_ track: RTCVideoTrack) {
         videoTrack = track
         peerConnection?.add(track, streamIds: ["castnow_stream"])
-        // 通过 RtpSender parameters 强制 2.5Mbps 最大码率（比 SDP munging 可靠）
-        if let sender = peerConnection?.senders.first(where: { $0.track?.trackId == track.trackId }),
-           let encoding = sender.parameters.encodings.first {
-            encoding.maxBitrateBps = 2_500_000
-            sender.parameters = sender.parameters
-            print("🎥 [WebRTC] Video sender maxBitrateBps set to 2.5Mbps")
+        // 码率调优（H264 硬编优先已撤销：协商到 H264 后 VideoToolbox 对我们的
+        // BGRA 池帧不出图，Web 端黑屏。回到默认 codec 协商）：
+        // - 1~4Mbps：minBitrate 防带宽估计把视频饿死（音频正常视频冻结的原因之一）
+        // - maintainResolution：带宽不足时降帧率而非分辨率
+        if let sender = peerConnection?.senders.first(where: { $0.track?.trackId == track.trackId }) {
+            let params = sender.parameters
+            if let encoding = params.encodings.first {
+                encoding.minBitrateBps = 1_000_000
+                encoding.maxBitrateBps = 4_000_000
+            }
+            params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+            sender.parameters = params
+            print("🎥 [WebRTC] Video sender: 1~4Mbps, maintainResolution")
         }
     }
 
@@ -326,6 +388,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
     func close() {
+        keeper.stop()
         peerConnection?.close()
         peerConnection = nil
         socketCapturer?.stop()

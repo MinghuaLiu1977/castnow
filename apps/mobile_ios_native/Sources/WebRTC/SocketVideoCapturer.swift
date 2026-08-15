@@ -22,6 +22,10 @@ final class SocketVideoCapturer: NSObject {
     private var lastPreviewTime: TimeInterval = 0
     private var lastResLogTime: TimeInterval = 0
 
+    /// 像素缓冲池：复用 IOSurface，避免每帧 6.8MB 分配导致 IOSurface creation failed
+    private var pixelPool: CVPixelBufferPool?
+    private var poolLock = NSLock()
+
     /// Called when the BroadcastExtension disconnects (broadcast finished by
     /// system — lock screen, control-center stop, or extension crash).
     var onBroadcastEnded: (() -> Void)?
@@ -58,6 +62,40 @@ final class SocketVideoCapturer: NSObject {
         socket?.close()
         socket = nil
         capturer = nil
+        poolLock.lock()
+        pixelPool = nil
+        poolLock.unlock()
+    }
+
+    /// 获取/重建与目标尺寸匹配的缓冲池（尺寸变化时重建一次）
+    private func pooledBuffer(width: Int, height: Int) -> CVPixelBuffer? {
+        poolLock.lock()
+        defer { poolLock.unlock() }
+        if let pool = pixelPool,
+           let attrs = CVPixelBufferPoolGetPixelBufferAttributes(pool) as? [String: Any],
+           let w = attrs[kCVPixelBufferWidthKey as String] as? Int,
+           let h = attrs[kCVPixelBufferHeightKey as String] as? Int,
+           w == width, h == height {
+            var pb: CVPixelBuffer?
+            CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pb)
+            return pb
+        }
+        let poolAttrs: [String: Any] = [kCVPixelBufferPoolMinimumBufferCountKey as String: 3]
+        let bufAttrs: [String: Any] = [
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferPixelFormatTypeKey as String: NSNumber(value: kCVPixelFormatType_32BGRA),
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+        ]
+        var newPool: CVPixelBufferPool?
+        guard CVPixelBufferPoolCreate(kCFAllocatorDefault, poolAttrs as CFDictionary,
+                                      bufAttrs as CFDictionary, &newPool) == kCVReturnSuccess,
+              let pool = newPool else { return nil }
+        pixelPool = pool
+        var pb: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pb)
+        return pb
     }
 
     private func pushFrame(_ jpeg: Data, width: Int, height: Int) {
@@ -99,13 +137,10 @@ final class SocketVideoCapturer: NSObject {
             targetWidth = Int(CGFloat(targetWidth) * ratio)
         }
 
-        var pb: CVPixelBuffer?
-        CVPixelBufferCreate(kCFAllocatorDefault, targetWidth, targetHeight,
-                            kCVPixelFormatType_32BGRA,
-                            [kCVPixelBufferCGImageCompatibilityKey: true,
-                             kCVPixelBufferCGBitmapContextCompatibilityKey: true] as CFDictionary,
-                            &pb)
-        guard let pixelBuffer = pb else { return }
+        guard let pixelBuffer = pooledBuffer(width: targetWidth, height: targetHeight) else {
+            print("⚠️ [Capturer] pixel pool exhausted, drop frame")
+            return
+        }
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
         guard let ctx = CGContext(
             data: CVPixelBufferGetBaseAddress(pixelBuffer),
@@ -185,8 +220,11 @@ final class SocketServer {
             var one = 1
             setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int>.size))
             readLoop(client)
-            Darwin.close(client)
-            clientFd = -1
+            // 只在仍持有所有权时关闭，避免与 close() 双重 close 误伤其他线程新分配的 fd
+            if clientFd == client {
+                Darwin.close(client)
+                clientFd = -1
+            }
             buffer.removeAll()
             // Extension disconnected: broadcast ended (lock screen / system stop).
             // Only meaningful while the server is still meant to be alive.

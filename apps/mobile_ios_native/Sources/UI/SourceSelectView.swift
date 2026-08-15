@@ -165,7 +165,7 @@ struct SourceSelectView: View {
                             .stroke(isOn.wrappedValue ? kPrimary : Color.white.opacity(0.3), lineWidth: 2)
                     )
                     .overlay(
-                        isOn.wrappedValue ? Image(systemName: "check").font(.system(size: 14, weight: .bold)).foregroundColor(kBackground) : nil
+                        isOn.wrappedValue ? Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundColor(kBackground) : nil
                     )
             }
             .padding(.horizontal, 16)

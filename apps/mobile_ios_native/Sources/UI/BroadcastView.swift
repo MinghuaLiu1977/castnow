@@ -79,6 +79,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     func start() {
         statusMessage = "正在初始化设备..."
+        rtc.startBackgroundKeeper()
         peer.onEvent = { [weak self] event in self?.handle(event: event) }
 
         let code = String(format: "%06d", Int.random(in: 100000...999999))
@@ -430,15 +431,16 @@ struct SystemBroadcastPickerView: UIViewRepresentable {
     @Binding var trigger: Bool
 
     func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 4, height: 4))
         view.backgroundColor = .clear
-        view.isHidden = true // Hide from user but keep in view hierarchy
+        // 不能用 isHidden：部分 iOS 版本隐藏视图不响应 sendActions
+        view.alpha = 0.01
 
-        let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 4, height: 4))
         picker.preferredExtension = extensionBundleId
         picker.showsMicrophoneButton = false
         view.addSubview(picker)
-        
+
         return view
     }
 
@@ -447,7 +449,7 @@ struct SystemBroadcastPickerView: UIViewRepresentable {
             DispatchQueue.main.async {
                 if let picker = uiView.subviews.first(where: { $0 is RPSystemBroadcastPickerView }) as? RPSystemBroadcastPickerView {
                     if let button = picker.subviews.first(where: { $0 is UIButton }) as? UIButton {
-                        button.sendActions(for: .allTouchEvents)
+                        button.sendActions(for: .touchUpInside)
                     }
                 }
                 trigger = false
