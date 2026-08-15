@@ -37,8 +37,7 @@ export function useWebRTC(getIceServers) {
   watch([receiverAudioElement, receiverAudioStream], ([el, stream]) => {
     if (el && stream) {
       el.srcObject = stream;
-      el.muted = false;
-      el.volume = 1.0;
+      // 不要强制 muted=false：静音状态由模板 :muted 绑定控制（toggleMute）
       el.play().then(() => {
         console.log('🔊 [WEBRTC] Intercom audio playback started successfully');
       }).catch(e => {

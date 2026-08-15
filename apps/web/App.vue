@@ -423,7 +423,7 @@ const swapStreams = () => layout.swapStreams();
         </div>
       </Transition>
 
-      <audio ref="receiverAudioElement" autoplay playsinline webkit-playsinline class="opacity-0 pointer-events-none absolute h-0 w-0"></audio>
+      <audio ref="receiverAudioElement" :muted="isMuted" autoplay playsinline webkit-playsinline class="opacity-0 pointer-events-none absolute h-0 w-0"></audio>
     </main>
 
     <!-- Info Modal -->
