@@ -402,7 +402,7 @@ const swapStreams = () => layout.swapStreams();
                     :class="{ 'bg-red-500/20 text-red-500': isMuted }">
                     <component :is="isMuted ? VolumeX : Volume2" class="w-6 h-6" />
                   </button>
-                  <button @click="toggleFullscreen(receiverRoot)"
+                  <button @click="layout.toggleFullscreen(receiverRoot)"
                     class="p-4 bg-white/5 rounded-full text-white hover:bg-white/10 transition-all active:scale-95">
                     <Maximize class="w-6 h-6" />
                   </button>
