@@ -120,8 +120,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     func startScreenCapture() -> RTCVideoSource {
         keeper.start()
         let source = factory.videoSource()
-        // 回退到已验证出图的组合（1280x1920@15 实测编码器停发，Web 端 recv=0 黑屏）
-        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 22)
+        // 1080p 竖屏（1080x1920）：H264 硬编下已验证可出图的步进升级路径
+        source.adaptOutputFormat(toWidth: 1080, height: 1920, fps: 15)
         let capturer = SocketVideoCapturer(source: source)
         capturer.start()
         localVideoSource = source
@@ -240,8 +240,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
             if line.hasPrefix("m=video") {
                 inVideoSection = true
                 result.append(line)
-                // b= 行紧跟 m= 行（SDP 规范），限制视频带宽 2.5Mbps
-                result.append("b=AS:2500")
+                // b= 行紧跟 m= 行（SDP 规范），限制视频带宽 6Mbps（H264 硬编可扛）
+                result.append("b=AS:6000")
                 continue
             } else if line.hasPrefix("m=") {
                 inVideoSection = false
@@ -251,7 +251,7 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
                 if line.contains("x-google-max-bitrate") {
                     result.append(line)
                 } else {
-                    result.append(line + ";x-google-max-bitrate=2500;x-google-start-bitrate=1500")
+                    result.append(line + ";x-google-max-bitrate=6000;x-google-start-bitrate=2000")
                 }
             } else {
                 result.append(line)
