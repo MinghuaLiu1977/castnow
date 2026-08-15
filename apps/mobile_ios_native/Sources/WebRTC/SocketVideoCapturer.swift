@@ -65,10 +65,15 @@ final class SocketVideoCapturer: NSObject {
         }
 
         guard let cgImage = image.cgImage else { return }
-        // Downscale large retina screens by 50% to prevent WebRTC congestion/freezes
-        let scale: CGFloat = width >= 1000 ? 0.5 : 1.0
-        let targetWidth = Int(CGFloat(width) * scale)
-        let targetHeight = Int(CGFloat(height) * scale)
+
+        // 保持原始分辨率，只在超大宽度时轻微限制（防编码器过载）
+        var targetWidth = width
+        var targetHeight = height
+        if width > 1600 {
+            let ratio = CGFloat(1600) / CGFloat(width)
+            targetWidth = 1600
+            targetHeight = Int(CGFloat(height) * ratio)
+        }
 
         var pb: CVPixelBuffer?
         CVPixelBufferCreate(kCFAllocatorDefault, targetWidth, targetHeight,

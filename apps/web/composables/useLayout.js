@@ -89,11 +89,14 @@ export function useLayout() {
     isMuted.value = !isMuted.value;
   };
 
-  const toggleFullscreen = (receiverRoot) => {
-    if (!document.fullscreenElement && receiverRoot) {
-      receiverRoot.requestFullscreen().catch((err) => console.log(err));
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen();
+  const toggleFullscreen = (el) => {
+    const target = el || document.querySelector('[data-receiver-root]') || document.documentElement;
+    if (!document.fullscreenElement) {
+      const req = target.requestFullscreen || target.webkitRequestFullscreen;
+      if (req) req.call(target).catch((err) => console.log('[Layout] fullscreen failed:', err));
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document).catch(() => {});
     }
   };
 

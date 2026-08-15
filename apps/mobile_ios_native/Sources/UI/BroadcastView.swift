@@ -36,6 +36,9 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
 
     var onDisconnect: (() -> Void)?
 
+    /// 正在主动停止（锁屏/退出页面）。此时忽略信令 close，避免重复弹窗。
+    private(set) var isStopping = false
+
     private var pendingCode: String = ""
 
     let shareScreen: Bool
@@ -126,6 +129,7 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     }
 
     func stop() {
+        isStopping = true
         if let d = destPeer { peer.sendLeave(to: d) }
         peer.disconnect()
         camera?.stop()
@@ -169,6 +173,8 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                 self.rtc.addIceCandidate(c)
 
             case .close:
+                // 主动停止（锁屏/退出）中：不处理，由调用方负责退出页面
+                if self.isStopping { break }
                 // Only show "receiver left" if we were actually connected.
                 // Knock/close during handshake is normal, ignore it.
                 if self.isConnected {
@@ -222,9 +228,19 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     func rtcConnectStateChanged(_ connected: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            guard !self.isStopping else { return }
             let wasConnected = self.isConnected
             self.isConnected = connected
             self.statusMessage = connected ? "已连接" : "等待接收端..."
+            
+            if connected {
+                // 关键修复：recall() 时调用 enableRemoteSpeaker/enableLocalMicrophone时，
+                // ICE 还没建立完成， transceivers 为空，调用无效。
+                // 必须在 ICE connected 之后再次应用，才能真正开启/关闭音频轨道。
+                self.rtc.enableRemoteSpeaker(!self.isPlaybackMuted)
+                self.rtc.enableLocalMicrophone(!self.isMicMuted)
+                print("🔊 [Broadcast] ICE connected → speaker=\(!self.isPlaybackMuted), mic=\(!self.isMicMuted)")
+            }
             
             if wasConnected && !connected {
                 self.onDisconnect?()
@@ -378,8 +394,20 @@ struct BroadcastView: View {
                 presentationMode.wrappedValue.dismiss()
             }
             vm.start()
+            // 锁屏/进后台 → 停止投屏、断开 P2P 并退出
+            NotificationCenter.default.addObserver(
+                forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main
+            ) { _ in
+                guard !vm.isStopping else { return }
+                print("🔒 [Broadcast] Scene didEnterBackground → stop broadcast & disconnect P2P")
+                vm.stop()
+                presentationMode.wrappedValue.dismiss()
+            }
         }
-        .onDisappear { vm.stop() }
+        .onDisappear {
+            NotificationCenter.default.removeObserver(self, name: UIScene.didEnterBackgroundNotification, object: nil)
+            vm.stop()
+        }
     }
 
     private func controlButton(icon: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {

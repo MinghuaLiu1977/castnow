@@ -30,11 +30,13 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     private var pendingRemoteCandidates: [RTCIceCandidate] = []
 
     override init() {
-        // Configure WebRTC Audio Session to default to speaker
+        // 必须先设 category 为 playAndRecord，defaultToSpeaker 才合法（否则 SessionCore.mm 报错刷屏）
         let config = RTCAudioSessionConfiguration.webRTC()
+        config.category = .playAndRecord
         config.categoryOptions = [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP]
+        config.mode = .voiceChat
         RTCAudioSessionConfiguration.setWebRTC(config)
-        
+
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
         factory = RTCPeerConnectionFactory(
@@ -63,6 +65,8 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
 
     func startScreenCapture() -> RTCVideoSource {
         let source = factory.videoSource()
+        // 明确告知编码器目标分辨率/帧率，防止默认低分辨率（模糊根因）
+        source.adaptOutputFormat(toWidth: 1280, height: 720, fps: 22)
         let capturer = SocketVideoCapturer(source: source)
         capturer.start()
         localVideoSource = source
@@ -102,30 +106,43 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         self.localAudioTrack = audioTrack
         
         // Add to peer connection immediately so it's negotiated in the SDP.
-        // This is critical: if we delay adding, the remote side will never receive audio.
         peerConnection?.add(audioTrack, streamIds: ["castnow_stream"])
         
         // Start muted by default — user must explicitly unmute via the mic button
         audioTrack.isEnabled = false
+        print("🎙 [WebRTC] setupLocalAudio: track=\(audioTrack.trackId), enabled=\(audioTrack.isEnabled)")
     }
     
     func enableLocalMicrophone(_ enabled: Bool) {
-        localAudioTrack?.isEnabled = enabled
-        print("🎙 [WebRTC] Local microphone \(enabled ? "ENABLED" : "DISABLED")")
+        guard let track = localAudioTrack else {
+            print("🎙 [WebRTC] enableLocalMicrophone(\(enabled)): ⚠️ localAudioTrack is nil!")
+            return
+        }
+        track.isEnabled = enabled
+        print("🎙 [WebRTC] enableLocalMicrophone → \(enabled), trackId=\(track.trackId)")
     }
     
     /// Enables or disables the remote audio received from the web receiver.
     func enableRemoteSpeaker(_ enabled: Bool) {
+        let transceivers = peerConnection?.transceivers ?? []
+        print("🔊 [WebRTC] enableRemoteSpeaker(\(enabled)): transceivers=\(transceivers.count), remoteAudioTracks=\(remoteStream?.audioTracks.count ?? 0)")
+        
         // Enable via remoteStream audio tracks
-        remoteStream?.audioTracks.forEach { $0.isEnabled = enabled }
+        remoteStream?.audioTracks.forEach { track in
+            track.isEnabled = enabled
+            print("🔊 [WebRTC]   remoteStream audioTrack id=\(track.trackId) → \(enabled)")
+        }
         
         // Also enable via transceivers (unified-plan)
-        let transceivers = peerConnection?.transceivers ?? []
         for transceiver in transceivers {
             if let audioTrack = transceiver.receiver.track as? RTCAudioTrack {
                 audioTrack.isEnabled = enabled
-                print("🔊 [WebRTC] Remote audio track \(enabled ? "ENABLED" : "DISABLED") via transceiver")
+                print("🔊 [WebRTC]   transceiver audioTrack id=\(audioTrack.trackId) → \(enabled)")
             }
+        }
+        
+        if transceivers.filter({ $0.receiver.track is RTCAudioTrack }).isEmpty && (remoteStream?.audioTracks.isEmpty ?? true) {
+            print("🔊 [WebRTC]   ⚠️ No remote audio tracks found — will be applied again on ICE connected")
         }
     }
 
@@ -200,8 +217,11 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
     // MARK: - RTCPeerConnectionDelegate
     
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) {
+        print("📡 [WebRTC] didAdd rtpReceiver: kind=\(rtpReceiver.track?.kind ?? "nil"), trackId=\(rtpReceiver.track?.trackId ?? "nil"), streams=\(mediaStreams.count)")
+        
         if let stream = mediaStreams.first {
             remoteStream = stream
+            print("📡 [WebRTC]   attached to stream: video=\(stream.videoTracks.count), audio=\(stream.audioTracks.count)")
         }
         
         let allVideoTracks = peerConnection.transceivers
@@ -209,22 +229,32 @@ final class WebRTCManager: NSObject, RTCPeerConnectionDelegate {
         
         delegate?.rtcRemoteVideoTracksReceived(allVideoTracks)
         
-        // Log incoming remote audio for debugging
+        // 收到远端 audio track 时，立即启用
+        if let audioTrack = rtpReceiver.track as? RTCAudioTrack {
+            audioTrack.isEnabled = true
+            print("🔊 [WebRTC]   ✅ Remote audio track ENABLED: id=\(audioTrack.trackId), enabled=\(audioTrack.isEnabled)")
+        }
+        
         let audioTracks = peerConnection.transceivers
             .compactMap { $0.receiver.track as? RTCAudioTrack }
-        print("📡 [WebRTC] Remote tracks received: \(allVideoTracks.count) video, \(audioTracks.count) audio")
+        print("📡 [WebRTC]   Total transceivers: video=\(allVideoTracks.count), audio=\(audioTracks.count)")
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didAdd stream: RTCMediaStream) {
         remoteStream = stream
+        print("📡 [WebRTC] didAdd stream: video=\(stream.videoTracks.count), audio=\(stream.audioTracks.count)")
+        
+        // 同样启用 stream 里的 audio tracks
+        stream.audioTracks.forEach { track in
+            track.isEnabled = true
+            print("🔊 [WebRTC]   stream audioTrack \(track.trackId) ENABLED")
+        }
         
         let allVideoTracks = peerConnection.transceivers
             .compactMap { $0.receiver.track as? RTCVideoTrack }
             
         delegate?.rtcRemoteVideoTracksReceived(allVideoTracks.isEmpty ? stream.videoTracks : allVideoTracks)
-        
-        print("📡 [WebRTC] Stream added: \(stream.videoTracks.count) video, \(stream.audioTracks.count) audio")
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,

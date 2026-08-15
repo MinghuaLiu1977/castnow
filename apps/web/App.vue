@@ -323,6 +323,7 @@ const swapStreams = () => layout.swapStreams();
         <!-- Receiver Active (outside Transition for immediate video mounting) -->
         <div v-else-if="appState === STATES.RECEIVER_ACTIVE"
           ref="receiverRoot"
+          data-receiver-root
           class="fixed inset-0 bg-black flex items-center justify-center overflow-hidden"
           @mousemove="layout.handleDragMove"
           @mouseup="layout.handleDragEnd"

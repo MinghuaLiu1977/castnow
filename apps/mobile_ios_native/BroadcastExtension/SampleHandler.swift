@@ -190,8 +190,8 @@ class SampleHandler: RPBroadcastSampleHandler {
         }
         
         let ciImage = CIImage(cvImageBuffer: imageBuffer)
-        // 降低 JPEG 质量（0.45）减少每帧数据量，保障 socket 写入吞吐
-        guard let jpegData = imageContext.jpegRepresentation(of: ciImage, colorSpace: CGColorSpaceCreateDeviceRGB(), options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.45]) else {
+        // JPEG 0.7: 画质与 socket 吞吐的平衡点（Flutter 版同等质量）
+        guard let jpegData = imageContext.jpegRepresentation(of: ciImage, colorSpace: CGColorSpaceCreateDeviceRGB(), options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.7]) else {
             return
         }
         
