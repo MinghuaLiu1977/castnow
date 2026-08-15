@@ -35,19 +35,39 @@ final class BackgroundAudioKeeper {
 
     func start() {
         guard player == nil else { return }
+        // 音频会话被其他 App 抢占（interruption）后自动恢复保活
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification,
+                                               object: nil, queue: .main) { [weak self] note in
+            let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            if type == AVAudioSession.InterruptionType.ended.rawValue {
+                print("🔊 [Keeper] Interruption ended → restart")
+                self?.restartPlayback()
+            }
+        }
+        restartPlayback()
+    }
+
+    private func restartPlayback() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true, options: [])
+        } catch {
+            print("⚠️ [Keeper] setActive failed: \(error)")
+        }
         do {
             let p = try AVAudioPlayer(data: Self.silentWav())
             p.numberOfLoops = -1
-            p.volume = 0
+            // volume 0 会被 iOS 判定“未产生音频”而照常挂起；0.05 听不见但保活有效
+            p.volume = 0.05
             p.play()
             player = p
-            print("🔊 [Keeper] Silent background audio started")
+            print("🔊 [Keeper] Silent background audio started (vol 0.05)")
         } catch {
             print("⚠️ [Keeper] Silent audio failed: \(error)")
         }
     }
 
     func stop() {
+        NotificationCenter.default.removeObserver(self)
         player?.stop()
         player = nil
     }

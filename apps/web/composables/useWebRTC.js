@@ -307,14 +307,14 @@ export function useWebRTC(getIceServers) {
             if (state === 'failed' || state === 'closed') {
               if (resetApp) resetApp();
             } else if (state === 'disconnected') {
-              // disconnected 可自愈：给 5 秒恢复期，期间不清 UI
+              // disconnected 可自愈：iOS 后台恢复 + ICE 重启需较长时间，给 15 秒恢复期
               setTimeout(() => {
                 if (call.peerConnection &&
                     call.peerConnection.iceConnectionState === 'disconnected') {
-                  console.warn('🔗 [WebRTC] ICE stuck disconnected 5s → reset');
+                  console.warn('🔗 [WebRTC] ICE stuck disconnected 15s → reset');
                   if (resetApp) resetApp();
                 }
-              }, 5000);
+              }, 15000);
             }
           };
 
