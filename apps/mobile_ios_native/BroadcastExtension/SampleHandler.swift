@@ -92,7 +92,9 @@ class SampleHandler: RPBroadcastSampleHandler {
     ])
     
     private var lastFrameTime: Int64 = 0
-    private let frameIntervalNs: Int64 = 1_000_000_000 / 22 
+    // 限制最高 15fps，避免 socket 缓冲区积压导致 ReplayKit 超时 kill Extension
+    private let frameIntervalNs: Int64 = 1_000_000_000 / 15
+    private var isSending: Bool = false
     private var connectionTimer: Timer?
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
@@ -188,7 +190,8 @@ class SampleHandler: RPBroadcastSampleHandler {
         }
         
         let ciImage = CIImage(cvImageBuffer: imageBuffer)
-        guard let jpegData = imageContext.jpegRepresentation(of: ciImage, colorSpace: CGColorSpaceCreateDeviceRGB(), options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.6]) else {
+        // 降低 JPEG 质量（0.45）减少每帧数据量，保障 socket 写入吞吐
+        guard let jpegData = imageContext.jpegRepresentation(of: ciImage, colorSpace: CGColorSpaceCreateDeviceRGB(), options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.45]) else {
             return
         }
         
@@ -201,11 +204,19 @@ class SampleHandler: RPBroadcastSampleHandler {
         
         guard let headerData = header.data(using: .utf8) else { return }
         
+        // 如果上一帧还没发完（socket 写入阻塞中），直接丢弃当前帧
+        // 这样 ReplayKit 回调线程不会被阻塞，Extension 不会被系统 kill
+        guard !isSending else {
+            return
+        }
+        isSending = true
+        defer { isSending = false }
+
         var frameData = Data()
         frameData.append(headerData)
         frameData.append(jpegData)
         
-        let chunkSize = 10 * 1024
+        let chunkSize = 16 * 1024
         var offset = 0
         while offset < frameData.count {
             let chunkLen = min(chunkSize, frameData.count - offset)
@@ -213,7 +224,7 @@ class SampleHandler: RPBroadcastSampleHandler {
             if !client.send(data: chunk) {
                 print("❌ Failed to send frame chunk. Host app likely disconnected.")
                 stopGracefully()
-                break
+                return
             }
             offset += chunkLen
         }

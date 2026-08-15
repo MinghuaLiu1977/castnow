@@ -107,8 +107,12 @@ export function useWebRTC(getIceServers) {
 
   const setupCallHandlers = (call) => {
     call.on('stream', (rs) => {
-      if (rs.getAudioTracks().length > 0) {
-        receiverAudioStream.value = rs;
+      // Audio track from iOS broadcaster (remote speaker)
+      const audioTracks = rs.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const audioStream = new MediaStream(audioTracks);
+        receiverAudioStream.value = audioStream;
+        console.log('🔊 [WebRTC] Remote audio tracks received:', audioTracks.length);
       }
     });
 
@@ -117,6 +121,9 @@ export function useWebRTC(getIceServers) {
         if (event.track.kind === 'audio') {
           const stream = event.streams[0] || new MediaStream([event.track]);
           receiverAudioStream.value = stream;
+          // Ensure track is enabled
+          event.track.enabled = true;
+          console.log('🔊 [WebRTC] ontrack audio received, enabled:', event.track.enabled);
         }
       };
     }
@@ -274,16 +281,29 @@ export function useWebRTC(getIceServers) {
       setAppState(STATES.RECEIVER_ACTIVE);
       isConnecting.value = false;
 
-      call.answer(receiverMicStream.value || undefined);
+      // Answer with mic stream if available; iOS needs to receive this to enable remote speaker
+      const micStream = receiverMicStream.value;
+      call.answer(micStream || undefined);
+      console.log('📞 [WebRTC] Answered iOS call, mic stream tracks:', micStream?.getTracks().length ?? 0);
 
       call.on('close', () => {
         if (resetApp) resetApp();
       });
 
       call.on('stream', (rs) => {
+        // Enable all received tracks immediately
+        rs.getTracks().forEach(t => { t.enabled = true; });
+
+        const audioTracks = rs.getAudioTracks();
+        if (audioTracks.length > 0) {
+          receiverAudioStream.value = new MediaStream(audioTracks);
+          console.log('🔊 [WebRTC] Receiver got remote audio from iOS, tracks:', audioTracks.length);
+        }
+
         if (call.peerConnection) {
           call.peerConnection.oniceconnectionstatechange = () => {
             const state = call.peerConnection.iceConnectionState;
+            console.log('🔗 [WebRTC] ICE state:', state);
             if (['disconnected', 'failed', 'closed'].includes(state)) {
               if (resetApp) resetApp();
             }
@@ -309,8 +329,6 @@ export function useWebRTC(getIceServers) {
         updateSplitStreams(call);
         setTimeout(() => updateSplitStreams(call), 1000);
         setTimeout(() => updateSplitStreams(call), 2500);
-
-        rs.getTracks().forEach(t => { t.enabled = true; });
       });
     });
 
