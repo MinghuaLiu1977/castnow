@@ -1,0 +1,65 @@
+/* Common */
+"tagline" = "Cast Now";
+"alert_ok" = "OK";
+
+/* Receiver web URL (English UI uses the international domain) */
+"web_base_url" = "castnow.vercel.app";
+
+/* Home */
+"home_receive_on" = "Receive on: ";
+"home_broadcast" = "Broadcast";
+"home_broadcast_sub" = "Share camera or screen";
+"home_receive" = "Receive";
+"home_receive_sub" = "Watch a stream";
+"home_engine" = "CastNow P2P Engine v3.1.5";
+"home_terms" = "Terms";
+"home_privacy" = "Privacy";
+"home_help" = "Help";
+
+/* Source select */
+"source_title" = "SELECT SOURCES";
+"source_desc" = "Select what to broadcast";
+"source_screen" = "Screen Mirror";
+"source_screen_sub" = "Broadcast your entire iOS screen";
+"source_camera" = "Camera View";
+"source_camera_sub" = "Share high-quality camera stream";
+"source_mic" = "HD Microphone";
+"source_mic_sub" = "Capture crystal clear audio (Muted by default)";
+"source_launch" = "START BROADCAST";
+"source_launch_failed" = "Unable to Start";
+"perm_camera" = "Camera";
+"perm_mic" = "Microphone";
+"perm_join" = " and ";
+"perm_denied_format" = "%@ permission denied. Please enable it in Settings.";
+
+/* Receive */
+"receive_title" = "Enter Pair Code";
+"receive_connect" = "Connect Now";
+"receive_connecting" = "Connecting...";
+"receive_disconnected" = "Disconnected";
+
+/* Broadcast */
+"bc_connecting" = "Connecting...";
+"bc_waiting_receiver" = "Waiting for receiver...";
+"bc_initializing" = "Initializing...";
+"bc_broadcast_ended" = "Broadcast Ended";
+"bc_receiver_connected" = "Receiver Connected";
+"bc_receiver_left" = "Receiver Left";
+"bc_error_format" = "Error: %@";
+"bc_recalling" = "Connecting to receiver...";
+"bc_connected" = "Connected";
+"bc_starting_screen" = "Starting screen sharing...";
+"bc_starting_camera" = "Starting camera...";
+"bc_system_dialog_tip" = "Tap \"Start Broadcast\" in the system dialog";
+"bc_pair_code_title" = "SHARING ACCESS KEY";
+"bc_open_prefix" = "Open ";
+"bc_open_suffix" = " to receive";
+"bc_label_mic" = "Mic";
+"bc_label_mic_muted" = "Muted";
+"bc_label_sound" = "Sound";
+"bc_label_sound_off" = "Sound Off";
+"bc_flip" = "Flip";
+"bc_end" = "End Broadcast";
+
+/* PeerJS */
+"signaling_timeout" = "Signaling server connection timed out";

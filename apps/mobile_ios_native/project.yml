@@ -1,6 +1,7 @@
 name: CastNow
 options:
   bundleIdPrefix: com.eastlakestudio
+  developmentLanguage: en
   deploymentTarget:
     iOS: "15.6"
   xcodeVersion: "17.0"

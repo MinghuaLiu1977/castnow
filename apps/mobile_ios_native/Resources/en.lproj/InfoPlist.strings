@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "CastNow";
+"CFBundleName" = "CastNow";
+"NSCameraUsageDescription" = "Camera access is needed to stream video.";
+"NSMicrophoneUsageDescription" = "Microphone access is needed to stream audio during screen sharing.";
+"NSScreenCaptureUsageDescription" = "Screen recording access is needed to share your screen.";

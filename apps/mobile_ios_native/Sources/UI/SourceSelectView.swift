@@ -44,25 +44,25 @@ struct SourceSelectView: View {
                         .padding(.top, 12)
                 }
 
-                Text("选择来源")
+                Text(L10n.sourceTitle)
                     .font(.system(size: 22, weight: .black))
                     .tracking(2)
                     .foregroundColor(.white)
                     .padding(.top, 12)
 
-                Text("选择要投屏的内容")
+                Text(L10n.sourceDesc)
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.top, 6)
 
                 VStack(spacing: 10) {
-                    sourceCard(icon: "iphone", title: "屏幕镜像", subtitle: "共享整个 iOS 屏幕", isOn: $shareScreen, exclusive: true) {
+                    sourceCard(icon: "iphone", title: L10n.sourceScreen, subtitle: L10n.sourceScreenSub, isOn: $shareScreen, exclusive: true) {
                         shareCamera = false
                     }
-                    sourceCard(icon: "video.fill", title: "摄像头画面", subtitle: "共享高清摄像头画面", isOn: $shareCamera, exclusive: true) {
+                    sourceCard(icon: "video.fill", title: L10n.sourceCamera, subtitle: L10n.sourceCameraSub, isOn: $shareCamera, exclusive: true) {
                         shareScreen = false
                     }
-                    sourceCard(icon: "mic.fill", title: "高清麦克风", subtitle: "采集高清音频（默认静音）", isOn: $shareMic, exclusive: false) {}
+                    sourceCard(icon: "mic.fill", title: L10n.sourceMic, subtitle: L10n.sourceMicSub, isOn: $shareMic, exclusive: false) {}
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
@@ -74,7 +74,7 @@ struct SourceSelectView: View {
                         if isLaunching {
                             ProgressView().tint(.white)
                         } else {
-                            Text("启动投屏")
+                            Text(L10n.sourceLaunch)
                                 .font(.system(size: 16, weight: .black))
                                 .tracking(1.5)
                             Image(systemName: "arrow.right")
@@ -89,8 +89,8 @@ struct SourceSelectView: View {
                 .disabled(!shareScreen && !shareCamera || isLaunching)
                 .opacity(shareScreen || shareCamera ? 1 : 0.4)
                 .padding(.bottom, 32)
-                .alert("无法启动", isPresented: $showError) {
-                    Button("确定", role: .cancel) {}
+                .alert(L10n.sourceLaunchFailed, isPresented: $showError) {
+                    Button(L10n.alertOK, role: .cancel) {}
                 } message: {
                     Text(permissionError ?? "")
                 }
@@ -110,13 +110,13 @@ struct SourceSelectView: View {
             // Only request camera permission if user selected camera
             if shareCamera {
                 let camOk = await AVCaptureDevice.requestAccess(for: .video)
-                if !camOk { granted = false; deniedParts.append("摄像头") }
+                if !camOk { granted = false; deniedParts.append(L10n.permCamera) }
             }
 
             // Only request mic permission if user selected mic
             if shareMic {
                 let micOk = await AVCaptureDevice.requestAccess(for: .audio)
-                if !micOk { granted = false; deniedParts.append("麦克风") }
+                if !micOk { granted = false; deniedParts.append(L10n.permMic) }
             }
 
             // Screen-only: no camera/mic permission needed (ReplayKit handles its own)
@@ -126,7 +126,8 @@ struct SourceSelectView: View {
                 if granted {
                     navigateToBroadcast = true
                 } else {
-                    permissionError = "\(deniedParts.joined(separator: "和"))权限被拒绝，请在系统设置中开启。"
+                    permissionError = String(format: L10n.permDeniedFormat,
+                                             deniedParts.joined(separator: L10n.permJoin))
                     showError = true
                 }
             }

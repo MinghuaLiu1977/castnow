@@ -103,7 +103,7 @@ final class PeerJSClient: NSObject, WebSocketDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self = self, !self.wsConnected else { return }
             plog("❌ [PeerJS] Timeout: no OPEN after 10s")
-            self.onEvent?(.error("连接信令服务器超时"))
+            self.onEvent?(.error(L10n.signalingTimeout))
         }
     }
 

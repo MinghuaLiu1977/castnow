@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "即刻投屏";
+"CFBundleName" = "即刻投屏";
+"NSMicrophoneUsageDescription" = "屏幕共享期间需要麦克风权限以传输音频。";

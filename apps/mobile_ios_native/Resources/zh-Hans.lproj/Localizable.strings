@@ -1,0 +1,65 @@
+/* Common */
+"tagline" = "即刻投屏";
+"alert_ok" = "确定";
+
+/* 接收端网址（中文界面使用国内域名） */
+"web_base_url" = "castnow.padap.cn";
+
+/* Home */
+"home_receive_on" = "接收端访问: ";
+"home_broadcast" = "开始投屏";
+"home_broadcast_sub" = "共享摄像头或屏幕";
+"home_receive" = "接收投屏";
+"home_receive_sub" = "观看投屏内容";
+"home_engine" = "CastNow P2P 引擎 v3.1.5";
+"home_terms" = "条款";
+"home_privacy" = "隐私";
+"home_help" = "帮助";
+
+/* Source select */
+"source_title" = "选择来源";
+"source_desc" = "选择要投屏的内容";
+"source_screen" = "屏幕镜像";
+"source_screen_sub" = "共享整个 iOS 屏幕";
+"source_camera" = "摄像头画面";
+"source_camera_sub" = "共享高清摄像头画面";
+"source_mic" = "高清麦克风";
+"source_mic_sub" = "采集高清音频（默认静音）";
+"source_launch" = "启动投屏";
+"source_launch_failed" = "无法启动";
+"perm_camera" = "摄像头";
+"perm_mic" = "麦克风";
+"perm_join" = "和";
+"perm_denied_format" = "%@权限被拒绝，请在系统设置中开启。";
+
+/* Receive */
+"receive_title" = "输入配对码";
+"receive_connect" = "立即连接";
+"receive_connecting" = "正在连接...";
+"receive_disconnected" = "连接已断开";
+
+/* Broadcast */
+"bc_connecting" = "连接中...";
+"bc_waiting_receiver" = "等待接收端...";
+"bc_initializing" = "正在初始化设备...";
+"bc_broadcast_ended" = "直播已结束";
+"bc_receiver_connected" = "接收端已连接";
+"bc_receiver_left" = "接收端已离开";
+"bc_error_format" = "错误: %@";
+"bc_recalling" = "回拨接收端...";
+"bc_connected" = "已连接";
+"bc_starting_screen" = "正在启动屏幕共享...";
+"bc_starting_camera" = "正在启动摄像头...";
+"bc_system_dialog_tip" = "请在系统弹窗中点击「开始直播」";
+"bc_pair_code_title" = "投屏配对码";
+"bc_open_prefix" = "打开 ";
+"bc_open_suffix" = " 接收";
+"bc_label_mic" = "麦克风";
+"bc_label_mic_muted" = "已静音";
+"bc_label_sound" = "声音";
+"bc_label_sound_off" = "声音关";
+"bc_flip" = "翻转";
+"bc_end" = "结束投屏";
+
+/* PeerJS */
+"signaling_timeout" = "连接信令服务器超时";

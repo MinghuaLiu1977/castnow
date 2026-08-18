@@ -121,7 +121,7 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
             case .close:
                 self.isConnected = false
                 self.isConnecting = false
-                self.errorMessage = "连接已断开"
+                self.errorMessage = L10n.receiveDisconnected
 
             case .error(let msg):
                 self.errorMessage = msg
@@ -350,7 +350,7 @@ struct ReceiveView: View {
                                 .foregroundColor(kPrimary)
                         }
 
-                        Text("输入配对码")
+                        Text(L10n.receiveTitle)
                             .font(.title2.weight(.black))
                             .foregroundColor(.white)
                             .padding(.top, 16)
@@ -387,7 +387,7 @@ struct ReceiveView: View {
                                 if vm.isConnecting {
                                     ProgressView().tint(.black)
                                 } else {
-                                    Text("立即连接").fontWeight(.heavy)
+                                    Text(L10n.receiveConnect).fontWeight(.heavy)
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -404,7 +404,7 @@ struct ReceiveView: View {
                         }
 
                         if vm.isConnecting {
-                            Text("正在连接...").font(.footnote).foregroundColor(.white.opacity(0.5))
+                            Text(L10n.receiveConnecting).font(.footnote).foregroundColor(.white.opacity(0.5))
                                 .padding(.top, 12)
                         }
 
