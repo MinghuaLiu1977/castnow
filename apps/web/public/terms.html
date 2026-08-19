@@ -58,7 +58,7 @@
         function applyLang() {
             document.getElementById('content-zh').style.display = lang === 'zh' ? '' : 'none';
             document.getElementById('content-en').style.display = lang === 'en' ? '' : 'none';
-            document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
+            document.getElementById('langBtn').textContent = lang === 'zh' ? '中文' : 'EN';
             document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
         }
         function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); }
