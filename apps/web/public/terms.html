@@ -3,19 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>服务条款 - CastNow</title>
+    <title>服务条款 / Terms of Use (EULA) - CastNow</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f9f9f9; color: #333; max-width: 800px; margin: 0 auto; padding: 20px 20px 40px; }
         .container { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         h1 { color: #111; font-size: 2em; margin-bottom: 10px; }
         h2 { color: #222; font-size: 1.3em; margin-top: 30px; }
-        p, li { color: #555; }
+        p, li { color: #555; line-height: 1.7; }
         .footer { margin-top: 40px; font-size: 0.85em; color: #888; text-align: center; border-top: 1px solid #eaeaea; padding-top: 20px; }
         hr { margin: 20px 0; border: 0; border-top: 1px solid #eaeaea; }
+        .lang-divider { margin: 48px 0; border: 0; border-top: 2px solid #eaeaea; }
+        .lang-toggle { position: fixed; top: 16px; right: 16px; z-index: 10; }
+        .lang-toggle button { border: 1px solid #d5d5d5; background: #fff; color: #555; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        .lang-toggle button:hover { color: #111; border-color: #999; }
     </style>
 </head>
 <body>
+    <div class="lang-toggle"><button id="langBtn" type="button" onclick="toggleLang()">EN</button></div>
     <div class="container">
+        <div id="content-zh">
         <h1>服务条款 (EULA)</h1>
         <p><strong>生效日期：</strong>2026年5月27日</p>
         <hr>
@@ -28,7 +34,35 @@
         <p>您同意不使用本应用传输非法、恶意或侵犯版权的内容。您对通过本应用传输的任何内容承担全部法律责任。</p>
         <h2>4. 购买与退款</h2>
         <p>本应用为一次性付费下载应用，无内购或订阅。购买后如符合 App Store 退款政策可申请退款。应用功能不受时间限制，无需额外付费。</p>
+        </div>
+
+        <div id="content-en" style="display:none">
+        <h1>Terms of Use (EULA)</h1>
+        <p><strong>Effective Date:</strong> May 27, 2026</p>
+        <hr>
+        <p>Welcome to CastNow (the "App"). By using the App, you agree to be bound by the following Terms of Use and End User License Agreement (EULA).</p>
+        <h2>1. Standard EULA</h2>
+        <p>Unless otherwise stated, the App is subject to Apple's standard End User License Agreement. Please refer to the <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank">Apple Standard EULA</a>.</p>
+        <h2>2. Description of Service</h2>
+        <p>The App is a P2P screen casting and mirroring tool. The service is provided "as is". We do not guarantee uninterrupted or error-free service.</p>
+        <h2>3. Acceptable Use</h2>
+        <p>You agree not to use the App to transmit illegal, malicious, or copyright-infringing content. You bear full legal responsibility for any content you transmit through the App.</p>
+        <h2>4. Purchase and Refunds</h2>
+        <p>The App is a one-time paid download with no in-app purchases or subscriptions. Refunds may be requested in accordance with the App Store refund policy after purchase. App functionality is not time-limited and requires no additional payment.</p>
+        </div>
+
         <div class="footer">&copy; 2026 Eastlake Studio. All rights reserved.</div>
     </div>
+    <script>
+        var lang = /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+        function applyLang() {
+            document.getElementById('content-zh').style.display = lang === 'zh' ? '' : 'none';
+            document.getElementById('content-en').style.display = lang === 'en' ? '' : 'none';
+            document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+        }
+        function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); }
+        applyLang();
+    </script>
 </body>
 </html>
