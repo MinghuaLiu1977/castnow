@@ -15,10 +15,15 @@
         .footer { margin-top: 40px; font-size: 0.85em; color: #888; text-align: center; border-top: 1px solid #eaeaea; padding-top: 20px; }
         hr { margin: 20px 0; border: 0; border-top: 1px solid #eaeaea; }
         .lang-divider { margin: 48px 0; border: 0; border-top: 2px solid #eaeaea; }
+        .lang-toggle { position: fixed; top: 16px; right: 16px; z-index: 10; }
+        .lang-toggle button { border: 1px solid #d5d5d5; background: #fff; color: #555; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        .lang-toggle button:hover { color: #111; border-color: #999; }
     </style>
 </head>
 <body>
+    <div class="lang-toggle"><button id="langBtn" type="button" onclick="toggleLang()">EN</button></div>
     <div class="container">
+        <div id="content-zh">
         <h1>隐私政策</h1>
         <p><strong>生效日期：</strong>2026年5月27日</p>
         <hr>
@@ -72,9 +77,9 @@
         <h2>8. 联系我们</h2>
         <p>如对本隐私政策有任何疑问、意见或建议，请通过以下方式联系我们：<br>
         邮箱：<a href="mailto:mingh.liu@gmail.com">mingh.liu@gmail.com</a></p>
+        </div>
 
-        <hr class="lang-divider">
-
+        <div id="content-en" style="display:none">
         <h1>Privacy Policy</h1>
         <p><strong>Effective Date:</strong> May 27, 2026</p>
         <hr>
@@ -128,8 +133,20 @@
         <h2>8. Contact Us</h2>
         <p>If you have any questions, comments, or suggestions about this Privacy Policy, please contact us at:<br>
         Email: <a href="mailto:mingh.liu@gmail.com">mingh.liu@gmail.com</a></p>
+        </div>
 
         <div class="footer">&copy; 2026 Eastlake Studio. All rights reserved.</div>
     </div>
+    <script>
+        var lang = /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+        function applyLang() {
+            document.getElementById('content-zh').style.display = lang === 'zh' ? '' : 'none';
+            document.getElementById('content-en').style.display = lang === 'en' ? '' : 'none';
+            document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+        }
+        function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); }
+        applyLang();
+    </script>
 </body>
 </html>
