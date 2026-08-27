@@ -53,10 +53,13 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     private var pendingCamera: CameraCapture?
 
     private var isPeerReady: Bool = false { didSet { checkReady() } }
+    private var isScreenReady: Bool = false { didSet { checkReady() } }
     private var isCameraReady: Bool = false { didSet { checkReady() } }
 
     private func checkReady() {
-        if isPeerReady && isCameraReady {
+        let screenOk = !shareScreen || isScreenReady
+        let cameraOk = !shareCamera || isCameraReady
+        if isPeerReady && screenOk && cameraOk {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 if self.pairCode.isEmpty {
@@ -88,7 +91,21 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
         print("📞 [Broadcast] Registering as peerId=\(code)")
         peer.connect(id: code)
 
-        if shareCamera {
+        if shareScreen {
+            _ = rtc.startScreenCapture()
+            rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
+            // 锁屏/控制中心停止/Extension 崩溃 → socket 断开 → 完整清理 P2P + 信令
+            rtc.setBroadcastEndedHandler { [weak self] in
+                DispatchQueue.main.async {
+                    guard let self = self, !self.isStopping else { return }
+                    print("🛑 [Broadcast] Broadcast ended by system → full teardown")
+                    self.statusMessage = L10n.bcBroadcastEnded
+                    self.stop()
+                    self.onDisconnect?()
+                }
+            }
+            isScreenReady = true
+        } else if shareCamera {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else { return }
                 let cam = CameraCapture(factory: self.rtc.factory)
@@ -102,26 +119,12 @@ class BroadcastViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
                         self.localVideoTrack = self.rtc.factory.videoTrack(with: cam.videoSource, trackId: "camera_local_preview")
                         self.pendingCamera = nil
                         self.isCameraReady = true
-                        self.checkReady()
                     }
                     cam.start()
                 }
             }
-        } else if shareScreen {
-            _ = rtc.startScreenCapture()
-            rtc.setScreenPreviewHandler { [weak self] img in self?.previewImage = img }
-            // 锁屏/控制中心停止/Extension 崩溃 → socket 断开 → 完整清理 P2P + 信令
-            rtc.setBroadcastEndedHandler { [weak self] in
-                DispatchQueue.main.async {
-                    guard let self = self, !self.isStopping else { return }
-                    print("🛑 [Broadcast] Broadcast ended by system → full teardown")
-                    self.statusMessage = L10n.bcBroadcastEnded
-                    self.stop()
-                    self.onDisconnect?()
-                }
-            }
-            isCameraReady = true
         } else {
+            isScreenReady = true
             isCameraReady = true
         }
     }

@@ -60,8 +60,9 @@ const {
 } = webrtc;
 
 const {
-  layoutMode, isSwapped, pipPosition, pipWidth, splitRatio,
-  dragType, isDragging, isMuted, isTouchDevice, isMobile,
+  layoutMode, isSwapped, pipPosition, pipWidth, pipHeight, splitRatio,
+  dragType, isDragging, isMuted, activeCorner, isTouchDevice, isMobile,
+  snapToCorner,
 } = layout;
 
 const { t, locale, loadMessages, messagesLoaded, appIcon, isNativeIcon } = useI18n();
@@ -354,22 +355,34 @@ const swapStreams = () => layout.swapStreams();
             </div>
 
             <div v-if="cameraStream && screenStream"
-                 :class="['overflow-hidden shadow-2xl group flex items-center justify-center',
+                 :class="['overflow-hidden shadow-2xl group flex items-center justify-center select-none',
                           isDragging ? 'no-transition' : 'transition-all duration-500',
-                          layoutMode === 'pip' ? 'absolute rounded-xl border border-white/20 cursor-move z-20 hover:border-cyan-500/50' : 'relative rounded-2xl bg-slate-900']"
-                 :style="layoutMode === 'pip' ? { left: pipPosition.x + 'px', top: pipPosition.y + 'px', width: pipWidth + 'px', height: 'auto', order: isSwapped ? 1 : 2, transition: isDragging ? 'none' : 'all 0.5s ease-in-out' } : { width: ((1 - splitRatio) * 100) + '%' }"
+                          layoutMode === 'pip' ? 'absolute rounded-2xl border border-white/20 cursor-move z-20 hover:border-cyan-500/50 shadow-black/80 ring-1 ring-black/50' : 'relative rounded-2xl bg-slate-900']"
+                 :style="layoutMode === 'pip' ? { left: pipPosition.x + 'px', top: pipPosition.y + 'px', width: pipWidth + 'px', height: 'auto', order: isSwapped ? 1 : 2, transition: isDragging ? 'none' : 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' } : { width: ((1 - splitRatio) * 100) + '%' }"
                  @mousedown="layout.handleDragStart($event, 'move-pip')"
-                 @touchstart="layout.handleDragStart($event, 'move-pip')">
+                 @touchstart="layout.handleDragStart($event, 'move-pip')"
+                 @dblclick="swapStreams">
               <video ref="cameraVideo" autoplay playsinline :muted="isMuted" class="max-w-full max-h-full object-contain pointer-events-none" />
               <div v-if="layoutMode === 'side-by-side'" class="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">{{ isSwapped ? t('controls.screen') : t('controls.camera') }}</div>
+              
+              <!-- PiP Quick Controls Overlay -->
+              <div v-if="layoutMode === 'pip'" class="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/10">
+                <button @click.stop="swapStreams" :title="t('controls.swapStreams')" class="p-1.5 hover:bg-cyan-500/20 text-white hover:text-cyan-400 rounded-lg transition-colors">
+                  <Repeat class="w-3.5 h-3.5" />
+                </button>
+                <button @click.stop="() => snapToCorner('top-right')" title="Top Right" class="p-1.5 hover:bg-white/10 text-white/70 hover:text-white rounded-lg transition-colors">
+                  <div class="w-3 h-3 border-t-2 border-r-2 border-current"></div>
+                </button>
+                <button @click.stop="() => snapToCorner('bottom-right')" title="Bottom Right" class="p-1.5 hover:bg-white/10 text-white/70 hover:text-white rounded-lg transition-colors">
+                  <div class="w-3 h-3 border-b-2 border-r-2 border-current"></div>
+                </button>
+              </div>
+
               <div v-if="layoutMode === 'pip'" @mousedown.stop="layout.handleDragStart($event, 'resize-pip')"
                    class="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize flex items-end justify-end p-1 group/resize">
                 <div class="w-4 h-4 text-white/40 group-hover/resize:text-cyan-400 transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l4-4M10 19l9-9"/></svg>
                 </div>
-              </div>
-              <div v-if="layoutMode === 'pip'" class="absolute top-2 right-2 p-1 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                <Maximize class="w-3 h-3 text-white" />
               </div>
             </div>
 

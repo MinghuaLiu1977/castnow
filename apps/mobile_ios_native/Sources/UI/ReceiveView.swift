@@ -1,6 +1,11 @@
 import SwiftUI
 import WebRTC
 
+enum ReceiverLayoutMode {
+    case pip
+    case sideBySide
+}
+
 class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     @Published var codeInput: String = ""
     @Published var isConnecting: Bool = false
@@ -14,6 +19,7 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     
     // UI Layout State
     @Published var isPiPViewSwapped: Bool = false
+    @Published var layoutMode: ReceiverLayoutMode = .pip
 
     private let rtc = WebRTCManager()
     private let peer = PeerJSClient()
@@ -37,6 +43,12 @@ class ReceiveViewModel: NSObject, ObservableObject, WebRTCManagerDelegate {
     func swapPiPView() {
         if videoTracks.count > 1 {
             isPiPViewSwapped.toggle()
+        }
+    }
+
+    func toggleLayoutMode() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            layoutMode = (layoutMode == .pip) ? .sideBySide : .pip
         }
     }
 
@@ -164,8 +176,12 @@ struct DraggablePiPView: View {
     var body: some View {
         VideoStreamView(track: track)
             .frame(width: 120 * scale * magnifyScale, height: 160 * scale * magnifyScale)
-            .cornerRadius(12)
-            .shadow(radius: 8)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
+            )
+            .shadow(color: Color.black.opacity(0.6), radius: 10, x: 0, y: 4)
             .offset(x: offset.width + dragOffset.width, y: offset.height + dragOffset.height)
             .gesture(
                 DragGesture()
@@ -173,11 +189,15 @@ struct DraggablePiPView: View {
                         state = value.translation
                     }
                     .onEnded { value in
-                        let newWidth = offset.width + value.translation.width
-                        let newHeight = offset.height + value.translation.height
-                        // Basic edge snapping logic could be added here, for now we just accumulate
-                        withAnimation(.spring()) {
-                            offset = CGSize(width: newWidth, height: newHeight)
+                        let finalX = offset.width + value.translation.width
+                        let finalY = offset.height + value.translation.height
+                        
+                        // 智能吸附：向左侧/右侧及顶部/底部安全边距对齐
+                        let targetX: CGFloat = finalX < -80 ? -200 : 0
+                        let targetY: CGFloat = finalY < -160 ? -420 : 0
+                        
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            offset = CGSize(width: targetX, height: targetY)
                         }
                     }
             )
@@ -188,9 +208,8 @@ struct DraggablePiPView: View {
                     }
                     .onEnded { value in
                         let newScale = scale * value
-                        // Clamp the scale between 0.5x and 2.5x
                         withAnimation(.spring()) {
-                            scale = min(max(newScale, 0.5), 2.5)
+                            scale = min(max(newScale, 0.6), 2.2)
                         }
                     }
             )
@@ -198,7 +217,6 @@ struct DraggablePiPView: View {
                 onTap()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
-                // Reset offset on rotation so it doesn't get pushed off-screen
                 withAnimation(.spring()) {
                     offset = .zero
                     scale = 1.0
@@ -223,35 +241,60 @@ struct ReceiveView: View {
 
             if vm.isConnected {
                 // 观看画面
-                ZStack(alignment: .topLeading) {
-                    Color.black.ignoresSafeArea()
-                        .onTapGesture {
-                            toggleControls()
-                        }
-                    
-                    if !vm.videoTracks.isEmpty {
-                        let mainTrackIndex = vm.isPiPViewSwapped && vm.videoTracks.count > 1 ? 1 : 0
-                        
-                        VideoStreamView(track: vm.videoTracks[mainTrackIndex])
-                            .ignoresSafeArea()
-                            .id(vm.videoTracks[mainTrackIndex].trackId)
-                            .onTapGesture {
-                                toggleControls()
+                if vm.layoutMode == .sideBySide && vm.videoTracks.count > 1 {
+                    GeometryReader { geo in
+                        let isLandscape = geo.size.width > geo.size.height
+                        if isLandscape {
+                            HStack(spacing: 8) {
+                                VideoStreamView(track: vm.videoTracks[vm.isPiPViewSwapped ? 1 : 0])
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .frame(width: (geo.size.width - 24) / 2)
+                                VideoStreamView(track: vm.videoTracks[vm.isPiPViewSwapped ? 0 : 1])
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .frame(width: (geo.size.width - 24) / 2)
                             }
-                    }
-                }
-
-                // 画中画视图 (独立于背景ZStack，直接覆盖在最上层，避免被切掉)
-                if vm.videoTracks.count > 1 {
-                    let pipTrackIndex = vm.isPiPViewSwapped ? 0 : 1
-                    DraggablePiPView(track: vm.videoTracks[pipTrackIndex]) {
-                        withAnimation {
-                            vm.swapPiPView()
+                            .padding(8)
+                        } else {
+                            VStack(spacing: 8) {
+                                VideoStreamView(track: vm.videoTracks[vm.isPiPViewSwapped ? 1 : 0])
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .frame(height: (geo.size.height - 24) / 2)
+                                VideoStreamView(track: vm.videoTracks[vm.isPiPViewSwapped ? 0 : 1])
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .frame(height: (geo.size.height - 24) / 2)
+                            }
+                            .padding(8)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.bottom, 120) // 给底部的控制器留出空间
-                    .padding(.trailing, 20)
+                    .ignoresSafeArea()
+                    .onTapGesture { toggleControls() }
+                } else {
+                    ZStack(alignment: .topLeading) {
+                        Color.black.ignoresSafeArea()
+                            .onTapGesture { toggleControls() }
+                        
+                        if !vm.videoTracks.isEmpty {
+                            let mainTrackIndex = vm.isPiPViewSwapped && vm.videoTracks.count > 1 ? 1 : 0
+                            
+                            VideoStreamView(track: vm.videoTracks[mainTrackIndex])
+                                .ignoresSafeArea()
+                                .id(vm.videoTracks[mainTrackIndex].trackId)
+                                .onTapGesture { toggleControls() }
+                        }
+                    }
+
+                    // 画中画视图
+                    if vm.videoTracks.count > 1 {
+                        let pipTrackIndex = vm.isPiPViewSwapped ? 0 : 1
+                        DraggablePiPView(track: vm.videoTracks[pipTrackIndex]) {
+                            withAnimation {
+                                vm.swapPiPView()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(.bottom, 120)
+                        .padding(.trailing, 20)
+                    }
                 }
 
                 // 底部控制面板和顶部返回按钮
@@ -275,20 +318,20 @@ struct ReceiveView: View {
                     .transition(.opacity)
                     .zIndex(2)
 
-                    // 底部控制面板 (仅保留麦克风和扬声器)
+                    // 底部控制面板
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
-                            HStack(spacing: 40) {
+                            HStack(spacing: 24) {
                                 // 扬声器控制
                                 Button(action: { 
                                     vm.toggleSpeaker()
                                     resetControlTimer() 
                                 }) {
                                     Image(systemName: vm.isSpeakerEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                                        .font(.title2)
-                                        .frame(width: 56, height: 56)
+                                        .font(.title3)
+                                        .frame(width: 48, height: 48)
                                         .background(vm.isSpeakerEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
                                         .clipShape(Circle())
                                         .foregroundColor(.white)
@@ -297,19 +340,47 @@ struct ReceiveView: View {
                                 // 麦克风控制
                                 Button(action: { 
                                     vm.toggleMic()
-                                    resetControlTimer()
+                                    resetControlTimer() 
                                 }) {
                                     Image(systemName: vm.isMicEnabled ? "mic.fill" : "mic.slash.fill")
-                                        .font(.title2)
-                                        .frame(width: 56, height: 56)
+                                        .font(.title3)
+                                        .frame(width: 48, height: 48)
                                         .background(vm.isMicEnabled ? Color.white.opacity(0.2) : Color.red.opacity(0.8))
                                         .clipShape(Circle())
                                         .foregroundColor(.white)
                                 }
+
+                                if vm.videoTracks.count > 1 {
+                                    // 布局模式切换 (PiP vs 分屏)
+                                    Button(action: {
+                                        vm.toggleLayoutMode()
+                                        resetControlTimer()
+                                    }) {
+                                        Image(systemName: vm.layoutMode == .pip ? "rectangle.split.2x1.fill" : "pip.fill")
+                                            .font(.title3)
+                                            .frame(width: 48, height: 48)
+                                            .background(Color.white.opacity(0.2))
+                                            .clipShape(Circle())
+                                            .foregroundColor(.white)
+                                    }
+
+                                    // 主副流互换 Swap
+                                    Button(action: {
+                                        withAnimation { vm.swapPiPView() }
+                                        resetControlTimer()
+                                    }) {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .font(.title3)
+                                            .frame(width: 48, height: 48)
+                                            .background(Color.white.opacity(0.2))
+                                            .clipShape(Circle())
+                                            .foregroundColor(.white)
+                                    }
+                                }
                             }
-                            .padding(.vertical, 16)
-                            .padding(.horizontal, 32)
-                            .background(Color.black.opacity(0.6))
+                            .padding(.vertical, 14)
+                            .padding(.horizontal, 24)
+                            .background(Color.black.opacity(0.65))
                             .clipShape(Capsule())
                             Spacer()
                         }

@@ -10,6 +10,10 @@ export function useLayout() {
   const isDragging = ref(false);
   const dragOffset = ref({ x: 0, y: 0 });
   const isMuted = ref(false);
+  const activeCorner = ref('top-left');
+
+  const PADDING = 20;
+  const ASPECT_RATIO = 9 / 16;
 
   let pendingDragUpdate = false;
 
@@ -23,12 +27,68 @@ export function useLayout() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   });
 
+  const pipHeight = computed(() => Math.round(pipWidth.value * ASPECT_RATIO));
+
   const toggleLayout = () => {
     layoutMode.value = layoutMode.value === 'pip' ? 'side-by-side' : 'pip';
   };
 
   const swapStreams = () => {
     isSwapped.value = !isSwapped.value;
+  };
+
+  const clampPosition = (pos, width, height, bounds) => {
+    const maxX = Math.max(PADDING, bounds.width - width - PADDING);
+    const maxY = Math.max(PADDING, bounds.height - height - PADDING);
+    return {
+      x: Math.min(Math.max(PADDING, pos.x), maxX),
+      y: Math.min(Math.max(PADDING, pos.y), maxY),
+    };
+  };
+
+  const calculateNearestCorner = (pos, width, height, bounds) => {
+    const midX = bounds.width / 2;
+    const midY = bounds.height / 2;
+    const isLeft = (pos.x + width / 2) < midX;
+    const isTop = (pos.y + height / 2) < midY;
+
+    if (isTop && isLeft) return 'top-left';
+    if (isTop && !isLeft) return 'top-right';
+    if (!isTop && isLeft) return 'bottom-left';
+    return 'bottom-right';
+  };
+
+  const snapToCorner = (corner = 'bottom-right', bounds = null) => {
+    const winWidth = bounds?.width || (typeof window !== 'undefined' ? window.innerWidth : 1280);
+    const winHeight = bounds?.height || (typeof window !== 'undefined' ? window.innerHeight : 720);
+    const width = pipWidth.value;
+    const height = pipHeight.value;
+
+    let targetX = PADDING;
+    let targetY = PADDING;
+
+    switch (corner) {
+      case 'top-left':
+        targetX = PADDING;
+        targetY = PADDING;
+        break;
+      case 'top-right':
+        targetX = Math.max(PADDING, winWidth - width - PADDING);
+        targetY = PADDING;
+        break;
+      case 'bottom-left':
+        targetX = PADDING;
+        targetY = Math.max(PADDING, winHeight - height - PADDING);
+        break;
+      case 'bottom-right':
+      default:
+        targetX = Math.max(PADDING, winWidth - width - PADDING);
+        targetY = Math.max(PADDING, winHeight - height - PADDING);
+        break;
+    }
+
+    pipPosition.value = { x: targetX, y: targetY };
+    activeCorner.value = corner;
   };
 
   const handleDragStart = (e, type = 'move-pip') => {
@@ -64,23 +124,38 @@ export function useLayout() {
 
     pendingDragUpdate = true;
     requestAnimationFrame(() => {
+      const bounds = {
+        width: typeof window !== 'undefined' ? window.innerWidth : 1280,
+        height: typeof window !== 'undefined' ? window.innerHeight : 720,
+      };
+
       if (dragType.value === 'move-pip') {
-        pipPosition.value = {
+        const rawPos = {
           x: clientX - dragOffset.value.x,
           y: clientY - dragOffset.value.y,
         };
+        pipPosition.value = clampPosition(rawPos, pipWidth.value, pipHeight.value, bounds);
       } else if (dragType.value === 'resize-pip') {
         const deltaX = clientX - dragOffset.value.x;
-        pipWidth.value = Math.max(160, dragOffset.value.width + deltaX);
+        const newWidth = Math.min(Math.max(160, dragOffset.value.width + deltaX), bounds.width * 0.8);
+        pipWidth.value = newWidth;
+        pipPosition.value = clampPosition(pipPosition.value, newWidth, Math.round(newWidth * ASPECT_RATIO), bounds);
       } else if (dragType.value === 'splitter') {
-        const totalWidth = window.innerWidth;
-        splitRatio.value = Math.min(0.9, Math.max(0.1, clientX / totalWidth));
+        splitRatio.value = Math.min(0.9, Math.max(0.1, clientX / bounds.width));
       }
       pendingDragUpdate = false;
     });
   };
 
   const handleDragEnd = () => {
+    if (isDragging.value && dragType.value === 'move-pip') {
+      const bounds = {
+        width: typeof window !== 'undefined' ? window.innerWidth : 1280,
+        height: typeof window !== 'undefined' ? window.innerHeight : 720,
+      };
+      const nearest = calculateNearestCorner(pipPosition.value, pipWidth.value, pipHeight.value, bounds);
+      snapToCorner(nearest, bounds);
+    }
     isDragging.value = false;
     dragType.value = null;
   };
@@ -105,15 +180,20 @@ export function useLayout() {
     isSwapped,
     pipPosition,
     pipWidth,
+    pipHeight,
     splitRatio,
     dragType,
     isDragging,
     dragOffset,
     isMuted,
+    activeCorner,
     isTouchDevice,
     isMobile,
     toggleLayout,
     swapStreams,
+    snapToCorner,
+    clampPosition,
+    calculateNearestCorner,
     handleDragStart,
     handleDragMove,
     handleDragEnd,
